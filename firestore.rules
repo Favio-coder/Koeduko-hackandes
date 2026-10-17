@@ -20,6 +20,19 @@ service cloud.firestore {
       return isSignedIn() && userRole() == 'student';
     }
 
+    // ---- Datos de la sesion en vivo ----
+    // Legibles SOLO por el docente o por un estudiante que figure en studentIds de ESA sesion
+    // (no por cualquier estudiante). Nadie escribe desde el cliente: escribe el servidor (server/ en
+    // Vercel, con firebase-admin, que no pasa por estas reglas). Cada get() cuenta como una lectura.
+    function isSessionMember(sessionId) {
+      return isSignedIn()
+             && request.auth.uid in get(/databases/$(database)/documents/learningSessions/$(sessionId)).data.studentIds;
+    }
+
+    function canReadSessionData(sessionId) {
+      return isTeacher() || isSessionMember(sessionId);
+    }
+
     function myClassroom() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classroomId;
     }
@@ -80,12 +93,30 @@ service cloud.firestore {
 
       match /tutorInteractions/{interactionId} {
         allow read: if isTeacher() || (isStudent() && resource.data.studentId == request.auth.uid);
-        allow write: if false; // Solo Cloud Functions escriben aqui.
+        allow write: if false; // Solo el servidor (server/api/ask-tutor) escribe aqui.
       }
 
+      // Transcript, join y leave de la sesion en vivo. El habla cruda no se guarda: vive en live/state.
       match /liveEvents/{eventId} {
-        allow read: if isTeacher() || isStudent();
-        allow write: if false; // Solo Cloud Functions (recallWebhook) escriben aqui.
+        allow read: if canReadSessionData(sessionId);
+        allow write: if false; // Solo el servidor (server/api/recall-webhook).
+      }
+
+      match /transcriptSegments/{segmentId} {
+        allow read: if canReadSessionData(sessionId);
+        allow write: if false; // Solo el servidor.
+      }
+
+      // Lo que dice el tutor en vivo (mensaje, senal y evidencia).
+      match /agentInterventions/{interventionId} {
+        allow read: if canReadSessionData(sessionId);
+        allow write: if false; // Solo el servidor (afterLiveEventSaved).
+      }
+
+      // Estado incremental del motor: reparto de habla, presencia, ultimas transcripciones.
+      match /live/{stateId} {
+        allow read: if canReadSessionData(sessionId);
+        allow write: if false; // Solo el servidor (processLiveEvent).
       }
     }
 
