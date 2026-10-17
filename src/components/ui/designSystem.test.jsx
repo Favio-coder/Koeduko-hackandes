@@ -85,8 +85,8 @@ describe('Estados', () => {
   it('LoadingState es un status con etiqueta', () => {
     render(<LoadingState label="Cargando sesiones" />)
     expect(screen.getByRole('status')).toHaveTextContent('Cargando sesiones')
-    expect(screen.getByRole('status')).toHaveClass('fixed', 'inset-0', 'z-[100]')
-    expect(screen.getByRole('status')).toHaveClass('bg-[#F8FAF6]/75', 'backdrop-blur-sm')
+    expect(screen.getByRole('status')).toHaveClass('fixed', 'inset-0', 'z-100')
+    expect(screen.getByRole('status')).toHaveClass('bg-white/75', 'backdrop-blur-sm')
     expect(document.querySelector('video').parentElement).toHaveClass(
       'h-40',
       'w-40',
@@ -95,6 +95,7 @@ describe('Estados', () => {
     )
     expect(document.querySelector('video')).toHaveAttribute('src', '/carga/carga.mp4')
     expect(document.querySelector('video')).toHaveProperty('muted', true)
+    expect(document.querySelector('video')).toHaveClass('mix-blend-multiply')
     expect(screen.getByRole('status').querySelector('.animate-spin')).not.toBeInTheDocument()
   })
 

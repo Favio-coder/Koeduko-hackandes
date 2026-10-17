@@ -102,7 +102,7 @@ export function LoadingAnimation({ className = '', fallbackSize = 'md' }) {
         preload="metadata"
         onError={() => setVideoUnavailable(true)}
         className={[
-          'h-full w-full object-contain',
+          'h-full w-full object-contain mix-blend-multiply',
           'motion-reduce:hidden',
           videoUnavailable ? 'hidden' : '',
         ]
@@ -138,7 +138,7 @@ export function LoadingState({ label = 'Cargando…', compact = false, inline = 
         'flex flex-col items-center justify-center text-[#304744]',
         inline
           ? ['w-full gap-3', compact ? 'py-6' : 'py-16'].join(' ')
-          : 'fixed inset-0 z-[100] gap-3 bg-[#F8FAF6]/75 px-5 py-8 text-center backdrop-blur-sm',
+          : 'fixed inset-0 z-100 gap-3 bg-white/75 px-5 py-8 text-center backdrop-blur-sm',
         className,
       ]
         .filter(Boolean)
