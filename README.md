@@ -13,7 +13,7 @@ Competencia inicial: **«Resuelve problemas de cantidad»**, quinto de primaria.
 ## Stack
 
 React 19 · Vite · Tailwind CSS v4 · React Router 7 · Firebase (Auth, Firestore,
-Storage, Functions) · Gemini (desde Cloud Functions) · Google Meet
+Storage; plan gratuito) · Servidor en Vercel (`server/`) · Gemini · Recall.ai · Google Meet
 
 ## Instalación
 
@@ -47,7 +47,7 @@ src/
 ├── shared/         # constants/contracts.js y lib/ (utilidades puras, datos demo)
 ├── services/       # firebase.js
 └── test/setup.js
-functions/src/      # Cloud Functions (tutor IA)
+server/            # Backend privilegiado en Vercel (webhook de Recall, tutor IA)
 docs/               # arquitectura, esquema, contratos, tareas, integración, roadmap
 ```
 
@@ -76,16 +76,21 @@ firebase emulators:start                 # probar reglas de seguridad
 firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-## Cloud Functions (tutor IA)
+## Servidor (tutor IA y sesión en vivo)
+
+El backend privilegiado es `server/`, un proyecto de Vercel independiente. **No se usan Cloud Functions**:
+exigen el plan Blaze de Firebase y el proyecto está en el plan gratuito. Tiene tres endpoints
+(`/api/recall-webhook`, `/api/start-session-bot` y `/api/ask-tutor`).
 
 ```bash
-cd functions && npm ci
-firebase functions:secrets:set GEMINI_API_KEY   # secreto del servidor
-npm --prefix functions run deploy
+npm --prefix server ci
+npm --prefix server test
+cd server && npx vercel --prod      # las variables van como secretos del proyecto en Vercel
 ```
 
-La API de Gemini se invoca **solo** desde Cloud Functions. Nunca desde el
-navegador, nunca en `.env`, nunca en Firestore.
+Gemini y Recall se invocan **solo** desde `server/`. Nunca desde el navegador, nunca en `.env`, nunca en
+Firestore. El navegador llama al servidor con su ID token de Firebase (`VITE_SERVER_URL`, por defecto
+`https://koeduko.vercel.app`). Detalle, costos y límites en `server/README.md` y `docs/ARCHITECTURE.md`.
 
 ## Estado actual
 
