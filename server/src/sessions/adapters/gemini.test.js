@@ -1,10 +1,36 @@
 import { describe, expect, it, vi } from 'vitest'
-import { DEFAULT_GENERATION_CONFIG, GeminiError, generate } from './gemini.js'
+import { DEFAULT_GENERATION_CONFIG, GeminiError, generate, generationConfigFor } from './gemini.js'
 
 const KEY = 'test-gemini-key-not-real'
 const base = { apiKey: KEY, model: 'gemini-test-flash', systemInstruction: 'reglas', userPrompt: 'hola' }
 
 const okResponse = (text) => ({ ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] }) })
+
+describe('generationConfigFor', () => {
+  it.each([
+    ['gemini-2.5-flash', { thinkingConfig: { thinkingBudget: 0 } }],
+    ['gemini-3.5-flash', { thinkingConfig: { thinkingLevel: 'minimal' } }],
+    ['gemini-3.6-flash', { thinkingConfig: { thinkingLevel: 'minimal' } }],
+  ])('switches thinking off for %s', (model, expected) => {
+    expect(generationConfigFor(model)).toEqual(expected)
+  })
+
+  it.each(['gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-9.9-flash'])(
+    'does not guess a thinking setting for %s, it only leaves room for the answer',
+    (model) => {
+      expect(generationConfigFor(model)).toEqual({ maxOutputTokens: 1024 })
+    },
+  )
+
+  it('is applied by generate() for known models and can be overridden by the caller', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(okResponse('ok'))
+    await generate({ ...base, model: 'gemini-3.6-flash', fetchImpl })
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).generationConfig).toEqual({ temperature: 0.4, maxOutputTokens: 200, thinkingConfig: { thinkingLevel: 'minimal' } })
+
+    await generate({ ...base, model: 'gemini-3.6-flash', generationConfig: { maxOutputTokens: 64 }, fetchImpl })
+    expect(JSON.parse(fetchImpl.mock.calls[1][1].body).generationConfig.maxOutputTokens).toBe(64)
+  })
+})
 
 describe('generate', () => {
   it('posts to the model endpoint with the key in a header, never in the URL', async () => {
@@ -28,7 +54,7 @@ describe('generate', () => {
     const body = JSON.parse(fetchImpl.mock.calls[0][1].body)
     expect(body.systemInstruction.parts[0].text).toBe('reglas')
     expect(body.contents).toEqual([{ role: 'user', parts: [{ text: 'hola' }] }])
-    expect(body.generationConfig).toEqual(DEFAULT_GENERATION_CONFIG)
+    expect(body.generationConfig).toEqual({ ...DEFAULT_GENERATION_CONFIG, maxOutputTokens: 1024 })
   })
 
   it('lets the caller override the generation config', async () => {

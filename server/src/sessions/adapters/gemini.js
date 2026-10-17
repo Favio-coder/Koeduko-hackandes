@@ -16,6 +16,21 @@ export const DEFAULT_TIMEOUT_MS = 6000
 /** Configuracion de generacion por defecto: respuestas cortas y poco creativas. */
 export const DEFAULT_GENERATION_CONFIG = Object.freeze({ temperature: 0.4, maxOutputTokens: 200 })
 
+/**
+ * Los modelos con "pensamiento" gastan tokens de salida pensando: con el tope de 200 el texto
+ * sale cortado ("Estudiante B, ¿cómo"). Cada familia se apaga de forma distinta y verificada en vivo:
+ *  - gemini-2.5-flash       -> thinkingBudget 0
+ *  - gemini-3.5 / 3.6-flash -> thinkingLevel "minimal"
+ *  - gemini-3.7 / 3.8-flash -> NO aceptan "minimal" (HTTP 400): se tratan como desconocidos
+ * Un modelo desconocido no se puede apagar, asi que se le da margen para no cortar la respuesta
+ * (el limite de 6 s acota la espera).
+ */
+export function generationConfigFor(model) {
+  if (/^gemini-2\.5-flash(?!-)/.test(model)) return { thinkingConfig: { thinkingBudget: 0 } }
+  if (/^gemini-3\.[56]-flash(?!-)/.test(model)) return { thinkingConfig: { thinkingLevel: 'minimal' } }
+  return { maxOutputTokens: 1024 }
+}
+
 export class GeminiError extends Error {
   /** @param {'timeout'|'http'|'empty'|'blocked'|'network'} reason */
   constructor(reason, message, { status = null } = {}) {
@@ -57,7 +72,7 @@ export async function generate({
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemInstruction }] },
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-        generationConfig: { ...DEFAULT_GENERATION_CONFIG, ...generationConfig },
+        generationConfig: { ...DEFAULT_GENERATION_CONFIG, ...generationConfigFor(model), ...generationConfig },
       }),
     })
   } catch (error) {

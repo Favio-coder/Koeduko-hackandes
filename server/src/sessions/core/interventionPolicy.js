@@ -127,7 +127,7 @@ export function fallbackMessage(signal, { problem = null } = {}) {
 }
 
 const GUIDANCE = {
-  SILENT_PEER: 'Invita a la persona que casi no ha hablado a explicar con sus palabras, por ejemplo: "Luis, ¿cómo lo explicarías tú?".',
+  SILENT_PEER: 'Invita con calidez a la persona que casi no ha hablado a explicar el problema con sus palabras.',
   DOMINANCE: 'Pide a quien habla mucho que le pregunte algo a su compañero antes de seguir.',
   STUCK: 'Da una pista de nivel 1: reformula el problema o pregunta qué datos tienen.',
   GROUP_SILENCE: 'Dejaron de hablar. No supongas que no saben: pregunta qué parte quieren revisar juntos.',
@@ -141,8 +141,8 @@ export const SYSTEM_INSTRUCTION = [
   'Reglas obligatorias:',
   `- Máximo ${MAX_SENTENCES} oraciones y menos de ${MAX_CHARS} caracteres.`,
   '- NUNCA des la respuesta final ni el resultado numérico, y no digas de forma tajante si un número está bien o mal.',
-  '- Haz una pregunta socrática sobre el problema actual.',
-  '- Empieza nombrando al destinatario.',
+  '- Haz una pregunta socrática sobre el problema actual y menciónalo (por ejemplo con la palabra "problema" o con sus datos), sin dar el resultado.',
+  '- Empieza con el nombre del destinatario EXACTAMENTE como aparece en "Destinatario"; no uses ningún otro nombre.',
   '- Promueve que se expliquen entre ellos: tú no eres el protagonista.',
   '- Tono cálido y breve. Sin emojis, listas ni markdown.',
 ].join('\n')

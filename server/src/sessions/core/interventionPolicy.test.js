@@ -156,7 +156,10 @@ describe('buildInterventionPrompt', () => {
     expect(prompt.systemInstruction).toMatch(/NUNCA des la respuesta final/)
     expect(prompt.systemInstruction).toMatch(/Máximo 2 oraciones/)
     expect(prompt.systemInstruction).toMatch(/socrática/)
-    expect(prompt.systemInstruction).toMatch(/nombrando al destinatario/)
+    expect(prompt.systemInstruction).toMatch(/nombre del destinatario EXACTAMENTE/)
+    expect(prompt.systemInstruction).toMatch(/menciónalo/)
+    // Un nombre de ejemplo en el prompt hace que el modelo lo copie en vez de nombrar al destinatario.
+    expect(prompt.systemInstruction).not.toMatch(/\bLuis\b/)
   })
 
   it('names the recipient, the signal, the problem and the recent conversation', () => {
