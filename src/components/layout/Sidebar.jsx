@@ -28,7 +28,7 @@ function itemClasses({ isActive }) {
 
 function Item({ item, onNavigate }) {
   return (
-    <NavLink to={item.to} className={itemClasses} onClick={onNavigate} end={item.to === '/dashboard'}>
+    <NavLink to={item.to} className={itemClasses} onClick={onNavigate} end>
       {({ isActive }) => (
         <>
           {/* Indicador visual de ruta activa */}
