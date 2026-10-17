@@ -9,13 +9,13 @@
  * Accesibilidad: `nav` con etiqueta, `NavLink` con estado activo anunciado,
  * foco visible en cada opción y soporte para navegación por teclado.
  */
-import { NavLink, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { itemsForRole } from '@/components/layout-kit/navConfig'
+import { activeItemTo, itemsForRole } from '@/components/layout-kit/navConfig'
 import Icon from '@/components/ui/Icon'
 import Logo from '@/components/ui/Logo'
 
-function itemClasses({ isActive }) {
+function itemClasses(isActive) {
   return [
     'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium',
     'transition-[background-color,color,transform] duration-150 ease-out',
@@ -26,33 +26,40 @@ function itemClasses({ isActive }) {
   ].join(' ')
 }
 
-function Item({ item, onNavigate }) {
+function Item({ item, onNavigate, isActive }) {
   return (
-    <NavLink to={item.to} className={itemClasses} onClick={onNavigate} end>
-      {({ isActive }) => (
-        <>
-          {/* Indicador visual de ruta activa */}
-          <span
-            aria-hidden="true"
-            className={[
-              'absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[#4CDB59] transition-opacity duration-150',
-              isActive ? 'opacity-100' : 'opacity-0',
-            ].join(' ')}
-          />
-          <Icon name={item.icon} className="h-5 w-5 shrink-0" />
-          <span className={['truncate', item.nested && 'pl-1 text-[13px]'].join(' ')}>
-            {item.label}
-          </span>
-        </>
-      )}
-    </NavLink>
+    /* `Link` y no `NavLink`: en React Router v7 el estado activo de `NavLink`
+       se resuelve por prefijo y marcaría a la vez "Salas" y "Sesión activa"
+       (o "Principal" y "Estudiantes"). Aquí lo decide `activeItemTo`. */
+    <Link
+      to={item.to}
+      aria-current={isActive ? 'page' : undefined}
+      className={itemClasses(isActive)}
+      onClick={onNavigate}
+    >
+      {/* Indicador visual de ruta activa */}
+      <span
+        aria-hidden="true"
+        className={[
+          'absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[#4CDB59] transition-opacity duration-150',
+          isActive ? 'opacity-100' : 'opacity-0',
+        ].join(' ')}
+      />
+      <Icon name={item.icon} className="h-5 w-5 shrink-0" />
+      <span className={['truncate', item.nested && 'pl-1 text-[13px]'].join(' ')}>
+        {item.label}
+      </span>
+    </Link>
   )
 }
 
 export default function Sidebar({ onNavigate, role: roleProp }) {
   const auth = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const items = itemsForRole(roleProp ?? auth?.role)
+  /* Mismo resolvedor que la navbar: un solo indicador en toda la app. */
+  const activeTo = activeItemTo(location.pathname, items)
 
   const handleLogout = async () => {
     await auth?.logout?.()
@@ -74,7 +81,7 @@ export default function Sidebar({ onNavigate, role: roleProp }) {
         <ul className="space-y-1">
           {items.map((item) => (
             <li key={item.to}>
-              <Item item={item} onNavigate={onNavigate} />
+              <Item item={item} onNavigate={onNavigate} isActive={item.to === activeTo} />
             </li>
           ))}
         </ul>

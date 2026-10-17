@@ -11,7 +11,12 @@ import { describe, expect, it, vi } from 'vitest'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import Navbar from '@/components/layout/Navbar'
 import Sidebar from '@/components/layout/Sidebar'
-import { SIDEBAR_ITEMS, itemsForRole, sectionTitleFor } from '@/components/layout-kit/navConfig'
+import {
+  SIDEBAR_ITEMS,
+  activeItemTo,
+  itemsForRole,
+  sectionTitleFor,
+} from '@/components/layout-kit/navConfig'
 import { USER_ROLES } from '@/shared/constants/contracts'
 
 const logout = vi.fn()
@@ -35,7 +40,7 @@ describe('navegación (navConfig)', () => {
       expect.arrayContaining([
         '/dashboard',
         '/assessments',
-        '/dashboard/teacher',
+        '/students',
         '/matching',
         '/matching/results',
         '/sessions',
@@ -48,6 +53,7 @@ describe('navegación (navConfig)', () => {
   it('oculta las opciones de docente a los estudiantes', () => {
     const studentPaths = itemsForRole(USER_ROLES.STUDENT).map((i) => i.to)
     expect(studentPaths).not.toContain('/matching')
+    expect(studentPaths).not.toContain('/students')
     expect(studentPaths).toContain('/sessions')
     expect(studentPaths).toContain('/dashboard')
   })
@@ -65,6 +71,29 @@ describe('navegación (navConfig)', () => {
     )
   })
 
+  it('activeItemTo devuelve un único responsable por ruta', () => {
+    expect(activeItemTo('/dashboard')).toBe('/dashboard')
+    expect(activeItemTo('/dashboard/teacher')).toBe('/dashboard')
+    expect(activeItemTo('/dashboard/student')).toBe('/dashboard')
+    expect(activeItemTo('/matching')).toBe('/matching')
+    expect(activeItemTo('/matching/results')).toBe('/matching/results')
+    expect(activeItemTo('/sessions')).toBe('/sessions')
+    expect(activeItemTo('/sessions/demo-session-1')).toBe('/sessions/demo-session-1')
+    expect(activeItemTo('/sessions/demo-session-1/tutor')).toBe('/sessions/demo-session-1/tutor')
+    expect(activeItemTo('/ruta-inexistente')).toBeNull()
+  })
+
+  it('«Estudiantes» tiene ruta propia y distinta de «Principal»', () => {
+    const estudiantes = SIDEBAR_ITEMS.find((i) => i.label === 'Estudiantes')
+    const principal = SIDEBAR_ITEMS.find((i) => i.label === 'Principal')
+
+    expect(estudiantes.to).toBe('/students')
+    expect(estudiantes.to).not.toBe(principal.to)
+    // Cada ruta tiene un único responsable del indicador.
+    expect(activeItemTo('/students')).toBe('/students')
+    expect(activeItemTo('/dashboard/teacher')).toBe('/dashboard')
+  })
+
   it('resuelve el título de sección por ruta', () => {
     expect(sectionTitleFor('/dashboard/teacher')).toBe('Panel docente')
     expect(sectionTitleFor('/sessions/demo-session-1/tutor')).toBe('Tutor IA')
@@ -76,7 +105,12 @@ describe('navegación (navConfig)', () => {
 describe('Sidebar', () => {
   it.each([
     ['/dashboard', 'Principal'],
-    ['/dashboard/teacher', 'Estudiantes'],
+    // `/dashboard` es un índice que redirige por rol: al pulsar «Principal» el
+    // docente aterriza en `/dashboard/teacher`, y el indicador debe quedarse en
+    // «Principal» (Estudiantes es un atajo a esa misma vista, no otra sección).
+    ['/dashboard/teacher', 'Principal'],
+    ['/students', 'Estudiantes'],
+    ['/dashboard/student', 'Principal'],
     ['/matching', 'Emparejamiento'],
     ['/matching/results', 'Resultados'],
     ['/sessions', 'Salas'],
@@ -95,6 +129,21 @@ describe('Sidebar', () => {
 
     expect(activeLinks).toHaveLength(1)
     expect(activeLinks[0]).toHaveTextContent(activeLabel)
+  })
+
+  it('la navbar marca el mismo ítem que el sidebar', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard/teacher']}>
+        <DashboardLayout />
+      </MemoryRouter>,
+    )
+    const active = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page')
+      .map((link) => link.textContent.trim())
+
+    // Un único indicador en cada barra, los dos sobre «Principal».
+    expect(active).toEqual(['Principal'])
   })
 
   it('muestra la marca y la navegación con fondo verde bosque', () => {

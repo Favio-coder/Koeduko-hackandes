@@ -41,4 +41,53 @@ describe('TeacherDashboard', () => {
     expect(screen.getByText('Ana Torres')).toBeInTheDocument()
     expect(screen.getByText('student-001')).toBeInTheDocument()
   })
+
+  it('muestra las ilustraciones de los accesos rápidos, decorativas y con carga diferida', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <TeacherDashboard />
+      </MemoryRouter>,
+    )
+
+    const images = [...container.querySelectorAll('img')].filter((img) =>
+      img.getAttribute('src')?.startsWith('/botones/'),
+    )
+
+    expect(images).toHaveLength(3)
+    images.forEach((img) => {
+      // Decorativa: el enlace ya tiene el nombre accesible
+      expect(img).toHaveAttribute('alt', '')
+      expect(img).toHaveAttribute('loading', 'lazy')
+      expect(img).toHaveAttribute('width')
+      expect(img).toHaveAttribute('height')
+      expect(img.className).toContain('w-full')
+      expect(img.className).toContain('h-full')
+      expect(img.className).toContain('scale-[1.04]')
+      expect(img.className).toContain('group-hover:scale-[1.07]')
+      expect(img.className).toContain('motion-reduce:transform-none')
+    })
+
+    const actionLinks = [
+      screen.getByRole('link', { name: 'Diagnosticar estudiantes' }),
+      screen.getByRole('link', { name: 'Formar parejas' }),
+      screen.getByRole('link', { name: 'Gestionar salas' }),
+    ]
+    actionLinks.forEach((link) => {
+      expect(link.className).toContain('active:scale-[0.99]')
+      expect(link.className).toContain('focus-visible:ring-offset-2')
+      expect(link.className).toContain('motion-reduce:transition-none')
+    })
+
+    // Una ilustración por acceso rápido, con su ruta real
+    expect(screen.getByRole('link', { name: 'Diagnosticar estudiantes' })).toHaveAttribute(
+      'href',
+      '/assessments',
+    )
+    const sources = images.map((img) => img.getAttribute('src'))
+    expect(sources).toEqual([
+      '/botones/diagnosticar-card.png',
+      '/botones/emparejar-card.png',
+      '/botones/gestionarsalas-card.png',
+    ])
+  })
 })

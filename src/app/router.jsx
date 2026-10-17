@@ -17,6 +17,7 @@ import Login from '@/features/auth/pages/Login'
 import Register from '@/features/auth/pages/Register'
 import ForgotPassword from '@/features/auth/pages/ForgotPassword'
 import TeacherDashboard from '@/features/dashboard/pages/TeacherDashboard'
+import StudentsPage from '@/features/dashboard/pages/StudentsPage'
 import StudentDashboard from '@/features/dashboard/pages/StudentDashboard'
 
 /* ---------- DESARROLLADOR 2: assessments + matching ---------- */
@@ -34,6 +35,7 @@ const routes = [
   { path: '/login', element: <Login /> },
   { path: '/register', element: <Register /> },
   { path: '/forgot-password', element: <ForgotPassword /> },
+  { path: '/students', element: <StudentsPage />, roles: [USER_ROLES.TEACHER] },
   { path: '/assessments', element: <AssessmentsPage />, roles: ['teacher', 'student'] },
   { path: '/matching', element: <MatchingPage />, roles: [USER_ROLES.TEACHER] },
   { path: '/matching/results', element: <MatchingResultsPage />, roles: [USER_ROLES.TEACHER] },
