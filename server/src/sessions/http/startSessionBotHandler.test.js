@@ -24,6 +24,7 @@ function fakeRes() {
   res.setHeader = (name, value) => {
     res.headers[name] = value
   }
+  res.end = () => res
   return res
 }
 
@@ -207,5 +208,74 @@ describe('start-session-bot handler', () => {
     expect(logged).not.toContain('leaked-token')
     expect(logged).not.toContain('fake-api-key')
     expect(logged).not.toContain('fake-token')
+  })
+})
+
+describe('start-session-bot handler: CORS', () => {
+  const FRONT = 'https://koeduko-app.web.app'
+  const withCors = (extra = {}) => {
+    const ctx = setup(extra)
+    ctx.handler = createStartSessionBotHandler({ ...ctx.deps, allowedOrigins: [FRONT] })
+    return ctx
+  }
+
+  it('answers the preflight before checking any token, and does not touch Firebase or Recall', async () => {
+    const { handler, verifyIdToken, deps, store } = withCors()
+    const res = fakeRes()
+
+    await handler({ method: 'OPTIONS', headers: { origin: FRONT, 'access-control-request-method': 'POST' } }, res)
+
+    expect(res.statusCode).toBe(204)
+    expect(res.headers['Access-Control-Allow-Origin']).toBe(FRONT)
+    expect(res.headers['Access-Control-Allow-Headers']).toContain('Authorization')
+    expect(verifyIdToken).not.toHaveBeenCalled()
+    expect(store.claimBot).not.toHaveBeenCalled()
+    expect(deps.createBot).not.toHaveBeenCalled()
+  })
+
+  it('also allows the Vite dev server (localhost:5173)', async () => {
+    const { handler } = withCors()
+    const res = fakeRes()
+    await handler({ method: 'OPTIONS', headers: { origin: 'http://localhost:5173' } }, res)
+    expect(res.statusCode).toBe(204)
+    expect(res.headers['Access-Control-Allow-Origin']).toBe('http://localhost:5173')
+  })
+
+  it('rejects the preflight of an unknown origin with 403', async () => {
+    const { handler } = withCors()
+    const res = fakeRes()
+    await handler({ method: 'OPTIONS', headers: { origin: 'https://evil.example' } }, res)
+    expect(res.statusCode).toBe(403)
+    expect(res.headers['Access-Control-Allow-Origin']).toBeUndefined()
+  })
+
+  it('puts the allow-origin header on success AND on error responses so the browser can read them', async () => {
+    const { handler } = withCors()
+    const ok = fakeRes()
+    await handler(request({ headers: { authorization: 'Bearer good-token', origin: FRONT } }), ok)
+    expect(ok.statusCode).toBe(200)
+    expect(ok.headers['Access-Control-Allow-Origin']).toBe(FRONT)
+
+    const denied = fakeRes()
+    await handler(request({ headers: { origin: FRONT } }), denied) // sin token
+    expect(denied.statusCode).toBe(401)
+    expect(denied.headers['Access-Control-Allow-Origin']).toBe(FRONT)
+  })
+
+  it('still enforces authentication for a request from an unknown origin', async () => {
+    const { handler, deps } = withCors()
+    const res = fakeRes()
+    await handler({ method: 'POST', headers: { origin: 'https://evil.example' }, body: { sessionId: 'smoke-001' } }, res)
+    expect(res.statusCode).toBe(401)
+    expect(res.headers['Access-Control-Allow-Origin']).toBeUndefined()
+    expect(deps.createBot).not.toHaveBeenCalled()
+  })
+
+  it('does not add CORS headers to calls without an Origin (curl)', async () => {
+    const { handler } = withCors()
+    const res = fakeRes()
+    await handler(request(), res)
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['Access-Control-Allow-Origin']).toBeUndefined()
   })
 })

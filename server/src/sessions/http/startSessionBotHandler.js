@@ -1,4 +1,5 @@
 import { requireTeacherFromRequest } from '../auth.js'
+import { handleCors } from './cors.js'
 import { httpStatusFor } from '../errors.js'
 import { startSessionBot } from '../startSessionBot.js'
 
@@ -42,10 +43,14 @@ function sendError(res, error, logger) {
  *   createBot: Function,
  *   now: () => number,
  *   logger: { info: Function, warn: Function, error: Function },
+ *   allowedOrigins?: string[],
  * }} deps
  */
-export function createStartSessionBotHandler({ getFirebase, createStore, readConfig, createBot, now, logger }) {
+export function createStartSessionBotHandler({ getFirebase, createStore, readConfig, createBot, now, logger, allowedOrigins = [] }) {
   return async function startSessionBotEndpoint(req, res) {
+    // CORS primero: el preflight no lleva token y las respuestas de error tambien deben poder leerse.
+    if (handleCors(req, res, { allowedOrigins }).preflight) return undefined
+
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST')
       return res.status(405).json({ error: 'method-not-allowed', message: 'Usa POST.' })
