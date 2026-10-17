@@ -142,6 +142,17 @@ export function createSessionStore({ db, FieldValue }) {
       })
     },
 
+    /** La sesion tal como esta guardada (1 lectura), o null si no existe. */
+    async getSession(sessionId) {
+      const snap = await sessionRef(sessionId).get()
+      return snap.exists ? snap.data() : null
+    },
+
+    /** Guarda lo que le pregunto un estudiante al tutor y lo que se le respondio (1 escritura). */
+    async addTutorInteraction(sessionId, data) {
+      await db.collection(`learningSessions/${sessionId}/tutorInteractions`).add({ ...data, createdAt: FieldValue.serverTimestamp() })
+    },
+
     async setBotId(sessionId, botId) {
       await sessionRef(sessionId).update({ 'bot.id': botId })
     },

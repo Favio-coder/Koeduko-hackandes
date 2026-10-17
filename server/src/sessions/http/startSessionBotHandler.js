@@ -1,37 +1,7 @@
 import { requireTeacherFromRequest } from '../auth.js'
 import { handleCors } from './cors.js'
-import { httpStatusFor } from '../errors.js'
+import { sendError } from './respond.js'
 import { startSessionBot } from '../startSessionBot.js'
-
-const SERVER_MISCONFIGURED = 'Configuracion del servidor incompleta.'
-
-/**
- * Responde con un error. Solo se devuelve el mensaje de errores escritos por nosotros
- * (`expose`); la configuracion faltante y cualquier otro error salen genericos, y el
- * detalle util queda unicamente en el log.
- */
-function sendError(res, error, logger) {
-  const status = httpStatusFor(error)
-  logger.error('startSessionBot: peticion fallida', {
-    name: error?.name ?? 'Error',
-    code: error?.code ?? null,
-    status,
-    ...(error?.expose === true ? { detail: error.message } : {}),
-    ...(error?.botId ? { botId: error.botId } : {}),
-  })
-
-  if (error?.code === 'server-misconfigured') {
-    return res.status(status).json({ error: error.code, message: SERVER_MISCONFIGURED })
-  }
-  if (error?.expose === true) {
-    return res.status(status).json({
-      error: error.code,
-      message: error.message,
-      ...(error.botId ? { botId: error.botId } : {}),
-    })
-  }
-  return res.status(500).json({ error: 'internal', message: 'Error interno.' })
-}
 
 /**
  * POST /api/start-session-bot   Authorization: Bearer <Firebase ID token>   { "sessionId": "..." }
@@ -77,7 +47,7 @@ export function createStartSessionBotHandler({ getFirebase, createStore, readCon
       logger.info('startSessionBot: bot solicitado', { sessionId, botId: result.botId })
       return res.status(200).json(result)
     } catch (error) {
-      return sendError(res, error, logger)
+      return sendError(res, error, logger, 'startSessionBot')
     }
   }
 }

@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/recall-webhook.js": { "maxDuration": 30 }
+    "api/recall-webhook.js": { "maxDuration": 30 },
+    "api/ask-tutor.js": { "maxDuration": 30 }
   }
 }
