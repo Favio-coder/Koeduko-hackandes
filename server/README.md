@@ -105,6 +105,36 @@ Resultado en producción: los 265 eventos respondieron 200 y el motor intervino 
 velocidad efectiva fue x0,9 y no x4 porque la reproducción envía de forma secuencial y la red desde
 el equipo que la lanza suma ~300 ms por petición; el servidor tardó 152 ms.
 
+## Tutor: modelo de Gemini (verificado en vivo, 17-oct-2026)
+
+El modelo se fija en `GEMINI_MODEL`: **`gemini-3.6-flash`**, el Flash más nuevo que responde de forma
+fiable. Se probó con el prompt y la política reales, 3 intentos por modelo:
+
+| Modelo | Resultado |
+| --- | --- |
+| `gemini-3.6-flash`, `gemini-3.5-flash` (pensamiento mínimo) | 3/3 mensajes válidos, ~1 a 1,7 s |
+| `gemini-2.5-flash` (sin pensamiento) | 3/3 válidos, ~0,6 a 1 s (más rápido, pero de una generación anterior) |
+| `gemini-3.5-flash-lite` | 0/3: respuestas sin pregunta |
+| `gemini-3.7-flash`, `gemini-3.8-flash` | No aceptan `thinkingLevel: minimal` (HTTP 400); con su configuración por defecto devolvieron 503 y 429 |
+| `gemini-2.5-flash-lite` | HTTP 404 con esta key |
+
+Tres cosas que se aprendieron y están corregidas en el código:
+
+1. **Los modelos con pensamiento gastan los tokens de salida pensando** y el texto sale cortado
+   ("Estudiante B, ¿cómo"). Cada familia conocida lleva su configuración (`generationConfigFor`); un
+   modelo desconocido recibe más margen de salida.
+2. **Un nombre de ejemplo en el prompt se copia.** El modelo respondía "Luis, ¿" al pie de la letra.
+3. **Hay que pedirle que mencione el problema**; sin eso escribía algo genérico y la política lo
+   rechazaba como fuera de tema.
+
+Los 503 y 429 aparecen con regularidad: por eso existe el mensaje de respaldo, que se entrega igual.
+
+Primer mensaje real del tutor en la sesión reproducida (`SILENT_PEER`, creado en ~1,1 s, 149 ms de
+servidor por evento y las mismas 284 lecturas y 530 escrituras que sin Gemini):
+
+> Estudiante B, ¡nos gustaría escucharte a ti también! ¿Nos cuentas con tus palabras qué han
+> entendido sobre el problema que están conversando?
+
 ## Límites conocidos del motor en vivo
 
 - **`GROUP_SILENCE` no se puede detectar sin un reloj.** El silencio no genera eventos, y el motor
