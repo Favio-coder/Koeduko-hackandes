@@ -1,24 +1,123 @@
+/**
+ * Button — acción principal del sistema.
+ *
+ * Polimórfico: renderiza `<button>`, o un `<Link>` de react-router si se pasa
+ * `to`, o el elemento indicado en `as`.
+ *
+ * Variantes: primary · secondary · ghost · subtle · danger · dangerSoft
+ * Tamaños:  sm · md · lg
+ *
+ * Accesibilidad:
+ * - El foco visible se aplica con `focus-visible` (teclado, no ratón).
+ * - `loading` mantiene el botón en el árbol con `aria-busy` y ancho estable
+ *   para evitar saltos de layout.
+ *
+ * @example
+ * <Button onClick={save}>Guardar</Button>
+ * <Button to="/sessions" variant="secondary">Ver sesiones</Button>
+ * <Button loading={saving}>Guardando…</Button>
+ */
 import { Link } from 'react-router-dom'
+import Icon from './Icon'
 
 const variants = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-300',
-  secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 disabled:text-slate-400',
-  danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300',
+  primary:
+    'bg-[#62DD6B] text-[#22302F] hover:bg-[#52C95E] active:bg-[#46B852] shadow-[0_1px_2px_rgba(49,73,74,0.10)]',
+  secondary:
+    'bg-[#FFFEFD] text-[#31494A] border border-[#ABB1AB]/60 hover:bg-[#F6FAF2] hover:border-[#62DD6B] active:bg-[#EDF5E9]',
+  ghost: 'bg-transparent text-[#31494A] hover:bg-[#F6FAF2] active:bg-[#E8F8E4]',
+  subtle: 'bg-[#E8F8E4] text-[#2F7F3C] hover:bg-[#D9F4D2] active:bg-[#C8EFC0]',
+  danger: 'bg-[#D64545] text-white hover:bg-[#BC3A3A] active:bg-[#A53232]',
+  dangerSoft: 'bg-[#FCEDED] text-[#9B2C2C] border border-[#F0BEBE] hover:bg-[#F8DFDF]',
 }
 
-export default function Button({ variant = 'primary', as, to, className = '', children, ...props }) {
-  const classes = `inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${variants[variant]} ${className}`
+const sizes = {
+  sm: 'h-8 gap-1.5 px-3 text-xs rounded-lg',
+  md: 'h-10 gap-2 px-4 text-sm rounded-xl',
+  lg: 'h-12 gap-2 px-6 text-base rounded-2xl',
+}
+
+const iconSizes = { sm: 'h-4 w-4', md: 'h-4 w-4', lg: 'h-5 w-5' }
+
+const disabledStyles = 'cursor-not-allowed opacity-55 shadow-none'
+
+/**
+ * @param {object} props
+ * @param {'primary'|'secondary'|'ghost'|'subtle'|'danger'|'dangerSoft'} [props.variant]
+ * @param {'sm'|'md'|'lg'} [props.size]
+ * @param {boolean} [props.loading]
+ * @param {string} [props.to]  renderiza un `<Link>` de react-router.
+ * @param {string} [props.as]  elemento a renderizar (por defecto `button`).
+ * @param {'left'|'right'} [props.iconPosition]
+ * @param {string} [props.icon] nombre de `Icon`.
+ */
+export default function Button({
+  variant = 'primary',
+  size = 'md',
+  loading = false,
+  to,
+  as,
+  icon,
+  iconPosition = 'left',
+  fullWidth = false,
+  className = '',
+  children,
+  disabled,
+  type,
+  ...props
+}) {
+  const isDisabled = Boolean(disabled) || loading
+
+  const classes = [
+    'inline-flex items-center justify-center font-semibold whitespace-nowrap',
+    'transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out',
+    'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#62DD6B]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F6FAF2]',
+    'disabled:pointer-events-none',
+    sizes[size],
+    variants[variant] ?? variants.primary,
+    isDisabled && disabledStyles,
+    fullWidth && 'w-full',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const content = (
+    <>
+      {loading ? (
+        <span
+          className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+          aria-hidden="true"
+        />
+      ) : (
+        icon &&
+        iconPosition === 'left' && <Icon name={icon} className={`shrink-0 ${iconSizes[size]}`} />
+      )}
+      {children}
+      {!loading && icon && iconPosition === 'right' && (
+        <Icon name={icon} className={`shrink-0 ${iconSizes[size]}`} />
+      )}
+    </>
+  )
+
   if (to) {
     return (
-      <Link to={to} className={classes}>
-        {children}
+      <Link to={to} className={classes} aria-disabled={isDisabled || undefined} {...props}>
+        {content}
       </Link>
     )
   }
+
   const Component = as || 'button'
   return (
-    <Component className={classes} {...props}>
-      {children}
+    <Component
+      className={classes}
+      type={Component === 'button' ? type ?? 'button' : undefined}
+      disabled={Component === 'button' ? isDisabled : undefined}
+      aria-busy={loading || undefined}
+      {...props}
+    >
+      {content}
     </Component>
   )
 }

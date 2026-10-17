@@ -18,9 +18,9 @@ export default function TeacherDashboard() {
         <h1 className="text-2xl font-bold text-slate-900">
           Hola, {profile?.displayName || 'docente'}
         </h1>
-        <p className="mt-1 text-sm text-slate-600">
+        {/* <p className="mt-1 text-sm text-slate-600">
           Panel docente. Los datos mostrados son ficticios para la demostracion.
-        </p>
+        </p> */}
       </header>
 
       <div className="grid gap-4 sm:grid-cols-3">

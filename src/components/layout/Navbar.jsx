@@ -46,7 +46,7 @@ export default function Navbar() {
           <span className="text-sm text-slate-600">
             {profile?.displayName || user?.email}
             <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs uppercase text-slate-500">
-              {role || 'sin rol'}
+              {(role=="teacher" ? 'Profesor' : 'Alumno' )|| 'sin rol'}
             </span>
           </span>
           <button
