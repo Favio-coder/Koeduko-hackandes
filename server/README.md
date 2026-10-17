@@ -24,16 +24,26 @@ Docente → POST /api/start-session-bot (Bearer = ID token de Firebase)
             └─ Recall: crea el bot con el enlace de Meet guardado en la sesión
 Recall → POST /api/recall-webhook?token=...   (eventos en tiempo real)
             └─ compara el token en tiempo constante (401 si falla; 200 en todo lo demás)
-            └─ normaliza el evento y lo guarda, sin duplicados, en
-               learningSessions/{sessionId}/liveEvents/{eventId}
-            └─ waitUntil(afterLiveEventSaved): gancho para señales y tutor (hoy vacío)
+            └─ normaliza el evento y abre UNA transacción de Firestore (processLiveEvent):
+                 lee   learningSessions/{id}/live/state   (estado incremental del motor)
+                 aplica el evento y, como mucho cada 5 s de sesión, evalúa señales
+                 escribe el estado y el liveEvent crudo (id determinista: idempotente)
+            └─ responde 200 y, con waitUntil, afterLiveEventSaved:
+                 si el motor decidió intervenir → Gemini redacta (o mensaje de respaldo)
+                 → create() en learningSessions/{id}/agentInterventions (id determinista)
 ```
+
+El motor decide **si** se interviene y a quién; Gemini solo **redacta**. Si Gemini falla, tarda más
+de 6 s, no hay key o responde algo que rompe la política (más de 2 oraciones, la respuesta,
+sin nombre, fuera de tema), se usa un mensaje determinista: la demo nunca queda muda.
 
 | Carpeta | Contenido |
 | --- | --- |
 | `api/` | Bordes HTTP delgados (`recall-webhook.js`, `start-session-bot.js`). Solo aquí se lee `process.env`. |
-| `src/sessions/core/` | Lógica pura y testeable: normalizar eventos, validar enlaces de Meet, reglas anti-duplicado. |
-| `src/sessions/adapters/` | Recall (`recall.js`) y Firestore (`sessionStore.js`). |
+| `src/sessions/core/` | Lógica pura y testeable: normalizar eventos, estado incremental (`liveState`), motor de señales (`signals`, `liveEngine`), política del tutor (`interventionPolicy`), números en español. |
+| `src/sessions/adapters/` | Recall (`recall.js`), Gemini (`gemini.js`) y Firestore (`sessionStore.js`). |
+| `src/sessions/tutor.js`, `afterLiveEventSaved.js` | Redacta la intervención (Gemini con respaldo) y la entrega. |
+| `scripts/replayFixture.js` | Reproduce `fixtures/smoke-001.json` contra el webhook desplegado, sin Recall. |
 | `src/sessions/http/` | Handlers con dependencias inyectadas, probados sin Vercel. |
 | `src/firebaseAdmin.js` | Inicializa `firebase-admin` con `FIREBASE_SERVICE_ACCOUNT_B64`. |
 
@@ -44,12 +54,70 @@ Recall → POST /api/recall-webhook?token=...   (eventos en tiempo real)
 `RECALL_REGION` (`us-west-2`). Opcional: `RECALL_TRANSCRIPT_LANGUAGE` (por defecto `es`).
 Nunca van en el repositorio, en el frontend ni en los logs.
 
+Tutor (Gemini): `GEMINI_API_KEY` (Secret) y `GEMINI_MODEL` (variable normal). Sin ellas el tutor
+responde con su mensaje de respaldo. `LOG_INTERVENTION_TEXT=1` es solo para depurar: registra el
+texto de las intervenciones, que nombra a un niño; en producción debe estar sin definir.
+
 ## Pruebas
 
 ```bash
 npm --prefix server ci
 npm --prefix server test
 ```
+
+## Presupuesto de Firestore (plan gratuito: 50 000 lecturas y 20 000 escrituras por día)
+
+Llegan unos **2,5 eventos por segundo**, así que **nunca se lee la ventana de `liveEvents`**. El motor
+trabaja sobre un documento de estado, `learningSessions/{id}/live/state`, que un reductor puro
+actualiza evento a evento: intervalos de habla dentro de la ventana, las últimas 15 transcripciones,
+presencia por participante, última intervención por tipo y desde cuándo rige el problema.
+
+| Operación | Lecturas | Escrituras |
+| --- | --- | --- |
+| Evento normal | 1 (el estado) | 2 (el estado y el `liveEvent` crudo) |
+| Evento que toca evaluar (como mucho cada 5 s de sesión) | 2 (+ la sesión, para traer el problema) | 2 |
+| Evento repetido que no cambia nada | 1 | 1 (solo el `liveEvent`) |
+| Intervención | 0 | 1 (`create()` con id determinista) |
+
+**Medido en producción** con la sesión real reproducida (265 eventos): **284 lecturas y 530 escrituras**
+(1,07 y 2,00 por evento), 0 reintentos de transacción y 19 evaluaciones de señales (7 % de los
+eventos). Cada intervención suma 1 escritura. El tiempo de proceso en el servidor fue de **152 ms de
+media** (p95 220 ms), por debajo de los ~400 ms entre eventos de una sesión real.
+
+**El límite que manda son las escrituras:** a ~2,5 eventos/s son ~5 escrituras/s, es decir **unos 66
+minutos de sesión en vivo por día** para toda la cuota, ensayos incluidos. Si no alcanza, la opción
+más barata es no guardar `speech_on`/`speech_off` crudos en `liveEvents` (el 87 % de los eventos; el
+estado ya conserva los intervalos): bajaría a ~1,1 escrituras por evento (~105 minutos por día).
+
+## Prueba de punta a punta sin Recall
+
+```bash
+node scripts/replayFixture.js --session smoke-replay-001 --speed 4
+```
+
+Reproduce el fixture contra el webhook desplegado, con la demora de llegada realista de Recall (los
+transcripts llegan ~1,5 s después, detrás de eventos de habla posteriores). Solo escribe en sesiones
+`smoke-replay-*` y lee el token de un archivo (nunca lo imprime). Un test comprueba que los 265
+eventos del fixture sobreviven al viaje de ida y vuelta por el normalizador.
+
+Resultado en producción: los 265 eventos respondieron 200 y el motor intervino **una sola vez**,
+`SILENT_PEER` para "Estudiante B" (quien entró y nunca habló), cuando hubo 45 s de conversación. La
+velocidad efectiva fue x0,9 y no x4 porque la reproducción envía de forma secuencial y la red desde
+el equipo que la lanza suma ~300 ms por petición; el servidor tardó 152 ms.
+
+## Límites conocidos del motor en vivo
+
+- **`GROUP_SILENCE` no se puede detectar sin un reloj.** El silencio no genera eventos, y el motor
+  solo corre cuando llega uno; hoy se detectaría recién cuando alguien vuelva a hablar. Hace falta un
+  disparador periódico (la interfaz del docente o un cron) que llame a la evaluación con un `now`
+  explícito; el motor ya lo admite.
+- Las transcripciones del estado son las últimas 15: una respuesta dicha hace más de 15 frases no se
+  evalúa.
+- Un evento de habla que llegue más viejo que el inicio del hablante actual se ignora.
+- El nombre del destinatario sale de la clave normalizada (sin tildes): "José" se dice "Jose".
+- La asignación de participantes a estudiantes (`studentId`) sigue en `null`.
+- `learningSessions/{id}/live/state` y `agentInterventions` aún no tienen regla de lectura en
+  `firestore.rules`: la interfaz no puede leerlas todavía.
 
 ## Resultados de la prueba de humo real (17-oct-2026)
 
