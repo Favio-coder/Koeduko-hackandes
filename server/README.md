@@ -84,6 +84,23 @@ relojes distintos, así que son aproximadas. La cifra exacta sale de comparar `o
 3. **El reconocimiento tiene errores.** Es aceptable para detectar respuestas numéricas, pero hay
    transcripciones erróneas de palabras sueltas; la lógica debe tolerar variantes de escritura.
 
+## Motor de señales: desviaciones aprobadas de la skill `session-signals`
+
+El motor (`src/sessions/core/signals.js`) sigue la skill salvo en cuatro puntos, aprobados tras la
+prueba real:
+
+1. **`minPresenceSec` (30 s).** Quien acaba de entrar a la sala no se acusa de callado: para
+   `SILENT_PEER` debe llevar al menos 30 s presente. La skill no lo exigía.
+2. **`GROUP_SILENCE` no activa `STUCK`.** El silencio solo significa que dejaron de hablar, nunca
+   que "no saben". `STUCK` sale únicamente de marcadores de confusión en lo que dijeron.
+3. **`startedAtT` opcional en el problema.** Lo dicho antes de que empiece el problema actual no
+   cuenta como respuesta.
+4. **"no se puede" no es confusión.** "no se" solo cuenta como marcador cuando es "no sé" (al final
+   de la frase o seguido de "cómo", "qué", "si"…); "no se puede" o "no se mueve" no cuentan.
+
+Además, las respuestas se leen frase por frase: el verbo de respuesta ("son", "es", "da") debe ir
+pegado al número, y una pregunta ("¿cuánto son seis por ocho?") no cuenta como respuesta.
+
 ## Qué no está hecho (honestidad)
 
 - No hay CORS: el navegador no puede llamar todavía a `/api/start-session-bot`.
