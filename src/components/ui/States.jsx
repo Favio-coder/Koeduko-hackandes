@@ -5,6 +5,7 @@
  * `description`, `action`) y agregan `variant`, `compact` e iconos por defecto
  * coherentes con la marca.
  */
+import { useState } from 'react'
 import Button from './Button'
 import Icon from './Icon'
 
@@ -81,6 +82,45 @@ export function SkeletonRow({ className = '' }) {
   )
 }
 
+/** Reproduce la animación de marca y conserva un fallback accesible/estático. */
+export function LoadingAnimation({ className = '', fallbackSize = 'md' }) {
+  const [videoUnavailable, setVideoUnavailable] = useState(false)
+
+  return (
+    <span
+      className={['relative inline-flex shrink-0 items-center justify-center', className]
+        .filter(Boolean)
+        .join(' ')}
+      aria-hidden="true"
+    >
+      <video
+        src="/carga/carga.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="metadata"
+        onError={() => setVideoUnavailable(true)}
+        className={[
+          'h-full w-full object-contain',
+          'motion-reduce:hidden',
+          videoUnavailable ? 'hidden' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      />
+      <Icon
+        name="koala"
+        className={[
+          'h-10 w-10 text-[#304744]',
+          fallbackSize === 'lg' && 'h-14 w-14',
+          videoUnavailable ? 'inline-block' : 'hidden motion-reduce:inline-block',
+        ].join(' ')}
+      />
+    </span>
+  )
+}
+
 /* -------------------------------------------------------------------------- */
 /* LoadingState                                                                */
 /* -------------------------------------------------------------------------- */
@@ -88,25 +128,30 @@ export function SkeletonRow({ className = '' }) {
 /**
  * @param {object} props
  * @param {string} [props.label]
- * @param {boolean} [props.compact] reduce el padding vertical.
- * @param {boolean} [props.block] ocupa todo el ancho disponible.
+ * @param {boolean} [props.compact] usa una etiqueta más compacta.
+ * @param {boolean} [props.inline] renderiza dentro del flujo en vez de como overlay.
  */
-export function LoadingState({ label = 'Cargando…', compact = false, block = false, className = '' }) {
+export function LoadingState({ label = 'Cargando…', compact = false, inline = false, className = '' }) {
   return (
     <div
       className={[
-        'flex flex-col items-center justify-center gap-3 text-[#5A6B6A]',
-        block ? 'w-full' : 'w-full',
-        compact ? 'py-6' : 'py-16',
+        'flex flex-col items-center justify-center text-[#304744]',
+        inline
+          ? ['w-full gap-3', compact ? 'py-6' : 'py-16'].join(' ')
+          : 'fixed inset-0 z-[100] gap-3 bg-[#F8FAF6]/75 px-5 py-8 text-center backdrop-blur-sm',
         className,
       ]
         .filter(Boolean)
         .join(' ')}
       role="status"
       aria-live="polite"
+      aria-busy="true"
     >
-      <Spinner />
-      <p className="text-sm font-medium">{label}</p>
+      <LoadingAnimation
+        className={inline ? 'h-12 w-12' : 'h-40 w-40 sm:h-56 sm:w-56'}
+        fallbackSize={inline ? 'sm' : 'lg'}
+      />
+      <p className={compact ? 'text-sm font-semibold' : 'text-base font-semibold'}>{label}</p>
     </div>
   )
 }

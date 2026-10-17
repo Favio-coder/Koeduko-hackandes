@@ -11,7 +11,7 @@
  */
 import { useId } from 'react'
 import Icon from './Icon'
-import { Spinner } from './States'
+import { LoadingAnimation } from './States'
 
 const controlBase = [
   'w-full rounded-xl border bg-[#FFFFFF] text-sm text-[#304744] placeholder:text-[#7D8C8A]',
@@ -119,7 +119,7 @@ export function Input({
         />
         {loading && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2">
-            <Spinner size="sm" />
+            <LoadingAnimation className="h-5 w-5" fallbackSize="sm" />
           </span>
         )}
       </div>

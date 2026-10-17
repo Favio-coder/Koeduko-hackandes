@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
-import { Badge, Button, Card, ProgressBar } from '@/components/ui'
+import { Button, Card, LoadingAnimation, ProgressBar } from '@/components/ui'
 import Avatar from '@/components/ui/Avatar'
 import Icon from '@/components/ui/Icon'
 import { DEMO_STUDENTS } from '@/shared/lib/demoData'
 import { useAuth } from '@/contexts/AuthContext'
+import { useState } from 'react'
 
 /** Tarjeta de métrica: cifra grande + etiqueta + icono. */
 function StatCard({ label, value, icon, hint }) {
@@ -28,6 +29,9 @@ function StatCard({ label, value, icon, hint }) {
  * con la acción, para no duplicar la lectura del texto.
  */
 function QuickAction({ to, label, hint, img, icon }) {
+  const [imageLoading, setImageLoading] = useState(true)
+  const [imageError, setImageError] = useState(false)
+
   return (
     <Link
       to={to}
@@ -40,16 +44,35 @@ function QuickAction({ to, label, hint, img, icon }) {
       ].join(' ')}
     >
       {/* El ligero zoom recorta el borde oscuro incluido en los PNG sin editar los originales. */}
-      <div className="aspect-[1.94/1] w-full overflow-hidden bg-[#F8FAF6]">
-        <img
-          src={img}
-          alt=""
-          width={622}
-          height={320}
-          loading="lazy"
-          decoding="async"
-          className="block h-full w-full scale-[1.04] object-cover transition-transform duration-300 ease-out group-hover:scale-[1.07] motion-reduce:transform-none motion-reduce:transition-none"
-        />
+      <div className="relative aspect-[1.94/1] w-full overflow-hidden bg-[#F8FAF6]">
+        {imageLoading && !imageError && (
+          <LoadingAnimation className="absolute inset-0 m-auto h-20 w-20" />
+        )}
+        {imageError ? (
+          <div
+            role="img"
+            aria-label={`${label}: ilustración no disponible`}
+            className="flex h-full flex-col items-center justify-center gap-2 text-[#7D8C8A]"
+          >
+            <Icon name={icon} className="h-8 w-8" />
+            <span className="text-xs font-medium">Ilustración no disponible</span>
+          </div>
+        ) : (
+          <img
+            src={img}
+            alt=""
+            width={622}
+            height={320}
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setImageLoading(false)}
+            onError={() => {
+              setImageError(true)
+              setImageLoading(false)
+            }}
+            className="block h-full w-full scale-[1.04] object-cover transition-transform duration-300 ease-out group-hover:scale-[1.07] motion-reduce:transform-none motion-reduce:transition-none"
+          />
+        )}
       </div>
 
       <div className="flex min-h-19 items-center gap-3 border-t border-[#E6EAE3] px-3.5 py-3 sm:px-4">

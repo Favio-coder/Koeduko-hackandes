@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import TeacherDashboard from '@/features/dashboard/pages/TeacherDashboard'
@@ -66,6 +66,9 @@ describe('TeacherDashboard', () => {
       expect(img.className).toContain('group-hover:scale-[1.07]')
       expect(img.className).toContain('motion-reduce:transform-none')
     })
+    expect(container.querySelectorAll('video[src="/carga/carga.mp4"]')).toHaveLength(3)
+    fireEvent.load(images[0])
+    expect(container.querySelectorAll('video[src="/carga/carga.mp4"]')).toHaveLength(2)
 
     const actionLinks = [
       screen.getByRole('link', { name: 'Diagnosticar estudiantes' }),
