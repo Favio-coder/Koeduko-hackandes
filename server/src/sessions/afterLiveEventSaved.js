@@ -5,7 +5,8 @@
  * retrasar el webhook. Aqui se enchufaran despues el motor de senales y el tutor; por
  * ahora no hace nada a proposito.
  *
- * @param {{ sessionId: string, eventId: string, event: object }} _saved
+ * Cuando se implemente recibira `{ sessionId, eventId, event }` (el evento ya guardado).
+ *
  * @returns {Promise<void>}
  */
-export async function afterLiveEventSaved(_saved) {}
+export async function afterLiveEventSaved() {}
