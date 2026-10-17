@@ -30,7 +30,7 @@ describe('DesignSystemPage', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'KoEduko UI', level: 1 })).toBeInTheDocument()
-    expect(screen.getByText('#62DD6B')).toBeInTheDocument()
+    expect(screen.getByText('#4CDB59')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Botones' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Modales' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Abrir modal' })).toBeInTheDocument()

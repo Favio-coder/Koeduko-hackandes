@@ -9,6 +9,7 @@
 export { default as Button } from './Button'
 export { Card, CardLink, Badge, ProgressBar } from './Card'
 export { default as Icon } from './Icon'
+export { default as Logo } from './Logo'
 export { iconNames } from './iconNames'
 
 /* formularios */

@@ -7,7 +7,7 @@
 import Icon from './Icon'
 
 const tones = {
-  success: { wrap: 'border-[#B6E9AE] bg-[#E8F8E4] text-[#2F7F3C]', icon: 'check' },
+  success: { wrap: 'border-[#B7E8B5] bg-[#E9F8EA] text-[#2A7A35]', icon: 'check' },
   error: { wrap: 'border-[#F0BEBE] bg-[#FCEDED] text-[#9B2C2C]', icon: 'alert' },
   warning: { wrap: 'border-[#F0DBAB] bg-[#FDF5E4] text-[#8A6410]', icon: 'alert' },
   info: { wrap: 'border-[#BBDDE3] bg-[#E7F3F5] text-[#215B66]', icon: 'info' },

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
+import { Input } from '@/components/ui/Field'
+import AuthLayout from '@/components/layout/AuthLayout'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function Register() {
@@ -37,55 +40,55 @@ export default function Register() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-indigo-700">Crear cuenta</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Las cuentas nuevas se registran con rol estudiante. La promocion a docente la realiza un
-          administrador.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          {[
-            { id: 'displayName', label: 'Nombre completo', type: 'text', autoComplete: 'name' },
-            { id: 'email', label: 'Correo electronico', type: 'email', autoComplete: 'email' },
-            { id: 'password', label: 'Contrasena', type: 'password', autoComplete: 'new-password' },
-            { id: 'confirm', label: 'Confirmar contrasena', type: 'password', autoComplete: 'new-password' },
-          ].map((field) => (
-            <div key={field.id}>
-              <label htmlFor={field.id} className="block text-sm font-medium text-slate-700">
-                {field.label}
-              </label>
-              <input
-                id={field.id}
-                type={field.type}
-                required
-                autoComplete={field.autoComplete}
-                value={form[field.id]}
-                onChange={update(field.id)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
-          ))}
-
-          {error && (
-            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-
-          <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? 'Creando cuenta...' : 'Registrarme'}
-          </Button>
-        </form>
-
-        <p className="mt-6 text-sm text-slate-600">
-          Ya tienes cuenta?{' '}
-          <Link to="/login" className="text-indigo-700 hover:underline">
-            Iniciar sesion
+    <AuthLayout
+      title="Crear cuenta"
+      subtitle="Las cuentas nuevas se registran con rol estudiante. La promoción a docente la realiza un administrador."
+      footer={
+        <>
+          ¿Ya tienes cuenta?{' '}
+          <Link
+            to="/login"
+            className="font-semibold text-[#2A7A35] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
+          >
+            Iniciar sesión
           </Link>
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {[
+          { id: 'displayName', label: 'Nombre completo', type: 'text', autoComplete: 'name' },
+          { id: 'email', label: 'Correo electrónico', type: 'email', autoComplete: 'email' },
+          { id: 'password', label: 'Contraseña', type: 'password', autoComplete: 'new-password' },
+          {
+            id: 'confirm',
+            label: 'Confirmar contraseña',
+            type: 'password',
+            autoComplete: 'new-password',
+          },
+        ].map((field) => (
+          <Input
+            key={field.id}
+            id={field.id}
+            label={field.label}
+            type={field.type}
+            required
+            autoComplete={field.autoComplete}
+            value={form[field.id]}
+            onChange={update(field.id)}
+          />
+        ))}
+
+        {error && (
+          <Alert tone="error" compact>
+            {error}
+          </Alert>
+        )}
+
+        <Button type="submit" loading={submitting} fullWidth size="lg">
+          {submitting ? 'Creando cuenta...' : 'Registrarme'}
+        </Button>
+      </form>
+    </AuthLayout>
   )
 }

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import Button from '@/components/ui/Button'
+import { Input } from '@/components/ui/Field'
+import Alert from '@/components/ui/Alert'
+import AuthLayout from '@/components/layout/AuthLayout'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function Login() {
@@ -31,61 +34,69 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-indigo-700">KoEduko</h1>
-        <p className="mt-1 text-sm text-slate-500">Acceso a la plataforma educativa</p>
-
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-              Correo electronico
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700">
-              Contrasena
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-            />
-          </div>
-
-          {(formError || error) && (
-            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-              {formError || error.message}
-            </p>
-          )}
-
-          <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? 'Ingresando...' : 'Iniciar sesion'}
-          </Button>
-        </form>
-
-        <div className="mt-6 flex justify-between text-sm">
-          <Link to="/register" className="text-indigo-700 hover:underline">
+    <AuthLayout
+      title="Iniciar sesión"
+      subtitle="Accede a tu aula de aprendizaje colaborativo."
+      footer={
+        <>
+          <Link
+            to="/register"
+            className="font-semibold text-[#2A7A35] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
+          >
             Crear cuenta
           </Link>
-          <Link to="/forgot-password" className="text-slate-600 hover:underline">
-            Olvide mi contrasena
+          <span className="mx-2 text-[#ABB1AB]">·</span>
+          <Link
+            to="/forgot-password"
+            className="underline-offset-4 hover:text-[#304744] hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
+          >
+            Olvidé mi contraseña
           </Link>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate={false}>
+        <Input
+          label="Correo electrónico"
+          type="email"
+          id="email"
+          autoComplete="email"
+          required
+          icon="users"
+          placeholder="tú@coeduko.dev"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <Input
+          label="Contraseña"
+          type="password"
+          id="password"
+          autoComplete="current-password"
+          required
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          labelRight={
+            <Link
+              to="/forgot-password"
+              className="text-xs font-semibold text-[#2A7A35] underline-offset-4 hover:underline"
+            >
+              ¿La olvidaste?
+            </Link>
+          }
+        />
+
+        {(formError || error) && (
+          <Alert tone="error" compact>
+            {formError || error.message}
+          </Alert>
+        )}
+
+        <Button type="submit" loading={submitting} fullWidth size="lg">
+          {submitting ? 'Ingresando...' : 'Iniciar sesión'}
+        </Button>
+      </form>
+    </AuthLayout>
   )
 }

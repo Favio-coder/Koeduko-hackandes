@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
+import { Input } from '@/components/ui/Field'
+import AuthLayout from '@/components/layout/AuthLayout'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function ForgotPassword() {
@@ -25,46 +28,46 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-indigo-700">Recuperar contrasena</h1>
+    <AuthLayout
+      title="Recuperar contraseña"
+      subtitle="Te enviamos un enlace para restablecer tu contraseña."
+      footer={
+        <Link
+          to="/login"
+          className="font-semibold text-[#2A7A35] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
+        >
+          Volver al inicio de sesión
+        </Link>
+      }
+    >
+      {sent ? (
+        <Alert tone="success" title="Revisa tu correo">
+          Si el correo está registrado, enviamos un enlace para restablecer la contraseña.
+        </Alert>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Correo electrónico"
+            type="email"
+            id="email"
+            required
+            icon="users"
+            placeholder="tú@coeduko.dev"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
-        {sent ? (
-          <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
-            Si el correo esta registrado, enviamos un enlace para restablecer la contrasena.
-          </p>
-        ) : (
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-                Correo electronico
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
-            {error && (
-              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error}
-              </p>
-            )}
-            <Button type="submit" disabled={submitting} className="w-full">
-              {submitting ? 'Enviando...' : 'Enviar enlace'}
-            </Button>
-          </form>
-        )}
+          {error && (
+            <Alert tone="error" compact>
+              {error}
+            </Alert>
+          )}
 
-        <p className="mt-6 text-sm text-slate-600">
-          <Link to="/login" className="text-indigo-700 hover:underline">
-            Volver al inicio de sesion
-          </Link>
-        </p>
-      </div>
-    </div>
+          <Button type="submit" loading={submitting} fullWidth size="lg">
+            {submitting ? 'Enviando...' : 'Enviar enlace'}
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
   )
 }

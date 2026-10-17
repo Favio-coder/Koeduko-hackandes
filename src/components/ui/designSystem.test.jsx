@@ -128,10 +128,12 @@ describe('Icon / Avatar / Alert / tokens', () => {
 
   it('los tokens de marca son los del logo', () => {
     expect(palette).toEqual({
-      forest: '#31494A',
-      brand: '#62DD6B',
-      mist: '#F6FAF2',
-      cream: '#FFFEFD',
+      forest: '#304744',
+      brand: '#4CDB59',
+      mint: '#E9F8EA',
+      canvas: '#F8FAF6',
+      white: '#FFFFFF',
+      ink: '#263D48',
       stone: '#ABB1AB',
     })
   })

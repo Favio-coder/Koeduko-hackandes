@@ -27,15 +27,15 @@ export function PageHeader({ eyebrow, title, description, badge, actions, classN
     >
       <div className="min-w-0">
         {eyebrow && (
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#2F7F3C]">
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A7A35]">
             {eyebrow}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-2xl font-bold tracking-tight text-[#31494A] sm:text-3xl">{title}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-[#304744] sm:text-3xl">{title}</h1>
           {badge}
         </div>
-        {description && <p className="mt-1.5 max-w-2xl text-sm text-[#5C6A69]">{description}</p>}
+        {description && <p className="mt-1.5 max-w-2xl text-sm text-[#5A6B6A]">{description}</p>}
       </div>
       {actions && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">{actions}</div>
@@ -53,7 +53,7 @@ export function Breadcrumbs({ items = [], className = '' }) {
   if (!items.length) return null
   return (
     <nav aria-label="Ruta de navegación" className={['mb-3', className].filter(Boolean).join(' ')}>
-      <ol className="flex flex-wrap items-center gap-1 text-xs font-medium text-[#5C6A69]">
+      <ol className="flex flex-wrap items-center gap-1 text-xs font-medium text-[#5A6B6A]">
         {items.map((item, i) => {
           const isLast = i === items.length - 1
           return (
@@ -62,12 +62,12 @@ export function Breadcrumbs({ items = [], className = '' }) {
               {item.to && !isLast ? (
                 <Link
                   to={item.to}
-                  className="rounded transition-colors duration-150 hover:text-[#2F7F3C] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#62DD6B]/40"
+                  className="rounded transition-colors duration-150 hover:text-[#2A7A35] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/40"
                 >
                   {item.label}
                 </Link>
               ) : (
-                <span aria-current={isLast ? 'page' : undefined} className="text-[#31494A]">
+                <span aria-current={isLast ? 'page' : undefined} className="text-[#304744]">
                   {item.label}
                 </span>
               )}

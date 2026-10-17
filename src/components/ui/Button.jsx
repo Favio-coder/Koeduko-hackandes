@@ -22,11 +22,11 @@ import Icon from './Icon'
 
 const variants = {
   primary:
-    'bg-[#62DD6B] text-[#22302F] hover:bg-[#52C95E] active:bg-[#46B852] shadow-[0_1px_2px_rgba(49,73,74,0.10)]',
+    'bg-[#4CDB59] text-[#263D48] hover:bg-[#3FC94D] active:bg-[#35B645] shadow-[0_1px_2px_rgba(48,71,68,0.10)]',
   secondary:
-    'bg-[#FFFEFD] text-[#31494A] border border-[#ABB1AB]/60 hover:bg-[#F6FAF2] hover:border-[#62DD6B] active:bg-[#EDF5E9]',
-  ghost: 'bg-transparent text-[#31494A] hover:bg-[#F6FAF2] active:bg-[#E8F8E4]',
-  subtle: 'bg-[#E8F8E4] text-[#2F7F3C] hover:bg-[#D9F4D2] active:bg-[#C8EFC0]',
+    'bg-[#FFFFFF] text-[#304744] border border-[#ABB1AB]/60 hover:bg-[#F8FAF6] hover:border-[#4CDB59] active:bg-[#EDF5E9]',
+  ghost: 'bg-transparent text-[#304744] hover:bg-[#F8FAF6] active:bg-[#E9F8EA]',
+  subtle: 'bg-[#E9F8EA] text-[#2A7A35] hover:bg-[#DDF3DD] active:bg-[#D3F0CF]',
   danger: 'bg-[#D64545] text-white hover:bg-[#BC3A3A] active:bg-[#A53232]',
   dangerSoft: 'bg-[#FCEDED] text-[#9B2C2C] border border-[#F0BEBE] hover:bg-[#F8DFDF]',
 }
@@ -71,7 +71,7 @@ export default function Button({
   const classes = [
     'inline-flex items-center justify-center font-semibold whitespace-nowrap',
     'transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out',
-    'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#62DD6B]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F6FAF2]',
+    'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F8FAF6]',
     'disabled:pointer-events-none',
     sizes[size],
     variants[variant] ?? variants.primary,

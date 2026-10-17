@@ -14,7 +14,7 @@ import Icon from './Icon'
 import { ToastContext } from './toastContext'
 
 const toneStyles = {
-  success: 'border-[#B6E9AE] bg-[#E8F8E4] text-[#2F7F3C]',
+  success: 'border-[#B7E8B5] bg-[#E9F8EA] text-[#2A7A35]',
   error: 'border-[#F0BEBE] bg-[#FCEDED] text-[#9B2C2C]',
   warning: 'border-[#F0DBAB] bg-[#FDF5E4] text-[#8A6410]',
   info: 'border-[#BBDDE3] bg-[#E7F3F5] text-[#215B66]',
@@ -73,7 +73,7 @@ export function ToastProvider({ children, duration = DEFAULT_DURATION, max = 4 }
             role={t.tone === 'error' ? 'alert' : 'status'}
             className={[
               'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl border',
-              'px-4 py-3.5 shadow-[0_12px_32px_rgba(49,73,74,0.18)]',
+              'px-4 py-3.5 shadow-[0_12px_32px_rgba(48,71,68,0.18)]',
               'transition-[transform,opacity] duration-200 ease-out',
               toneStyles[t.tone] ?? toneStyles.info,
             ].join(' ')}

@@ -16,7 +16,7 @@ const sizes = {
 
 /** Degradados deterministas a partir del nombre: mismo nombre, mismo color. */
 const gradients = [
-  'bg-[#62DD6B]',
+  'bg-[#4CDB59]',
   'bg-[#5FC9C9]',
   'bg-[#8FBF6A]',
   'bg-[#E8B33C]',
@@ -56,7 +56,7 @@ export default function Avatar({ name = '', src, alt, size = 'md', showStatus = 
           'inline-flex items-center justify-center overflow-hidden rounded-full font-bold text-white',
           'ring-2 ring-white',
           sizes[size] ?? sizes.md,
-          showImage ? 'bg-[#F6FAF2]' : gradientFor(name),
+          showImage ? 'bg-[#F8FAF6]' : gradientFor(name),
         ].join(' ')}
       >
         {showImage ? (
@@ -72,7 +72,7 @@ export default function Avatar({ name = '', src, alt, size = 'md', showStatus = 
       </span>
       {showStatus && (
         <span
-          className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-[#62DD6B]"
+          className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-[#4CDB59]"
           title="En línea"
         />
       )}
