@@ -104,6 +104,24 @@ describe('handleRecallWebhook', () => {
     expect(onSaved.mock.calls[0][0]).toMatchObject({ sessionId: 'session-001', event: { type: 'speech_on' } })
   })
 
+  it('passes the result of saveEvent to onSaved and logs the Firestore cost of the event', async () => {
+    const result = { evaluated: true, intervention: null, ops: { reads: 2, writes: 2, attempts: 1 } }
+    const onSaved = vi.fn()
+    const { deps, logger } = setup({ onSaved, saveEvent: vi.fn().mockResolvedValue(result) })
+
+    await handleRecallWebhook({ token: EXPECTED, body }, deps)
+
+    expect(onSaved.mock.calls[0][0]).toMatchObject({ sessionId: 'session-001', result })
+    expect(logger.info).toHaveBeenCalledWith('recallWebhook: evento guardado', {
+      sessionId: 'session-001',
+      type: 'speech_on',
+      reads: 2,
+      writes: 2,
+      attempts: 1,
+      evaluated: true,
+    })
+  })
+
   it('does not call onSaved when nothing was saved', async () => {
     const onSaved = vi.fn()
     const failing = setup({ onSaved, saveEvent: vi.fn().mockRejectedValue(new Error('x')) })

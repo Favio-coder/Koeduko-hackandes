@@ -22,8 +22,8 @@ export function tokensMatch(received, expected) {
  * @param {{ token: unknown, body: unknown }} request
  * @param {{
  *   expectedToken: string,
- *   saveEvent: (sessionId: string, eventId: string, event: object) => Promise<void>,
- *   onSaved?: (saved: { sessionId: string, eventId: string, event: object }) => void,
+ *   saveEvent: (sessionId: string, eventId: string, event: object) => Promise<object|void>,
+ *   onSaved?: (saved: { sessionId: string, eventId: string, event: object, result: object|undefined }) => void,
  *   logger: { info: Function, warn: Function, error: Function },
  * }} deps
  * onSaved se llama despues de guardar, sin esperar su resultado: sirve para encolar trabajo
@@ -44,11 +44,11 @@ export async function handleRecallWebhook({ token, body }, { expectedToken, save
     }
 
     const { sessionId, eventId, event } = normalized
-    await saveEvent(sessionId, eventId, event)
-    logger.info('recallWebhook: evento guardado', { sessionId, type: event.type })
+    const result = await saveEvent(sessionId, eventId, event)
+    logger.info('recallWebhook: evento guardado', { sessionId, type: event.type, ...opsOf(result) })
 
     try {
-      onSaved?.({ sessionId, eventId, event })
+      onSaved?.({ sessionId, eventId, event, result })
     } catch (error) {
       logger.error('recallWebhook: fallo el trabajo posterior', safeErrorInfo(error))
     }
@@ -56,6 +56,13 @@ export async function handleRecallWebhook({ token, body }, { expectedToken, save
     logger.error('recallWebhook: no se pudo guardar el evento', safeErrorInfo(error))
   }
   return { status: 200 }
+}
+
+/** Operaciones de Firestore del evento (si el guardado las informa), para medir la cuota gratuita. */
+function opsOf(result) {
+  const ops = result?.ops
+  if (!ops) return {}
+  return { reads: ops.reads, writes: ops.writes, attempts: ops.attempts, evaluated: Boolean(result.evaluated) }
 }
 
 /**

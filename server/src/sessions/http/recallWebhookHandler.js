@@ -6,7 +6,7 @@ import { handleRecallWebhook } from '../core/handleRecallWebhook.js'
  *
  * @param {{
  *   getExpectedToken: () => string|undefined,
- *   getStore: () => { saveLiveEvent: Function },
+ *   getStore: () => { processLiveEvent: Function },
  *   afterSave: (saved: object) => Promise<void>,
  *   waitUntil: (promise: Promise<unknown>) => void,
  *   logger: { info: Function, warn: Function, error: Function },
@@ -30,7 +30,7 @@ export function createRecallWebhookHandler({ getExpectedToken, getStore, afterSa
       { token, body },
       {
         expectedToken: getExpectedToken(),
-        saveEvent: (sessionId, eventId, event) => getStore().saveLiveEvent(sessionId, eventId, event),
+        saveEvent: (sessionId, eventId, event) => getStore().processLiveEvent(sessionId, eventId, event),
         onSaved: (saved) =>
           waitUntil(
             Promise.resolve(afterSave(saved)).catch((error) =>

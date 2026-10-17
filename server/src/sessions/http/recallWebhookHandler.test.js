@@ -24,7 +24,7 @@ function fakeRes() {
 }
 
 function setup(overrides = {}) {
-  const store = { saveLiveEvent: vi.fn().mockResolvedValue(undefined) }
+  const store = { processLiveEvent: vi.fn().mockResolvedValue(undefined) }
   const deps = {
     getExpectedToken: () => TOKEN,
     getStore: () => store,
@@ -47,8 +47,8 @@ describe('recall-webhook handler', () => {
 
     expect(res.statusCode).toBe(200)
     expect(res.ended).toBe(true)
-    expect(store.saveLiveEvent).toHaveBeenCalledTimes(1)
-    const [sessionId, eventId, event] = store.saveLiveEvent.mock.calls[0]
+    expect(store.processLiveEvent).toHaveBeenCalledTimes(1)
+    const [sessionId, eventId, event] = store.processLiveEvent.mock.calls[0]
     expect(sessionId).toBe('smoke-001')
     expect(eventId).toMatch(/^evt-speechon/)
     expect(event).toMatchObject({ type: 'speech_on', participantKey: 'ana', occurredAt: '2026-10-17T20:00:00Z' })
@@ -65,7 +65,7 @@ describe('recall-webhook handler', () => {
     await handler(post(query), res)
 
     expect(res.statusCode).toBe(401)
-    expect(store.saveLiveEvent).not.toHaveBeenCalled()
+    expect(store.processLiveEvent).not.toHaveBeenCalled()
     expect(deps.waitUntil).not.toHaveBeenCalled()
   })
 
@@ -98,7 +98,7 @@ describe('recall-webhook handler', () => {
   })
 
   it('answers 200 when Firestore fails and does not run the hook', async () => {
-    const store = { saveLiveEvent: vi.fn().mockRejectedValue(new Error('firestore down')) }
+    const store = { processLiveEvent: vi.fn().mockRejectedValue(new Error('firestore down')) }
     const { handler, deps } = setup({ getStore: () => store })
     const res = fakeRes()
 
@@ -138,7 +138,7 @@ describe('recall-webhook handler', () => {
     await handler(req, res)
 
     expect(res.statusCode).toBe(200)
-    expect(store.saveLiveEvent).not.toHaveBeenCalled()
+    expect(store.processLiveEvent).not.toHaveBeenCalled()
   })
 
   it('answers 200 without saving for a non-POST request that has a valid token', async () => {
@@ -146,6 +146,6 @@ describe('recall-webhook handler', () => {
     const res = fakeRes()
     await handler({ method: 'GET', query: { token: TOKEN } }, res)
     expect(res.statusCode).toBe(200)
-    expect(store.saveLiveEvent).not.toHaveBeenCalled()
+    expect(store.processLiveEvent).not.toHaveBeenCalled()
   })
 })

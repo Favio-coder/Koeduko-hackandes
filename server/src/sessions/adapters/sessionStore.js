@@ -1,6 +1,12 @@
 import { canRequestBot } from '../core/botRequest.js'
+import { emptyState, evaluateDue, ingestEvent, problemFromSession } from '../core/liveEngine.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
 import { SessionBotError } from '../errors.js'
+
+const ALREADY_EXISTS = 6 // codigo gRPC de Firestore cuando create() encuentra el documento
+
+/** Cuantas transcripciones recientes se le pasan al tutor como contexto. */
+const TRANSCRIPT_TAIL = 8
 
 /**
  * Acceso a Firestore para sesiones. Recibe db y FieldValue ya inicializados
@@ -17,6 +23,82 @@ export function createSessionStore({ db, FieldValue }) {
       await db
         .doc(`learningSessions/${sessionId}/liveEvents/${eventId}`)
         .set({ ...event, receivedAt: FieldValue.serverTimestamp() })
+    },
+
+    /**
+     * Procesa un evento en vivo con el COSTO MINIMO de Firestore, sin leer nunca la ventana de
+     * liveEvents. Una transaccion por evento:
+     *   - 1 lectura  : learningSessions/{id}/live/state (estado incremental del motor)
+     *   - 1 lectura  : la sesion, SOLO cuando toca evaluar (como mucho cada ~5 s) para traer el problema
+     *   - 1 escritura: el estado actualizado (se omite si el evento no cambio nada)
+     *   - 1 escritura: el liveEvent crudo (id determinista: reenviarlo es idempotente)
+     * Devuelve tambien las operaciones realmente ejecutadas (con reintentos) para medir la cuota.
+     *
+     * @returns {Promise<{ evaluated: boolean, intervention: object|null, context: object|null, ops: { reads: number, writes: number, attempts: number } }>}
+     */
+    async processLiveEvent(sessionId, eventId, event, { config = {} } = {}) {
+      const stateRef = db.doc(`learningSessions/${sessionId}/live/state`)
+      const eventRef = db.doc(`learningSessions/${sessionId}/liveEvents/${eventId}`)
+      const ops = { reads: 0, writes: 0, attempts: 0 }
+
+      const outcome = await db.runTransaction(async (tx) => {
+        ops.attempts += 1
+        let writes = 0
+
+        const stateSnap = await tx.get(stateRef)
+        ops.reads += 1
+        const before = stateSnap.exists ? stateSnap.data() : emptyState()
+        const ingested = ingestEvent(before, event, { eventId, config })
+
+        let state = ingested.state
+        let intervention = null
+        let context = null
+        if (ingested.due) {
+          const sessionSnap = await tx.get(sessionRef(sessionId))
+          ops.reads += 1
+          const problem = problemFromSession(sessionSnap.exists ? sessionSnap.data() : null)
+          const evaluated = evaluateDue(state, { problem, config })
+          state = evaluated.state
+          intervention = evaluated.intervention
+          if (intervention) {
+            context = {
+              problem,
+              transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
+              present: state.presence.map((p) => p.k),
+            }
+          }
+        }
+
+        if (state !== before) {
+          tx.set(stateRef, state)
+          writes += 1
+        }
+        tx.set(eventRef, { ...event, receivedAt: FieldValue.serverTimestamp() })
+        writes += 1
+
+        ops.writes = writes // solo cuentan las escrituras del intento que se confirmo
+        return { evaluated: ingested.due, intervention, context }
+      })
+
+      return { ...outcome, ops }
+    },
+
+    /**
+     * Crea la intervencion con un id determinista. create() falla si ya existe: eso significa
+     * que otro intento ya la entrego, y no es un error.
+     *
+     * @returns {Promise<{ created: boolean }>}
+     */
+    async createIntervention(sessionId, interventionId, data) {
+      try {
+        await db
+          .doc(`learningSessions/${sessionId}/agentInterventions/${interventionId}`)
+          .create({ ...data, createdAt: FieldValue.serverTimestamp() })
+        return { created: true }
+      } catch (error) {
+        if (error?.code === ALREADY_EXISTS) return { created: false }
+        throw error
+      }
     },
 
     /** Rol guardado en users/{uid}. El rol nunca se acepta del cliente. */
