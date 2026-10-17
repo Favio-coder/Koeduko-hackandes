@@ -26,7 +26,37 @@ describe('normalizeRecallEvent', () => {
       t: 132.4,
       tEnd: null,
       text: null,
+      occurredAt: '2026-10-17T20:00:00Z',
     })
+  })
+
+  it('keeps the absolute time of the last word end for transcripts', () => {
+    const result = normalizeRecallEvent(
+      transcript([
+        { text: 'uno', start_timestamp: { relative: 1, absolute: '2026-10-17T20:00:01Z' }, end_timestamp: { relative: 1.4, absolute: '2026-10-17T20:00:01.400Z' } },
+        { text: 'dos', start_timestamp: { relative: 1.5, absolute: '2026-10-17T20:00:01.500Z' }, end_timestamp: { relative: 2, absolute: '2026-10-17T20:00:02Z' } },
+      ]),
+    )
+    expect(result.event.occurredAt).toBe('2026-10-17T20:00:02Z')
+  })
+
+  it('falls back to the first word start, then to null, when no end time is given', () => {
+    const withStart = normalizeRecallEvent(
+      transcript([{ text: 'si', start_timestamp: { relative: 2, absolute: '2026-10-17T20:00:03Z' }, end_timestamp: null }]),
+    )
+    const withNone = normalizeRecallEvent(
+      transcript([{ text: 'si', start_timestamp: { relative: 2 }, end_timestamp: null }]),
+    )
+    expect(withStart.event.occurredAt).toBe('2026-10-17T20:00:03Z')
+    expect(withNone.event.occurredAt).toBeNull()
+  })
+
+  it('ignores an absolute time that is not a valid date', () => {
+    const result = normalizeRecallEvent({
+      event: 'participant_events.speech_on',
+      data: { data: { participant, timestamp: { relative: 1, absolute: 'not-a-date' } }, bot },
+    })
+    expect(result.event.occurredAt).toBeNull()
   })
 
   it('maps speech_off', () => {

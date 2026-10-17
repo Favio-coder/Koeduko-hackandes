@@ -19,6 +19,11 @@ const EVENT_TYPES = {
 
 const toMillis = (seconds) => (Number.isFinite(seconds) ? Math.round(seconds * 1000) : 0)
 
+/** Hora absoluta (ISO 8601) que manda Recall; sirve para medir la latencia hasta receivedAt. */
+function isoOrNull(value) {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? value : null
+}
+
 function participantKeyOf(participant) {
   const name = normalizeName(participant?.name)
   if (name) return name
@@ -31,9 +36,12 @@ function transcriptFields(inner) {
     .map((word) => (typeof word?.text === 'string' ? word.text.trim() : ''))
     .filter(Boolean)
     .join(' ')
-  const t = words[0]?.start_timestamp?.relative
-  const tEnd = words[words.length - 1]?.end_timestamp?.relative
-  return { text, t, tEnd: Number.isFinite(tEnd) ? tEnd : null }
+  const first = words[0]
+  const last = words[words.length - 1]
+  const t = first?.start_timestamp?.relative
+  const tEnd = last?.end_timestamp?.relative
+  const occurredAt = isoOrNull(last?.end_timestamp?.absolute) ?? isoOrNull(first?.start_timestamp?.absolute)
+  return { text, t, tEnd: Number.isFinite(tEnd) ? tEnd : null, occurredAt }
 }
 
 /**
@@ -54,13 +62,15 @@ export function normalizeRecallEvent(payload) {
   let t
   let tEnd = null
   let text = null
+  let occurredAt
   if (type === 'transcript') {
     const fields = transcriptFields(inner)
     if (!fields.text) return null
-    ;({ t, tEnd } = fields)
+    ;({ t, tEnd, occurredAt } = fields)
     text = fields.text
   } else {
     t = inner?.timestamp?.relative
+    occurredAt = isoOrNull(inner?.timestamp?.absolute)
   }
   if (!Number.isFinite(t)) return null
 
@@ -74,6 +84,6 @@ export function normalizeRecallEvent(payload) {
   return {
     sessionId,
     eventId,
-    event: { type, participantKey: participantKeyOf(participant), studentId: null, t, tEnd, text },
+    event: { type, participantKey: participantKeyOf(participant), studentId: null, t, tEnd, text, occurredAt },
   }
 }
