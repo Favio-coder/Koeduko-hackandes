@@ -1,6 +1,15 @@
 import { deterministicId } from './core/ids.js'
+import { addresseeOf } from './core/interventionPolicy.js'
 import { DEFAULT_CONFIG } from './core/signals.js'
 import { composeIntervention } from './tutor.js'
+
+/**
+ * La evidencia que se guarda la pueden leer los estudiantes de la sesion (reglas de Firestore),
+ * asi que NUNCA lleva la respuesta esperada: ocultarla en la pantalla no basta si esta en el dato.
+ */
+function publicEvidence(evidence = {}) {
+  return Object.fromEntries(Object.entries(evidence).filter(([key]) => key !== 'expectedAnswer'))
+}
 
 /**
  * Trabajo posterior al guardado de un evento en vivo. Corre dentro de waitUntil, DESPUES de
@@ -52,7 +61,8 @@ export function createAfterLiveEventSaved({
       signal: intervention.type,
       targetStudentId: intervention.studentId ?? null,
       participantKey: intervention.participantKey ?? null,
-      evidence: intervention.evidence,
+      targetName: addresseeOf(intervention),
+      evidence: publicEvidence(intervention.evidence),
       message: composed.message,
       source: composed.source,
       deliveredTo: ['app'],

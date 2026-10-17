@@ -39,6 +39,7 @@ describe('afterLiveEventSaved', () => {
       signal: 'SILENT_PEER',
       targetStudentId: null,
       participantKey: 'estudiante b',
+      targetName: 'Estudiante B',
       evidence: intervention.evidence,
       message: 'Estudiante B, ¿cómo explicarías tú el problema con tus palabras?',
       source: 'gemini',
@@ -46,6 +47,23 @@ describe('afterLiveEventSaved', () => {
       t: 55,
     })
     expect(data.evidence).toMatchObject({ skillId: 'multiplication', activityId: 'p-03' })
+  })
+
+  it('never stores the expected answer in the evidence, because students of the session can read it', async () => {
+    const wrong = { ...intervention, type: 'WRONG_ANSWER', evidence: { expectedAnswer: 48, numbers: [46], skillId: 'multiplication', activityId: 'p-03' } }
+    const { hook, store } = setup()
+    await hook({ sessionId: 's1', result: { ...result, intervention: wrong } })
+
+    const { evidence, message } = store.createIntervention.mock.calls[0][2]
+    expect(evidence).toEqual({ numbers: [46], skillId: 'multiplication', activityId: 'p-03' })
+    expect(JSON.stringify(store.createIntervention.mock.calls[0][2])).not.toContain('expectedAnswer')
+    expect(message).not.toMatch(/48/)
+  })
+
+  it('stores a name for the recipient, or the group for signals without one', async () => {
+    const group = setup()
+    await group.hook({ sessionId: 's1', result: { ...result, intervention: { ...intervention, type: 'STUCK', participantKey: null } } })
+    expect(group.store.createIntervention.mock.calls[0][2]).toMatchObject({ targetName: 'Chicos', participantKey: null })
   })
 
   it('uses a deterministic id: same intervention -> same id; another recipient, type or cooldown window -> another', async () => {
