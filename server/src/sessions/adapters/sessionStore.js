@@ -5,6 +5,13 @@ import { SessionBotError } from '../errors.js'
 
 const ALREADY_EXISTS = 6 // codigo gRPC de Firestore cuando create() encuentra el documento
 
+/**
+ * Eventos que SOLO actualizan el estado y no se guardan crudos en liveEvents. speech_on/speech_off
+ * son el 87 % del trafico y el estado ya conserva los intervalos: guardarlos duplicaba las escrituras
+ * (la cuota gratuita permite 20 000 al dia). Transcript, join y leave si se guardan.
+ */
+const STATE_ONLY_EVENTS = new Set(['speech_on', 'speech_off'])
+
 /** Cuantas transcripciones recientes se le pasan al tutor como contexto. */
 const TRANSCRIPT_TAIL = 8
 
@@ -31,7 +38,7 @@ export function createSessionStore({ db, FieldValue }) {
      *   - 1 lectura  : learningSessions/{id}/live/state (estado incremental del motor)
      *   - 1 lectura  : la sesion, SOLO cuando toca evaluar (como mucho cada ~5 s) para traer el problema
      *   - 1 escritura: el estado actualizado (se omite si el evento no cambio nada)
-     *   - 1 escritura: el liveEvent crudo (id determinista: reenviarlo es idempotente)
+     *   - 1 escritura: el liveEvent crudo, salvo speech_on/off (id determinista: reenviarlo es idempotente)
      * Devuelve tambien las operaciones realmente ejecutadas (con reintentos) para medir la cuota.
      *
      * @returns {Promise<{ evaluated: boolean, intervention: object|null, context: object|null, ops: { reads: number, writes: number, attempts: number } }>}
@@ -73,8 +80,10 @@ export function createSessionStore({ db, FieldValue }) {
           tx.set(stateRef, state)
           writes += 1
         }
-        tx.set(eventRef, { ...event, receivedAt: FieldValue.serverTimestamp() })
-        writes += 1
+        if (!STATE_ONLY_EVENTS.has(event.type)) {
+          tx.set(eventRef, { ...event, receivedAt: FieldValue.serverTimestamp() })
+          writes += 1
+        }
 
         ops.writes = writes // solo cuentan las escrituras del intento que se confirmo
         return { evaluated: ingested.due, intervention, context }

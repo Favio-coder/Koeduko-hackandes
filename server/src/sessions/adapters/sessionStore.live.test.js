@@ -59,17 +59,34 @@ describe('processLiveEvent: Firestore cost per event', () => {
     expect(committed[0].data).toMatchObject({ v: 1, lastT: 0, lastEvalT: 0, presence: [{ k: 'a', s: 0 }] })
   })
 
-  it('costs exactly 1 read and 2 writes on the events between evaluations', async () => {
-    const { firebase, readPaths } = fakeFirestore()
+  it('costs exactly 1 read and 1 write for a speech event between evaluations: it only updates the state', async () => {
+    const { firebase, readPaths, committed } = fakeFirestore()
     const store = createSessionStore(firebase)
     await store.processLiveEvent('s1', 'evt-1', join('a', 0))
     readPaths.length = 0
+    committed.length = 0
 
     const result = await store.processLiveEvent('s1', 'evt-2', on('a', 1))
 
-    expect(result.ops).toEqual({ reads: 1, writes: 2, attempts: 1 })
+    expect(result.ops).toEqual({ reads: 1, writes: 1, attempts: 1 })
     expect(result.evaluated).toBe(false)
     expect(readPaths).toEqual([STATE])
+    expect(committed.map((w) => w.path)).toEqual([STATE])
+  })
+
+  it('never stores raw speech_on / speech_off in liveEvents, but does store transcript, join and leave', async () => {
+    const { firebase, committed } = fakeFirestore()
+    const store = createSessionStore(firebase)
+    const leave = { type: 'leave', participantKey: 'a', studentId: null, t: 9, tEnd: null, text: null, occurredAt: null }
+    const off = { type: 'speech_off', participantKey: 'a', studentId: null, t: 8, tEnd: null, text: null, occurredAt: null }
+
+    for (const [id, event] of [['e-join', join('a', 0)], ['e-on', on('a', 1)], ['e-say', say('a', 2, 3, 'hola')], ['e-off', off], ['e-leave', leave]]) {
+      await store.processLiveEvent('s1', id, event)
+    }
+
+    const raw = committed.filter((w) => w.path.includes('/liveEvents/')).map((w) => w.data.type)
+    expect(raw).toEqual(['join', 'transcript', 'leave'])
+    expect(committed.filter((w) => w.path === STATE)).toHaveLength(5) // el estado si se actualiza con los 5
   })
 
   it('evaluates again once 5 s of session time have passed, and only then reads the session', async () => {
@@ -81,7 +98,7 @@ describe('processLiveEvent: Firestore cost per event', () => {
 
     const result = await store.processLiveEvent('s1', 'evt-3', on('b', 5))
 
-    expect(result.ops).toEqual({ reads: 2, writes: 2, attempts: 1 })
+    expect(result.ops).toEqual({ reads: 2, writes: 1, attempts: 1 })
     expect(readPaths).toEqual([STATE, SESSION])
   })
 
@@ -104,7 +121,7 @@ describe('processLiveEvent: Firestore cost per event', () => {
     expect(committed).toHaveLength(2)
   })
 
-  it('stays flat as the session grows: 200 events cost about 1 read and 2 writes each', async () => {
+  it('stays flat as the session grows: 200 speech events cost about 1 read and 1 write each', async () => {
     const { firebase } = fakeFirestore()
     const store = createSessionStore(firebase)
     let reads = 0
@@ -116,7 +133,7 @@ describe('processLiveEvent: Firestore cost per event', () => {
     }
     // 200 eventos en ~80 s de sesion -> ~16 evaluaciones (una lectura extra de la sesion cada una)
     expect(reads).toBeLessThanOrEqual(200 + 20)
-    expect(writes).toBeLessThanOrEqual(400)
+    expect(writes).toBe(200) // solo el estado: el habla no se guarda cruda
   })
 })
 
