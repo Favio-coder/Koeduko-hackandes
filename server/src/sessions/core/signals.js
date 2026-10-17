@@ -32,6 +32,10 @@ export const DEFAULT_CONFIG = Object.freeze({
   maxIntervals: 400, // tope de intervalos de habla en el estado
   maxInterventions: 30, // intervenciones recientes que se conservan en el estado
   botKeys: Object.freeze(['tutor koeduko']), // el bot nunca cuenta como participante
+  // Senales apagadas. GROUP_SILENCE esta apagada: el silencio no genera eventos y el motor solo
+  // corre cuando llega uno, asi que se detectaria recien cuando alguien vuelva a hablar. Necesita un
+  // disparador periodico (interfaz o cron) que no existe aun. Para encenderla: disabledSignals: [].
+  disabledSignals: Object.freeze(['GROUP_SILENCE']),
 })
 
 /**
@@ -211,7 +215,7 @@ export function detectSignalsFromState(state, now, { problem = null, config = {}
 
   signals.push(...answerSignals(state, keys, from, problem, context))
 
-  return signals.sort(byPriorityThenKey)
+  return signals.filter((signal) => !cfg.disabledSignals.includes(signal.type)).sort(byPriorityThenKey)
 }
 
 /**

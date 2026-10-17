@@ -151,10 +151,12 @@ servidor por evento y las mismas 284 lecturas y 530 escrituras que sin Gemini):
 
 ## Límites conocidos del motor en vivo
 
-- **`GROUP_SILENCE` no se puede detectar sin un reloj.** El silencio no genera eventos, y el motor
-  solo corre cuando llega uno; hoy se detectaría recién cuando alguien vuelva a hablar. Hace falta un
-  disparador periódico (la interfaz del docente o un cron) que llame a la evaluación con un `now`
-  explícito; el motor ya lo admite.
+- **`GROUP_SILENCE` está DESACTIVADO por configuración y queda fuera de la demo.** El silencio no genera
+  eventos y el motor solo corre cuando llega uno, así que se detectaría recién cuando alguien vuelva a
+  hablar, que es justo cuando ya no sirve. Necesita un disparador periódico (la interfaz del docente o
+  un cron) que llame a la evaluación con un `now` explícito; el motor ya lo admite. Está en
+  `DEFAULT_CONFIG.disabledSignals`; para encenderlo, `disabledSignals: []`. Cualquier otra señal se
+  apaga igual, sin tocar el código.
 - Las transcripciones del estado son las últimas 15: una respuesta dicha hace más de 15 frases no se
   evalúa.
 - Un evento de habla que llegue más viejo que el inicio del hablante actual se ignora.

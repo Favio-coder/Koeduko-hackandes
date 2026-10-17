@@ -128,31 +128,54 @@ describe('DOMINANCE and SILENT_PEER', () => {
   })
 })
 
-describe('GROUP_SILENCE', () => {
+describe('GROUP_SILENCE (off by default)', () => {
+  it('is disabled by default: 40 s of silence produce no signal', () => {
+    const talked = conversation([['a', 0, 30], ['b', 30, 60]])
+    expect(DEFAULT_CONFIG.disabledSignals).toEqual(['GROUP_SILENCE'])
+    expect(types(detectSignals(talked, 100))).not.toContain('GROUP_SILENCE')
+    expect(types(detectSignals(talked, 500))).not.toContain('GROUP_SILENCE')
+  })
+
   const talk = conversation([['a', 0, 30], ['b', 30, 60]])
+  const ON = { config: { disabledSignals: [] } } // apagada por defecto: aqui se enciende para probarla
 
   it('fires after 40 s without speech and not before', () => {
-    expect(types(detectSignals(talk, 99))).not.toContain('GROUP_SILENCE')
-    const signals = detectSignals(talk, 100).filter((s) => s.type === 'GROUP_SILENCE')
+    expect(types(detectSignals(talk, 99, ON))).not.toContain('GROUP_SILENCE')
+    const signals = detectSignals(talk, 100, ON).filter((s) => s.type === 'GROUP_SILENCE')
     expect(signals).toHaveLength(1)
     expect(signals[0]).toMatchObject({ participantKey: null, evidence: { silenceSec: 40, lastSpeechT: 60 } })
   })
 
   it('never fires if nobody has spoken yet', () => {
-    expect(detectSignals([join('a', 0), join('b', 0)], 200)).toEqual([])
+    expect(detectSignals([join('a', 0), join('b', 0)], 200, ON)).toEqual([])
   })
 
   it('does not fire while someone is still speaking', () => {
-    expect(types(detectSignals([...talk, on('a', 70)], 200))).not.toContain('GROUP_SILENCE')
+    expect(types(detectSignals([...talk, on('a', 70)], 200, ON))).not.toContain('GROUP_SILENCE')
   })
 
   it('only says they stopped talking: a silence after a confusion marker is not STUCK', () => {
     const events = [...talk, say('b', 55, 60, 'no entiendo')]
-    const signals = detectSignals(events, 100)
+    const signals = detectSignals(events, 100, ON)
 
     expect(types(signals)).toContain('GROUP_SILENCE')
     expect(types(signals)).not.toContain('STUCK')
     expect(signals.find((s) => s.type === 'GROUP_SILENCE').evidence).not.toHaveProperty('markers')
+  })
+})
+
+describe('disabledSignals', () => {
+  const events = conversation([['a', 0, 45], ['b', 45, 55], ['a', 55, 100]])
+
+  it('can switch off any signal by configuration without touching the others', () => {
+    expect(types(detectSignals(events, 100))).toEqual(['SILENT_PEER', 'DOMINANCE'])
+    expect(types(detectSignals(events, 100, { config: { disabledSignals: ['SILENT_PEER'] } }))).toEqual(['DOMINANCE'])
+    expect(types(detectSignals(events, 100, { config: { disabledSignals: ['SILENT_PEER', 'DOMINANCE'] } }))).toEqual([])
+  })
+
+  it('a disabled signal is never chosen as an intervention', () => {
+    const signals = detectSignals(events, 100, { config: { disabledSignals: ['SILENT_PEER'] } })
+    expect(selectInterventions(signals, [], 100)[0].type).toBe('DOMINANCE')
   })
 })
 
