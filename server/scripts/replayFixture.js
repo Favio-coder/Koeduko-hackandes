@@ -22,6 +22,8 @@ import { arrivalTime, inArrivalOrder, toRecallPayload } from '../src/sessions/co
 
 const DEFAULT_URL = 'https://koeduko.vercel.app/api/recall-webhook'
 const SESSION_PATTERN = /^smoke-replay-[a-z0-9-]{1,40}$/
+const MAX_ATTEMPTS = 3
+const REQUEST_TIMEOUT_MS = 8000
 
 const { values } = parseArgs({
   options: {
@@ -53,6 +55,7 @@ if (values.limit) events = events.slice(0, Number(values.limit))
 
 const endpoint = `${values.url}?token=${encodeURIComponent(token)}`
 const statuses = {}
+let retries = 0
 const latencies = []
 const t0 = arrivalTime(events[0])
 const started = performance.now()
@@ -65,16 +68,20 @@ for (const event of events) {
   if (waitMs > 0) await sleep(waitMs)
 
   const sentAt = performance.now()
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(toRecallPayload(event, { sessionId: values.session })),
-    })
-    statuses[response.status] = (statuses[response.status] ?? 0) + 1
-  } catch {
-    statuses.network = (statuses.network ?? 0) + 1
+  const body = JSON.stringify(toRecallPayload(event, { sessionId: values.session }))
+  let response = null
+  // La red de quien lanza la prueba puede cortarse: hasta 3 intentos con limite de 8 s cada uno.
+  // Repetir un evento es inocuo (ids deterministas, transcripts deduplicados en el estado).
+  for (let attempt = 0; attempt < MAX_ATTEMPTS && !response; attempt += 1) {
+    try {
+      response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
+    } catch {
+      retries += attempt < MAX_ATTEMPTS - 1 ? 1 : 0
+      await sleep(500 * (attempt + 1))
+    }
   }
+  const key = response ? response.status : 'network'
+  statuses[key] = (statuses[key] ?? 0) + 1
   latencies.push(performance.now() - sentAt)
 }
 
@@ -84,6 +91,6 @@ const sorted = [...latencies].sort((a, b) => a - b)
 const pct = (p) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))]
 
 console.log('--- resumen')
-console.log('respuestas HTTP:', JSON.stringify(statuses))
+console.log('respuestas HTTP:', JSON.stringify(statuses), `| reintentos por fallos de red: ${retries}`)
 console.log(`sesion reproducida: ${spanSec.toFixed(1)} s en ${wallSec.toFixed(1)} s (velocidad efectiva x${(spanSec / wallSec).toFixed(1)})`)
 console.log(`latencia por peticion: media ${(latencies.reduce((a, b) => a + b, 0) / latencies.length).toFixed(0)} ms, p95 ${pct(0.95).toFixed(0)} ms, max ${sorted.at(-1).toFixed(0)} ms`)

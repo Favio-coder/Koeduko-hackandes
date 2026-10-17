@@ -27,7 +27,7 @@ Recall → POST /api/recall-webhook?token=...   (eventos en tiempo real)
             └─ normaliza el evento y abre UNA transacción de Firestore (processLiveEvent):
                  lee   learningSessions/{id}/live/state   (estado incremental del motor)
                  aplica el evento y, como mucho cada 5 s de sesión, evalúa señales
-                 escribe el estado y el liveEvent crudo (id determinista: idempotente)
+                 escribe el estado y, salvo speech_on/off, el liveEvent crudo (id determinista)
             └─ responde 200 y, con waitUntil, afterLiveEventSaved:
                  si el motor decidió intervenir → Gemini redacta (o mensaje de respaldo)
                  → create() en learningSessions/{id}/agentInterventions (id determinista)
@@ -74,20 +74,34 @@ presencia por participante, última intervención por tipo y desde cuándo rige 
 
 | Operación | Lecturas | Escrituras |
 | --- | --- | --- |
-| Evento normal | 1 (el estado) | 2 (el estado y el `liveEvent` crudo) |
-| Evento que toca evaluar (como mucho cada 5 s de sesión) | 2 (+ la sesión, para traer el problema) | 2 |
-| Evento repetido que no cambia nada | 1 | 1 (solo el `liveEvent`) |
+| Evento de habla (`speech_on`/`speech_off`, el 87 % del tráfico) | 1 (el estado) | **1** (solo el estado; no se guarda crudo) |
+| Transcript, `join` o `leave` | 1 | 2 (el estado y el `liveEvent` crudo) |
+| Evento que toca evaluar (como mucho cada 5 s de sesión) | 2 (+ la sesión, para traer el problema) | igual que arriba |
+| Evento repetido que no cambia nada | 1 | 0 o 1 |
 | Intervención | 0 | 1 (`create()` con id determinista) |
 
-**Medido en producción** con la sesión real reproducida (265 eventos): **284 lecturas y 530 escrituras**
-(1,07 y 2,00 por evento), 0 reintentos de transacción y 19 evaluaciones de señales (7 % de los
-eventos). Cada intervención suma 1 escritura. El tiempo de proceso en el servidor fue de **152 ms de
-media** (p95 220 ms), por debajo de los ~400 ms entre eventos de una sesión real.
+Decisión (producto): `speech_on`/`speech_off` **ya no se guardan crudos** en `liveEvents`. El estado
+conserva los intervalos de habla de la ventana, que es lo único que necesita el motor. Se pierde el
+registro crudo del habla; `fixtures/smoke-001.json` conserva el de la prueba real.
 
-**El límite que manda son las escrituras:** a ~2,5 eventos/s son ~5 escrituras/s, es decir **unos 66
-minutos de sesión en vivo por día** para toda la cuota, ensayos incluidos. Si no alcanza, la opción
-más barata es no guardar `speech_on`/`speech_off` crudos en `liveEvents` (el 87 % de los eventos; el
-estado ya conserva los intervalos): bajaría a ~1,1 escrituras por evento (~105 minutos por día).
+**Medido en producción** con la sesión real reproducida (265 eventos, 0 reintentos de transacción):
+
+| | Antes (todo crudo) | Ahora |
+| --- | --- | --- |
+| Lecturas | 284 | **284** (1,07 por evento) |
+| Escrituras | 530 (2,00 por evento) | **300** (1,13 por evento) + 1 por intervención |
+| Evaluaciones de señales | 19 | 19 (7 % de los eventos) |
+| Tiempo en el servidor por evento | 149 ms de media | **115 ms** de media (p95 162 ms) |
+
+**Cuánto permite la cuota.** Esa sesión dura 106,7 s, así que consume ~2,8 escrituras y ~2,7 lecturas
+por segundo de sesión:
+
+- Escrituras: 20 000 / 2,8 por s = ~7 100 s = **unos 118 minutos de sesión en vivo por día** (antes ~66).
+- Lecturas: 50 000 / 2,7 por s = ~18 800 s = ~313 minutos por día.
+
+Las **escrituras siguen siendo el límite**: ~118 minutos al día para toda la cuota, y los ensayos con
+el reproductor (300 escrituras cada uno) también la consumen. Las reglas de seguridad que usan
+`get()` (ver `firestore.rules`) suman lecturas por cada consulta de la interfaz.
 
 ## Prueba de punta a punta sin Recall
 
