@@ -74,6 +74,29 @@ describe('navegación (navConfig)', () => {
 })
 
 describe('Sidebar', () => {
+  it.each([
+    ['/dashboard', 'Principal'],
+    ['/dashboard/teacher', 'Estudiantes'],
+    ['/matching', 'Emparejamiento'],
+    ['/matching/results', 'Resultados'],
+    ['/sessions', 'Salas'],
+    ['/sessions/demo-session-1', 'Sesión activa'],
+    ['/sessions/demo-session-1/tutor', 'Tutor IA'],
+  ])('marca solo "%s" como activo', (path, activeLabel) => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <Sidebar />
+      </MemoryRouter>,
+    )
+
+    const activeLinks = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('aria-current') === 'page')
+
+    expect(activeLinks).toHaveLength(1)
+    expect(activeLinks[0]).toHaveTextContent(activeLabel)
+  })
+
   it('muestra la marca y la navegación con fondo verde bosque', () => {
     const { container } = wrap(<Sidebar />)
     expect(screen.getByRole('img', { name: 'KoEduko' })).toBeInTheDocument()
