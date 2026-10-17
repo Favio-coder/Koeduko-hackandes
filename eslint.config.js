@@ -18,4 +18,13 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // Los contextos exportan un provider y su hook asociado por conveniencia.
+    files: ['src/contexts/**/*.jsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
+    files: ['functions/**/*.js'],
+    languageOptions: { globals: { ...globals.node } },
+  },
 ])

@@ -1,8 +1,8 @@
-
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { initializeApp } from 'firebase/app'
+import { getAuth } from 'firebase/auth'
+import { getFirestore } from 'firebase/firestore'
+import { getFunctions } from 'firebase/functions'
+import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -11,12 +11,19 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
+}
 
-const app = initializeApp(firebaseConfig);
+/**
+ * Configuracion de Firebase del lado del cliente.
+ * Solo contiene claves publicas de Firebase (VITE_*), que son seguras por
+ * diseno: la seguridad la garantizan Firestore Security Rules.
+ * Las claves de Gemini NUNCA van aqui.
+ */
+export const firebaseApp = initializeApp(firebaseConfig)
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const auth = getAuth(firebaseApp)
+export const db = getFirestore(firebaseApp)
+export const functions = getFunctions(firebaseApp, 'europe-west1')
+export const storage = getStorage(firebaseApp)
 
-export default app;
+export default firebaseApp

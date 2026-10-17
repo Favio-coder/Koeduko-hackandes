@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // El rol SIEMPRE se lee del servidor. Nunca se acepta desde el cliente.
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isTeacher() {
+      return isSignedIn() && userRole() == 'teacher';
+    }
+
+    function isStudent() {
+      return isSignedIn() && userRole() == 'student';
+    }
+
+    function myClassroom() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classroomId;
+    }
+
+    // Solo el propio usuario puede escribir su perfil, y sin auto-asignarse rol.
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isTeacher());
+      allow create: if isSignedIn()
+                    && request.auth.uid == userId
+                    && request.resource.data.role == 'student';
+      allow update: if isSignedIn() && (
+                       (request.auth.uid == userId
+                        && request.resource.data.role == resource.data.role
+                        && request.resource.data.classroomId == resource.data.classroomId)
+                       || isTeacher()
+                     );
+      allow delete: if isTeacher();
+    }
+
+    match /classrooms/{classroomId} {
+      allow read: if isSignedIn() && (isTeacher() || myClassroom() == classroomId);
+      allow write: if isTeacher();
+    }
+
+    match /students/{studentId} {
+      allow read: if isSignedIn() && (isTeacher() || request.auth.uid == studentId);
+      allow write: if isTeacher();
+    }
+
+    match /assessments/{assessmentId} {
+      allow read: if isSignedIn() && (isTeacher() || resource.data.status == 'published');
+      allow write: if isTeacher();
+    }
+
+    match /knowledgeProfiles/{profileId} {
+      allow read: if isTeacher() || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow write: if isTeacher();
+    }
+
+    match /matchingResults/{resultId} {
+      allow read: if isTeacher();
+      allow write: if isTeacher();
+
+      match /pairs/{pairId} {
+        allow read: if isTeacher()
+                    || (isStudent() && resource.data.studentAId == request.auth.uid)
+                    || (isStudent() && resource.data.studentBId == request.auth.uid);
+        allow write: if isTeacher();
+      }
+    }
+
+    match /learningSessions/{sessionId} {
+      allow read: if isTeacher() || isStudent();
+      allow create, delete: if isTeacher();
+      allow update: if isTeacher()
+                    || (isStudent() && request.resource.data.diff(resource.data)
+                        .affectedKeys().hasOnly(['status', 'joinedAt', 'participation']));
+
+      match /tutorInteractions/{interactionId} {
+        allow read: if isTeacher() || (isStudent() && resource.data.studentId == request.auth.uid);
+        allow write: if false; // Solo Cloud Functions escriben aqui.
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
