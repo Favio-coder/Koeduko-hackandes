@@ -1,0 +1,19 @@
+{
+  "name": "koeduko-server",
+  "description": "Funciones serverless de Vercel para el modulo de sesiones (bot de Recall)",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.0.0",
+    "firebase-admin": "^13.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.7"
+  }
+}

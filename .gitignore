@@ -26,3 +26,11 @@ dist-ssr
 
 .env/
 .env
+
+# Vercel y credenciales de cuentas de servicio (nunca se commitean)
+.vercel
+server/.vercel
+*service-account*.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+firebase-adminsdk*.json
