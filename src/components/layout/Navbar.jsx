@@ -1,94 +1,29 @@
-import { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
+/**
+ * Navbar — barra superior.
+ *
+ * Conserva: título de la sección, usuario autenticado, avatar, rol y logout.
+ * Mejora: alineación, jerarquía tipográfica, menú de usuario accesible y
+ *adaptación móvil (en pantallas chicas la navegación vive en el sidebar).
+ *
+ * Props opcionales para poder renderizarla fuera del contexto real (vista
+ * previa del design system). Por defecto lee todo de `AuthContext`.
+ */
+import Icon from '@/components/ui/Icon'
 
-const links = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/assessments', label: 'Diagnostico' },
-  { to: '/matching', label: 'Emparejamiento' },
-  { to: '/sessions', label: 'Sesiones' },
-]
-
-export default function Navbar() {
-  const { user, profile, role, logout } = useAuth()
-  const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
-
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
-  }
-
+/** Control compacto del drawer; la navegación completa vive en el sidebar. */
+export default function Navbar({ onMenuClick, drawerOpen = false }) {
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link to="/dashboard" className="text-lg font-bold text-indigo-700">
-          KoEduko
-        </Link>
-
-        <nav className="hidden items-center gap-1 md:flex">
-          {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              className={({ isActive }) =>
-                `rounded-md px-3 py-2 text-sm font-medium ${
-                  isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
-                }`
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="hidden items-center gap-3 md:flex">
-          <span className="text-sm text-slate-600">
-            {profile?.displayName || user?.email}
-            <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs uppercase text-slate-500">
-              {(role=="teacher" ? 'Profesor' : 'Alumno' )|| 'sin rol'}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            Salir
-          </button>
-        </div>
-
-        <button
-          type="button"
-          aria-label="Abrir menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm md:hidden"
-        >
-          Menu
-        </button>
-      </div>
-
-      {open && (
-        <nav className="border-t border-slate-200 px-4 py-2 md:hidden">
-          {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              onClick={() => setOpen(false)}
-              className="block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-            >
-              {link.label}
-            </NavLink>
-          ))}
-          <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
-            <span className="text-sm text-slate-600">{user?.email}</span>
-            <button type="button" onClick={handleLogout} className="text-sm text-indigo-700">
-              Salir
-            </button>
-          </div>
-        </nav>
-      )}
+    <header className="sticky top-0 z-30 flex h-14 items-center border-b border-[#E6EAE3] bg-white/95 px-3 backdrop-blur-md lg:hidden">
+      <button
+        type="button"
+        onClick={onMenuClick}
+        aria-label="Abrir menú de navegación"
+        aria-expanded={drawerOpen}
+        aria-controls={drawerOpen ? 'app-sidebar-drawer' : undefined}
+        className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-[#304744] transition-colors duration-150 hover:bg-[#F8FAF6] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
+      >
+        <Icon name="menu" className="h-5 w-5" />
+      </button>
     </header>
   )
 }

@@ -21,13 +21,17 @@
 
 export const palette = {
   /** Verde bosque — texto principal, títulos, fondos oscuros. */
-  forest: '#31494A',
+  forest: '#304744',
   /** Verde KoEduko (koala) — rellenos, acentos, acciones. */
-  brand: '#62DD6B',
-  /** Verde muy claro — fondo de página y zonas suaves. */
-  mist: '#F6FAF2',
-  /** Blanco cálido — superficie de tarjetas. */
-  cream: '#FFFEFD',
+  brand: '#4CDB59',
+  /** Verde menta — superficies suaves, acentos y zonas de éxito. */
+  mint: '#E9F8EA',
+  /** Fondo principal de la aplicación. */
+  canvas: '#F8FAF6',
+  /** Blanco — superficie de tarjetas y paneles. */
+  white: '#FFFFFF',
+  /** Texto principal. */
+  ink: '#263D48',
   /** Gris natural — bordes, metadatos, texto deshabilitado. */
   stone: '#ABB1AB',
 }
@@ -38,28 +42,28 @@ export const palette = {
 
 export const colors = {
   /** Texto principal sobre fondo claro. */
-  ink: 'text-[#31494A]',
-  inkStrong: 'text-[#22302F]',
-  inkMuted: 'text-[#5C6A69]',
-  inkSubtle: 'text-[#7C8A88]',
+  ink: 'text-[#304744]',
+  inkStrong: 'text-[#263D48]',
+  inkMuted: 'text-[#5A6B6A]',
+  inkSubtle: 'text-[#7D8C8A]',
 
   /** Superficies. */
-  surface: 'bg-[#FFFEFD]',
-  surfaceSunken: 'bg-[#F6FAF2]',
+  surface: 'bg-white',
+  surfaceSunken: 'bg-[#F8FAF6]',
   surfaceRaised: 'bg-white',
 
   /** Marca. */
-  brand: 'bg-[#62DD6B]',
-  brandHover: 'hover:bg-[#52C95E]',
-  brandActive: 'active:bg-[#46B852]',
-  brandSoft: 'bg-[#E8F8E4]',
-  brandSoftHover: 'hover:bg-[#D9F4D2]',
-  brandBorder: 'border-[#B6E9AE]',
-  brandText: 'text-[#2F7F3C]',
-  brandRing: 'ring-[#62DD6B]',
+  brand: 'bg-[#4CDB59]',
+  brandHover: 'hover:bg-[#3FC94D]',
+  brandActive: 'active:bg-[#35B645]',
+  brandSoft: 'bg-[#E9F8EA]',
+  brandSoftHover: 'hover:bg-[#DDF3DD]',
+  brandBorder: 'border-[#B7E8B5]',
+  brandText: 'text-[#2A7A35]',
+  brandRing: 'ring-[#4CDB59]',
 
   /** Neutros. */
-  line: 'border-[#E3E7E1]',
+  line: 'border-[#E6EAE3]',
   lineStrong: 'border-[#ABB1AB]',
   stone: 'bg-[#ABB1AB]',
 
@@ -116,11 +120,11 @@ export const radius = {
 }
 
 export const shadow = {
-  xs: 'shadow-[0_1px_2px_rgba(49,73,74,0.06)]',
-  sm: 'shadow-[0_1px_3px_rgba(49,73,74,0.08),0_1px_2px_rgba(49,73,74,0.04)]',
-  md: 'shadow-[0_4px_14px_rgba(49,73,74,0.10)]',
-  lg: 'shadow-[0_12px_32px_rgba(49,73,74,0.14)]',
-  ring: 'ring-[3px] ring-[#62DD6B]/35',
+  xs: 'shadow-[0_1px_2px_rgba(48,71,68,0.06)]',
+  sm: 'shadow-[0_1px_3px_rgba(48,71,68,0.08),0_1px_2px_rgba(48,71,68,0.04)]',
+  md: 'shadow-[0_4px_14px_rgba(48,71,68,0.10)]',
+  lg: 'shadow-[0_12px_32px_rgba(48,71,68,0.14)]',
+  ring: 'ring-[3px] ring-[#4CDB59]/35',
 }
 
 export const motion = {
@@ -134,7 +138,7 @@ export const motion = {
 /* Foco accesible (WCAG 2.4.7)                                                */
 /* -------------------------------------------------------------------------- */
 
-export const focusRing = 'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#62DD6B]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFEFD]'
+export const focusRing = 'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFFFF]'
 
 /* -------------------------------------------------------------------------- */
 /* Mapas compuestos (los más usados)                                          */
@@ -142,7 +146,7 @@ export const focusRing = 'focus-visible:outline-none focus-visible:ring-[3px] fo
 
 /** Superficie base de cualquier bloque con relieve. */
 export const surfaceCard =
-  'rounded-2xl border border-[#E3E7E1] bg-[#FFFEFD] shadow-[0_1px_3px_rgba(49,73,74,0.08),0_1px_2px_rgba(49,73,74,0.04)]'
+  'rounded-2xl border border-[#E6EAE3] bg-[#FFFFFF] shadow-[0_1px_3px_rgba(48,71,68,0.08),0_1px_2px_rgba(48,71,68,0.04)]'
 
 /** Anillo de foco para elementos interactivos sobre superficie clara. */
 export const focusable = focusRing

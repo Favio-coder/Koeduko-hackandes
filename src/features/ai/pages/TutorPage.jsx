@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Button, Card } from '@/components/ui'
+import { Button, Card, LoadingState } from '@/components/ui'
+import Alert from '@/components/ui/Alert'
+import Icon from '@/components/ui/Icon'
 import { askTutor } from '../services/tutorService'
 
 /**
  * PUNTO DE EXTENSION - DESARROLLADOR 3 (feature/sessions-ai)
  * Debe llamar a la Cloud Function `askTutor` (Gemini en el servidor).
  * Nunca invocar la API de Gemini directamente desde el navegador.
+ *
+ * Solo presentación: mismo envío, mismos mensajes, mismo servicio.
  */
 export default function TutorPage() {
   const { sessionId } = useParams()
@@ -36,27 +40,38 @@ export default function TutorPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold text-slate-900">Tutor IA</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Pistas progresivas. El tutor no entrega la solucion final.
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A7A35]">
+          Aprendizaje guiado
+        </p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#304744] sm:text-3xl">
+          Tutor IA
+        </h1>
+        <p className="mt-1.5 text-sm text-[#5A6B6A]">
+          Pistas progresivas. El tutor no entrega la solución final.
         </p>
       </header>
 
-      <Card title="Conversacion">
+      <Card title="Conversación" padding="md">
         {messages.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            Escribe tu duda. El tutor respondera con una pista, no con la respuesta.
-          </p>
+          <div className="flex items-start gap-3 rounded-2xl bg-[#F8FAF6] p-4">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E9F8EA] text-[#2A7A35]">
+              <Icon name="koala" className="h-5 w-5" />
+            </span>
+            <p className="text-sm text-[#5A6B6A]">
+              Escribe tu duda. El tutor responderá con una pista, no con la respuesta.
+            </p>
+          </div>
         ) : (
           <ul className="space-y-3">
             {messages.map((m, i) => (
               <li
                 key={i}
-                className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                className={[
+                  'max-w-[85%] break-words rounded-2xl px-3.5 py-2.5 text-sm',
                   m.from === 'student'
-                    ? 'ml-auto bg-indigo-600 text-white'
-                    : 'bg-slate-100 text-slate-800'
-                }`}
+                    ? 'ml-auto bg-[#4CDB59] text-[#263D48]'
+                    : 'bg-[#F8FAF6] text-[#304744]',
+                ].join(' ')}
               >
                 {m.text}
               </li>
@@ -64,28 +79,36 @@ export default function TutorPage() {
           </ul>
         )}
 
-        {loading && <p className="mt-3 text-sm text-slate-500">Pensando...</p>}
+        {loading && <LoadingState label="Pensando..." compact />}
+
         {error && (
-          <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
+          <div className="mt-3">
+            <Alert tone="error" compact>
+              {error}
+            </Alert>
+          </div>
         )}
 
-        <form onSubmit={send} className="mt-4 flex gap-2">
+        <form onSubmit={send} className="mt-4 flex flex-col gap-2 sm:flex-row">
           <input
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="¿Como empiezo este problema?"
-            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            placeholder="¿Cómo empiezo este problema?"
+            aria-label="Escribe tu duda al tutor"
+            className="h-11 min-w-0 flex-1 rounded-xl border border-[#ABB1AB]/60 bg-white px-3.5 text-sm text-[#304744] placeholder:text-[#7D8C8A] transition-colors duration-150 focus:border-[#4CDB59] focus:outline-none focus:ring-[3px] focus:ring-[#4CDB59]/40"
           />
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" loading={loading} className="h-11">
             Enviar
           </Button>
         </form>
       </Card>
 
-      <Link to={`/sessions/${sessionId}`} className="text-sm text-indigo-700 hover:underline">
-        Volver a la sesion
+      <Link
+        to={`/sessions/${sessionId}`}
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#2A7A35] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
+      >
+        <Icon name="chevronLeft" className="h-4 w-4" />
+        Volver a la sesión
       </Link>
     </div>
   )

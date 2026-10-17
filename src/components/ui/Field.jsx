@@ -14,14 +14,14 @@ import Icon from './Icon'
 import { Spinner } from './States'
 
 const controlBase = [
-  'w-full rounded-xl border bg-[#FFFEFD] text-sm text-[#31494A] placeholder:text-[#7C8A88]',
+  'w-full rounded-xl border bg-[#FFFFFF] text-sm text-[#304744] placeholder:text-[#7D8C8A]',
   'transition-[background-color,border-color,box-shadow] duration-150 ease-out',
-  'focus:outline-none focus:ring-[3px] focus:ring-[#62DD6B]/40',
-  'disabled:cursor-not-allowed disabled:bg-[#F6FAF2] disabled:text-[#7C8A88]',
+  'focus:outline-none focus:ring-[3px] focus:ring-[#4CDB59]/40',
+  'disabled:cursor-not-allowed disabled:bg-[#F8FAF6] disabled:text-[#7D8C8A]',
 ].join(' ')
 
 const toneClasses = {
-  default: 'border-[#ABB1AB]/60 focus:border-[#62DD6B]',
+  default: 'border-[#ABB1AB]/60 focus:border-[#4CDB59]',
   error: 'border-[#D64545] focus:border-[#D64545] focus:ring-[#D64545]/25',
 }
 
@@ -31,7 +31,7 @@ function FieldShell({ id, label, hint, error, required, children, className = ''
       {(label || labelRight) && (
         <div className="mb-1.5 flex items-baseline justify-between gap-3">
           {label && (
-            <label htmlFor={id} className="text-sm font-semibold text-[#31494A]">
+            <label htmlFor={id} className="text-sm font-semibold text-[#304744]">
               {label}
               {required && (
                 <span className="ml-0.5 text-[#D64545]" aria-hidden="true">
@@ -51,7 +51,7 @@ function FieldShell({ id, label, hint, error, required, children, className = ''
             {error}
           </p>
         ) : (
-          hint && <p id={`${id}-hint`} className="text-xs text-[#5C6A69]">{hint}</p>
+          hint && <p id={`${id}-hint`} className="text-xs text-[#5A6B6A]">{hint}</p>
         )}
       </div>
     </div>
@@ -95,7 +95,7 @@ export function Input({
     >
       <div className="relative">
         {icon && (
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#7C8A88]">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#7D8C8A]">
             <Icon name={icon} className="h-4.5 w-4.5" />
           </span>
         )}
@@ -222,7 +222,7 @@ export function Select({
               ))
             : children}
         </select>
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#5C6A69]">
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#5A6B6A]">
           <Icon name="chevronDown" className="h-4 w-4" />
         </span>
       </div>
@@ -238,7 +238,7 @@ export function Checkbox({ label, description, className = '', id: idProp, ...pr
     <label
       htmlFor={id}
       className={[
-        'flex cursor-pointer items-start gap-2.5 text-sm text-[#31494A]',
+        'flex cursor-pointer items-start gap-2.5 text-sm text-[#304744]',
         'has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-55',
         className,
       ]
@@ -248,12 +248,12 @@ export function Checkbox({ label, description, className = '', id: idProp, ...pr
       <input
         id={id}
         type="checkbox"
-        className="mt-0.5 h-4.5 w-4.5 shrink-0 cursor-pointer appearance-none rounded border border-[#ABB1AB] bg-[#FFFEFD] transition-colors duration-150 checked:border-[#62DD6B] checked:bg-[#62DD6B] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#62DD6B]/40 checked:bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2322302F%22 stroke-width=%223.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m5 12.5 4.5 4.5L19 7.5%22/></svg>')] checked:bg-[length:75%] checked:bg-center checked:bg-no-repeat disabled:cursor-not-allowed"
+        className="mt-0.5 h-4.5 w-4.5 shrink-0 cursor-pointer appearance-none rounded border border-[#ABB1AB] bg-[#FFFFFF] transition-colors duration-150 checked:border-[#4CDB59] checked:bg-[#4CDB59] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/40 checked:bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23263D48%22 stroke-width=%223.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m5 12.5 4.5 4.5L19 7.5%22/></svg>')] checked:bg-[length:75%] checked:bg-center checked:bg-no-repeat disabled:cursor-not-allowed"
         {...props}
       />
       <span className="min-w-0">
         <span className="font-medium">{label}</span>
-        {description && <span className="mt-0.5 block text-xs text-[#5C6A69]">{description}</span>}
+        {description && <span className="mt-0.5 block text-xs text-[#5A6B6A]">{description}</span>}
       </span>
     </label>
   )
@@ -264,13 +264,13 @@ export function RadioGroup({ label, name, options = [], value, onChange, classNa
   return (
     <fieldset className={className}>
       {label && (
-        <legend className="mb-1.5 text-sm font-semibold text-[#31494A]">{label}</legend>
+        <legend className="mb-1.5 text-sm font-semibold text-[#304744]">{label}</legend>
       )}
       <div className="space-y-2">
         {options.map((o) => (
           <label
             key={o.value}
-            className="flex cursor-pointer items-center gap-2.5 text-sm text-[#31494A]"
+            className="flex cursor-pointer items-center gap-2.5 text-sm text-[#304744]"
           >
             <input
               type="radio"
@@ -278,10 +278,10 @@ export function RadioGroup({ label, name, options = [], value, onChange, classNa
               value={o.value}
               checked={value === o.value}
               onChange={() => onChange?.(o.value)}
-              className="h-4.5 w-4.5 shrink-0 cursor-pointer accent-[#62DD6B]"
+              className="h-4.5 w-4.5 shrink-0 cursor-pointer accent-[#4CDB59]"
             />
             <span className="font-medium">{o.label}</span>
-            {o.hint && <span className="text-xs text-[#5C6A69]">{o.hint}</span>}
+            {o.hint && <span className="text-xs text-[#5A6B6A]">{o.hint}</span>}
           </label>
         ))}
       </div>

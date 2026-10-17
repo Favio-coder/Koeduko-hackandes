@@ -6,11 +6,13 @@
  */
 
 export const paletteSamples = [
-  { name: 'Verde bosque', token: 'forest', hex: '#31494A', usage: 'Texto principal, superficies oscuras' },
-  { name: 'Verde principal', token: 'brand', hex: '#62DD6B', usage: 'Acción primaria, acentos, éxito' },
-  { name: 'Verde muy claro', token: 'mist', hex: '#F6FAF2', usage: 'Fondo de página' },
-  { name: 'Blanco cálido', token: 'cream', hex: '#FFFEFD', usage: 'Tarjetas y superficies' },
-  { name: 'Gris natural', token: 'stone', hex: '#ABB1AB', usage: 'Bordes, texto deshabilitado' },
+  { name: 'Verde bosque', token: 'forest', hex: '#304744', usage: 'Sidebar, texto fuerte, superficies oscuras' },
+  { name: 'Verde principal', token: 'brand', hex: '#4CDB59', usage: 'Acción primaria, acentos, ruta activa' },
+  { name: 'Verde menta', token: 'mint', hex: '#E9F8EA', usage: 'Fondos suaves, badges y estados positivos' },
+  { name: 'Fondo principal', token: 'canvas', hex: '#F8FAF6', usage: 'Fondo de página' },
+  { name: 'Blanco', token: 'white', hex: '#FFFFFF', usage: 'Tarjetas y superficies' },
+  { name: 'Texto principal', token: 'ink', hex: '#263D48', usage: 'Texto de máxima legibilidad' },
+  { name: 'Gris natural', token: 'stone', hex: '#ABB1AB', usage: 'Bordes, metadatos, deshabilitado' },
 ]
 
 export const students = [

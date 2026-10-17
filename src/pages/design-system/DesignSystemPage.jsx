@@ -13,13 +13,13 @@
  *     <Route path="/design-system" element={<DesignSystemPage />} />
  */
 import { useState } from 'react'
-import AppShell from '@/components/layout-kit/AppShell'
 import Alert from '@/components/ui/Alert'
 import Avatar from '@/components/ui/Avatar'
 import Button from '@/components/ui/Button'
 import { Badge, Card, ProgressBar } from '@/components/ui/Card'
 import { Checkbox, Input, RadioGroup, Select, Textarea } from '@/components/ui/Field'
 import Icon from '@/components/ui/Icon'
+import Logo from '@/components/ui/Logo'
 import { iconNames } from '@/components/ui/iconNames'
 import ConfirmDialog, { default as Modal } from '@/components/ui/Modal'
 import { Breadcrumbs, PageBody, PageHeader } from '@/components/ui/PageHeader'
@@ -44,25 +44,27 @@ import {
 
 /* Clases literales por token: sin estilos inline para que Tailwind las genere. */
 const swatchClasses = {
-  forest: 'bg-[#31494A]',
-  brand: 'bg-[#62DD6B]',
-  mist: 'bg-[#F6FAF2]',
-  cream: 'bg-[#FFFEFD]',
+  forest: 'bg-[#304744]',
+  brand: 'bg-[#4CDB59]',
+  mint: 'bg-[#E9F8EA]',
+  canvas: 'bg-[#F8FAF6]',
+  white: 'bg-[#FFFFFF]',
+  ink: 'bg-[#263D48]',
   stone: 'bg-[#ABB1AB]',
 }
 
 function Swatch({ name, hex, usage, token }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#E3E7E1] bg-[#FFFEFD]">
+    <div className="overflow-hidden rounded-2xl border border-[#E6EAE3] bg-[#FFFFFF]">
       <div
-        className={`h-20 w-full border-b border-[#E3E7E1] ${swatchClasses[token]}`}
+        className={`h-20 w-full border-b border-[#E6EAE3] ${swatchClasses[token]}`}
         aria-hidden="true"
       />
       <div className="space-y-0.5 p-3">
-        <p className="text-sm font-bold text-[#31494A]">{name}</p>
-        <p className="font-mono text-xs text-[#5C6A69]">{hex}</p>
-        <p className="text-xs text-[#7C8A88]">{usage}</p>
-        <p className="pt-1 font-mono text-[10px] uppercase text-[#2F7F3C]">{token}</p>
+        <p className="text-sm font-bold text-[#304744]">{name}</p>
+        <p className="font-mono text-xs text-[#5A6B6A]">{hex}</p>
+        <p className="text-xs text-[#7D8C8A]">{usage}</p>
+        <p className="pt-1 font-mono text-[10px] uppercase text-[#2A7A35]">{token}</p>
       </div>
     </div>
   )
@@ -87,7 +89,7 @@ function ToastButtons() {
           Error
         </Button>
       </div>
-      <p className="mt-3 text-xs text-[#7C8A88]">
+      <p className="mt-3 text-xs text-[#7D8C8A]">
         Uso: <code className="font-mono">const toast = useToast()</code> →{' '}
         <code className="font-mono">toast.success(&quot;…&quot;)</code>. Requiere{' '}
         <code className="font-mono">&lt;ToastProvider&gt;</code> en el árbol.
@@ -100,8 +102,8 @@ function Section({ id, title, description, children }) {
   return (
     <section id={id} className="scroll-mt-24">
       <div className="mb-4">
-        <h2 className="text-lg font-bold tracking-tight text-[#31494A]">{title}</h2>
-        {description && <p className="mt-1 max-w-3xl text-sm text-[#5C6A69]">{description}</p>}
+        <h2 className="text-lg font-bold tracking-tight text-[#304744]">{title}</h2>
+        {description && <p className="mt-1 max-w-3xl text-sm text-[#5A6B6A]">{description}</p>}
       </div>
       {children}
     </section>
@@ -214,7 +216,7 @@ function Playground() {
             placeholder="Ana Torres"
             icon="users"
             hint="Tal como aparece en el certificado."
-            labelRight={<button type="button" className="text-xs font-semibold text-[#2F7F3C]">Ayuda</button>}
+            labelRight={<button type="button" className="text-xs font-semibold text-[#2A7A35]">Ayuda</button>}
           />
           <Input
             label="Correo institucional"
@@ -322,7 +324,7 @@ function Playground() {
 /* Página                                                                      */
 /* -------------------------------------------------------------------------- */
 
-function Content({ fullDemo, setFullDemo }) {
+function Content() {
   const [section, setSection] = useState('colores')
 
   const demoSections = [
@@ -336,6 +338,7 @@ function Content({ fullDemo, setFullDemo }) {
     { id: 'feedback', title: 'Alertas y toasts' },
     { id: 'modales', title: 'Modales' },
     { id: 'iconos', title: 'Iconos' },
+    { id: 'logo', title: 'Logo' },
     { id: 'layout', title: 'Layout y responsive' },
   ]
 
@@ -355,13 +358,6 @@ function Content({ fullDemo, setFullDemo }) {
           badge={<Badge tone="brand" dot>Sin dependencias nuevas</Badge>}
           actions={
             <>
-              <Button
-                variant={fullDemo ? 'subtle' : 'secondary'}
-                icon="layout"
-                onClick={() => setFullDemo((v) => !v)}
-              >
-                {fullDemo ? 'Salir del shell' : 'Ver dentro del shell'}
-              </Button>
               <Button variant="ghost" icon="refresh" onClick={() => window.location.reload()}>
                 Reiniciar
               </Button>
@@ -379,10 +375,10 @@ function Content({ fullDemo, setFullDemo }) {
                 onClick={() => setSection(s.id)}
                 className={[
                   'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors duration-150',
-                  'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#62DD6B]/40',
+                  'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/40',
                   section === s.id
-                    ? 'bg-[#31494A] text-white'
-                    : 'bg-[#E8F8E4] text-[#2F7F3C] hover:bg-[#D9F4D2]',
+                    ? 'bg-[#304744] text-white'
+                    : 'bg-[#E9F8EA] text-[#2A7A35] hover:bg-[#DDF3DD]',
                 ].join(' ')}
               >
                 {s.title}
@@ -398,14 +394,14 @@ function Content({ fullDemo, setFullDemo }) {
             title="Colores"
             description="Cinco colores de marca. El verde principal se usa como relleno de acción, nunca como texto sobre blanco (no alcanza el contraste AA)."
           >
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
               {paletteSamples.map((s) => (
                 <Swatch key={s.token} {...s} />
               ))}
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <Card title="Contraste" description="Verificado contra WCAG 2.1 AA.">
-                <ul className="space-y-2 text-sm text-[#5C6A69]">
+                <ul className="space-y-2 text-sm text-[#5A6B6A]">
                   <li className="flex items-center justify-between">
                     <span>Verde bosque sobre blanco</span>
                     <Badge tone="success">AA 8.9:1</Badge>
@@ -422,13 +418,13 @@ function Content({ fullDemo, setFullDemo }) {
               </Card>
               <Card title="Fondos" description="Dos niveles de superficie.">
                 <div className="space-y-2">
-                  <div className="rounded-xl border border-[#E3E7E1] bg-[#F6FAF2] p-4 text-sm text-[#31494A]">
+                  <div className="rounded-xl border border-[#E6EAE3] bg-[#F8FAF6] p-4 text-sm text-[#304744]">
                     Verde muy claro · fondo de página
                   </div>
-                  <div className="rounded-xl border border-[#E3E7E1] bg-[#FFFEFD] p-4 text-sm text-[#31494A]">
+                  <div className="rounded-xl border border-[#E6EAE3] bg-[#FFFFFF] p-4 text-sm text-[#304744]">
                     Blanco cálido · tarjetas
                   </div>
-                  <div className="rounded-xl border border-[#E3E7E1] bg-[#E8F8E4] p-4 text-sm text-[#2F7F3C]">
+                  <div className="rounded-xl border border-[#E6EAE3] bg-[#E9F8EA] p-4 text-sm text-[#2A7A35]">
                     Verde suave · acento y éxito
                   </div>
                 </div>
@@ -453,24 +449,24 @@ function Content({ fullDemo, setFullDemo }) {
           >
             <Card>
               <div className="space-y-4">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2F7F3C]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A7A35]">
                   overline · Etiqueta de sección
                 </p>
-                <p className="text-3xl font-bold tracking-tight text-[#31494A] sm:text-4xl">
+                <p className="text-3xl font-bold tracking-tight text-[#304744] sm:text-4xl">
                   Display · Emparejamiento por complementariedad
                 </p>
-                <h2 className="text-xl font-bold tracking-tight text-[#31494A] sm:text-2xl">
+                <h2 className="text-xl font-bold tracking-tight text-[#304744] sm:text-2xl">
                   Título de vista
                 </h2>
-                <p className="text-base font-semibold text-[#31494A] sm:text-lg">Subtítulo</p>
-                <p className="text-sm leading-relaxed text-[#5C6A69]">
+                <p className="text-base font-semibold text-[#304744] sm:text-lg">Subtítulo</p>
+                <p className="text-sm leading-relaxed text-[#5A6B6A]">
                   Cuerpo de texto: 14/1.6. La medida máxima recomendada es de 65 caracteres;
-                  en tarjetas mantenemos el ancho con <code className="rounded bg-[#F6FAF2] px-1.5 py-0.5 font-mono text-xs">max-w-2xl</code>.
+                  en tarjetas mantenemos el ancho con <code className="rounded bg-[#F8FAF6] px-1.5 py-0.5 font-mono text-xs">max-w-2xl</code>.
                 </p>
-                <p className="text-xs text-[#7C8A88]">
+                <p className="text-xs text-[#7D8C8A]">
                   Texto auxiliar · 12px · metadatos, fechas y unidades
                 </p>
-                <p className="font-mono text-sm text-[#5C6A69]">Mono · identificadores y código</p>
+                <p className="font-mono text-sm text-[#5A6B6A]">Mono · identificadores y código</p>
               </div>
             </Card>
           </Section>
@@ -484,18 +480,18 @@ function Content({ fullDemo, setFullDemo }) {
           <Section id="tarjetas" title="Tarjetas y progreso" description="Cuatro variantes de superficie.">
             <div className="grid gap-4 md:grid-cols-2">
               <Card title="Tarjeta estándar" description="Superficie principal con sombra suave.">
-                <p className="text-sm text-[#5C6A69]">
+                <p className="text-sm text-[#5A6B6A]">
                   Por defecto lleva borde tenue, esquinas amplias y elevación mínima.
                 </p>
               </Card>
               <Card variant="flat" title="Tarjeta plana" description="Para listas densas o tablas.">
-                <p className="text-sm text-[#5C6A69]">Sin sombra: el borde hace el trabajo.</p>
+                <p className="text-sm text-[#5A6B6A]">Sin sombra: el borde hace el trabajo.</p>
               </Card>
               <Card variant="accent" title="Tarjeta de acento" description="Zonas de énfasis o estado positivo.">
-                <p className="text-sm text-[#2F7F3C]">Ideal para sugerir el siguiente paso.</p>
+                <p className="text-sm text-[#2A7A35]">Ideal para sugerir el siguiente paso.</p>
               </Card>
               <Card variant="sunken" title="Tarjeta hundida" description="Datos, código o contenido secundario.">
-                <p className="text-sm text-[#5C6A69]">Contraste suave frente a la tarjeta normal.</p>
+                <p className="text-sm text-[#5A6B6A]">Contraste suave frente a la tarjeta normal.</p>
               </Card>
             </div>
 
@@ -526,7 +522,7 @@ function Content({ fullDemo, setFullDemo }) {
               title="Tarjeta interactiva"
               description="Se eleva al hacer hover. Úsala cuando toda la superficie sea un enlace."
             >
-              <p className="text-sm text-[#5C6A69]">
+              <p className="text-sm text-[#5A6B6A]">
                 Pasa el cursor por encima para ver la elevación y el borde de marca.
               </p>
             </Card>
@@ -552,7 +548,7 @@ function Content({ fullDemo, setFullDemo }) {
                   <Badge tone="info" icon="video" size="sm">Meet</Badge>
                   <Badge tone="neutral" size="sm">sm</Badge>
                 </div>
-                <p className="mt-4 text-xs text-[#7C8A88]">
+                <p className="mt-4 text-xs text-[#7D8C8A]">
                   Los tonos <code className="font-mono">slate / indigo / green / amber / red</code> del diseño
                   anterior siguen funcionando como alias.
                 </p>
@@ -562,7 +558,7 @@ function Content({ fullDemo, setFullDemo }) {
                   {students.map((s, i) => (
                     <div key={s.name} className="flex flex-col items-center gap-1.5">
                       <Avatar name={s.name} size={i === 0 ? 'lg' : 'md'} showStatus={i < 2} />
-                      <span className="text-xs text-[#5C6A69]">{s.name.split(' ')[0]}</span>
+                      <span className="text-xs text-[#5A6B6A]">{s.name.split(' ')[0]}</span>
                     </div>
                   ))}
                 </div>
@@ -570,7 +566,7 @@ function Content({ fullDemo, setFullDemo }) {
                   {['xs', 'sm', 'md', 'lg', 'xl'].map((s) => (
                     <div key={s} className="flex flex-col items-center gap-1">
                       <Avatar name="Sofía Herrera" size={s} />
-                      <span className="text-[10px] text-[#7C8A88]">{s}</span>
+                      <span className="text-[10px] text-[#7D8C8A]">{s}</span>
                     </div>
                   ))}
                 </div>
@@ -691,19 +687,46 @@ function Content({ fullDemo, setFullDemo }) {
                   <Tooltip key={name} content={name}>
                     <button
                       type="button"
-                      className="flex w-full flex-col items-center gap-1.5 rounded-xl border border-[#E3E7E1] bg-[#FFFEFD] p-2.5 text-[#31494A] transition-colors duration-150 hover:border-[#62DD6B] hover:bg-[#E8F8E4] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#62DD6B]/40"
+                      className="flex w-full flex-col items-center gap-1.5 rounded-xl border border-[#E6EAE3] bg-[#FFFFFF] p-2.5 text-[#304744] transition-colors duration-150 hover:border-[#4CDB59] hover:bg-[#E9F8EA] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/40"
                     >
                       <Icon name={name} className="h-5 w-5" />
-                      <span className="w-full truncate text-[10px] text-[#7C8A88]">{name}</span>
+                      <span className="w-full truncate text-[10px] text-[#7D8C8A]">{name}</span>
                     </button>
                   </Tooltip>
                 ))}
               </div>
-              <p className="mt-4 text-xs text-[#7C8A88]">
+              <p className="mt-4 text-xs text-[#7D8C8A]">
                 Lista oficial: <code className="font-mono">{iconNames.length}</code> nombres exportados
                 como <code className="font-mono">iconNames</code>.
               </p>
             </Card>
+          </Section>
+
+          {/* ---------------------------------------------------------- */}
+          <Section
+            id="logo"
+            title="Logo y marca"
+            description="Recursos oficiales de public/logo, siempre con object-contain y dimensiones declaradas."
+          >
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card title="Completo" description="Koala + tipografía, para navbar y login.">
+                <div className="flex min-h-28 items-center justify-center rounded-2xl bg-[#F8FAF6] p-4">
+                  <Logo variant="full" size="xl" />
+                </div>
+              </Card>
+              <Card title="Símbolo" description="Solo la cabeza del koala, para sidebar.">
+                <div className="flex min-h-28 items-center justify-center gap-5 rounded-2xl bg-[#304744] p-4">
+                  <Logo variant="mark" size="xl" onDark />
+                  <Logo variant="mark" size="md" onDark />
+                  <Logo variant="mark" size="sm" onDark />
+                </div>
+              </Card>
+              <Card title="Sobre blanco" description="Marco para fondos claros.">
+                <div className="flex min-h-28 items-center justify-center rounded-2xl bg-white p-4">
+                  <Logo variant="full" size="lg" />
+                </div>
+              </Card>
+            </div>
           </Section>
 
           {/* ---------------------------------------------------------- */}
@@ -714,13 +737,13 @@ function Content({ fullDemo, setFullDemo }) {
           >
             <div className="grid gap-4 lg:grid-cols-2">
               <Card title="Sesiones (datos simulados)" description="Lista de ejemplo con badges de estado.">
-                <ul className="divide-y divide-[#E3E7E1]">
+                <ul className="divide-y divide-[#E6EAE3]">
                   {sessions.map((s) => (
                     <li key={s.title} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                       <Avatar name={s.title} size="sm" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-[#31494A]">{s.title}</p>
-                        <p className="text-xs text-[#7C8A88]">{s.date}</p>
+                        <p className="truncate text-sm font-semibold text-[#304744]">{s.title}</p>
+                        <p className="text-xs text-[#7D8C8A]">{s.date}</p>
                       </div>
                       <Badge
                         tone={
@@ -748,8 +771,8 @@ function Content({ fullDemo, setFullDemo }) {
                     <li key={c.name} className="flex items-center gap-3">
                       <Avatar name={c.name} size="sm" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-[#31494A]">{c.name}</p>
-                        <p className="text-xs text-[#7C8A88]">{c.role}</p>
+                        <p className="truncate text-sm font-semibold text-[#304744]">{c.name}</p>
+                        <p className="text-xs text-[#7D8C8A]">{c.role}</p>
                       </div>
                       <Badge tone={c.tone}>{c.complement}%</Badge>
                     </li>
@@ -763,27 +786,27 @@ function Content({ fullDemo, setFullDemo }) {
 
             <div className="mt-4 grid gap-4 md:grid-cols-4">
               <Card variant="sunken" padding="sm" className="text-center">
-                <p className="text-2xl font-bold text-[#31494A]">24</p>
-                <p className="text-xs text-[#5C6A69]">Estudiantes</p>
+                <p className="text-2xl font-bold text-[#304744]">24</p>
+                <p className="text-xs text-[#5A6B6A]">Estudiantes</p>
               </Card>
               <Card variant="sunken" padding="sm" className="text-center">
-                <p className="text-2xl font-bold text-[#31494A]">12</p>
-                <p className="text-xs text-[#5C6A69]">Parejas</p>
+                <p className="text-2xl font-bold text-[#304744]">12</p>
+                <p className="text-xs text-[#5A6B6A]">Parejas</p>
               </Card>
               <Card variant="sunken" padding="sm" className="text-center">
-                <p className="text-2xl font-bold text-[#31494A]">37</p>
-                <p className="text-xs text-[#5C6A69]">Sesiones</p>
+                <p className="text-2xl font-bold text-[#304744]">37</p>
+                <p className="text-xs text-[#5A6B6A]">Sesiones</p>
               </Card>
               <Card variant="sunken" padding="sm" className="text-center">
-                <p className="text-2xl font-bold text-[#2F7F3C]">89%</p>
-                <p className="text-xs text-[#5C6A69]">Compatibilidad media</p>
+                <p className="text-2xl font-bold text-[#2A7A35]">89%</p>
+                <p className="text-xs text-[#5A6B6A]">Compatibilidad media</p>
               </Card>
             </div>
 
             <Alert
               className="mt-4"
               tone="info"
-              title="Responsive verificado"
+              title="Responsive"
               description="La grilla se prueba a 375px, 768px y 1280px. Redimensiona la ventana: el shell de la página ya está activo."
             />
           </Section>
@@ -794,17 +817,9 @@ function Content({ fullDemo, setFullDemo }) {
 }
 
 export default function DesignSystemPage() {
-  const [fullDemo, setFullDemo] = useState(false)
-  const body = <Content fullDemo={fullDemo} setFullDemo={setFullDemo} />
   return (
     <ToastProvider>
-      {fullDemo ? (
-        <AppShell role="teacher" displayName="Ana Torres" email="ana.torres@koeduko.dev">
-          {body}
-        </AppShell>
-      ) : (
-        body
-      )}
+      <Content />
     </ToastProvider>
   )
 }

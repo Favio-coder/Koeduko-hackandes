@@ -21,15 +21,34 @@ import { AppShell } from '@/components/layout-kit'
 
 | Token | Hex | Uso |
 | --- | --- | --- |
-| `forest` | `#31494A` | Texto principal, títulos, superficies oscuras |
-| `brand` | `#62DD6B` | Relleno de acción primaria, acentos, éxito |
-| `mist` | `#F6FAF2` | Fondo de página |
-| `cream` | `#FFFEFD` | Superficie de tarjetas |
+| `forest` | `#304744` | Sidebar, títulos, superficies oscuras |
+| `brand` | `#4CDB59` | Acción primaria, acentos, ruta activa |
+| `mint` | `#E9F8EA` | Fondos suaves, badges, estados positivos |
+| `canvas` | `#F8FAF6` | Fondo de página |
+| `white` | `#FFFFFF` | Superficie de tarjetas |
+| `ink` | `#263D48` | Texto de máxima legibilidad |
 | `stone` | `#ABB1AB` | Bordes, metadatos, texto deshabilitado |
 
-> **Contraste:** `#62DD6B` **no** alcanza AA como texto sobre blanco. Úsalo siempre
-> como fondo (con texto `#22302F`) o como detalle decorativo. El texto va en
-> `forest` / `#5C6A69`.
+Los valores salen de los propios logos (`public/logo/`): muestreados, predominan
+`#304040`–`#305050` (bosque) y `#60E070` (verde brillante).
+
+> **Contraste:** `#4CDB59` **no** alcanza AA como texto sobre blanco. Úsalo siempre
+> como fondo (con texto `#263D48`) o como detalle decorativo. El texto va en
+> `forest` / `#5A6B6A`.
+
+### Logo
+
+`Logo` reutiliza los recursos oficiales, sin generar nuevos logos:
+
+```jsx
+<Logo variant="full" size="md" />        // koala + tipografía (navbar, login)
+<Logo variant="mark" size="md" onDark /> // símbolo, para sidebar verde bosque
+```
+
+Usa `object-contain` + `width/height` declarados. El PNG original pesa 1.6 MB,
+por lo que se referencian derivados reducidos de la **misma imagen**
+(`koeduko-128.png` 19 KB, `koeduko-512.png` 146 KB); los originales quedan
+intactos.
 
 El archivo además exporta mapas de clases ya compuestas (`colors`, `text`,
 `radius`, `shadow`, `motion`, `focusRing`, `surfaceCard`) para quien necesite
@@ -39,7 +58,7 @@ construir un componente propio sin reinventar valores.
 
 Tailwind v4 lee `@theme` desde CSS, pero el proyecto no tiene CSS propio. Como el
 escáner de Tailwind solo detecta clases **escritas literalmente**, el sistema usa
-utilidades arbitrarias completas (`bg-[#62DD6B]`) guardadas en mapas. **Regla para
+utilidades arbitrarias completas (`bg-[#4CDB59]`) guardadas en mapas. **Regla para
 quien agregue clases:** nunca interpolar (`bg-[${c}]` no se generará); escribir la
 clase entera o añadirla al mapa de tokens.
 
@@ -145,11 +164,17 @@ toast.success('Sesión guardada.')
 
 - Navbar fija, sidebar en escritorio (`lg`), drawer en móvil con `Escape`.
 - Enlace de salto al contenido principal.
-- El menú se filtra por rol con `sectionsForRole(role)` (`navConfig.js`).
-- Por defecto lee usuario/rol de `AuthContext`, pero todo se puede pasar por props.
+- El menú se filtra por rol con `itemsForRole(role)` (`navConfig.js`).
+- El shell real está en `@/components/layout` (`DashboardLayout`, `Navbar`,
+  `Sidebar`, `AuthLayout`); `layout-kit/navConfig.js` es la fuente única de rutas
+  y títulos que consumen sidebar y navbar.
 
-> `src/components/layout/*` (el layout actual) **no se tocó**: es territorio de DEV 1.
-> `layout-kit` convive con él para que cada quien migre cuando quiera.
+### Rutas de navegación (todas conservadas)
+
+`Principal` `/dashboard` · `Curso` `/assessments` · `Estudiantes`
+`/dashboard/teacher` (solo docente) · `Emparejamiento` `/matching` ·
+`Resultados` `/matching/results` · `Salas` `/sessions` · `Sesión activa`
+`/sessions/demo-session-1` · `Tutor IA` `/sessions/demo-session-1/tutor`.
 
 ## 5. Vista previa
 

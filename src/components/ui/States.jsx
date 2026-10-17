@@ -14,8 +14,8 @@ import Icon from './Icon'
 
 const spinnerSizes = { sm: 'h-4 w-4 border-2', md: 'h-6 w-6 border-2', lg: 'h-10 w-10 border-[3px]' }
 const spinnerColors = {
-  brand: 'border-[#62DD6B] border-t-transparent',
-  forest: 'border-[#31494A] border-t-transparent',
+  brand: 'border-[#4CDB59] border-t-transparent',
+  forest: 'border-[#304744] border-t-transparent',
   current: 'border-current border-t-transparent',
 }
 
@@ -58,7 +58,7 @@ export function Skeleton({ className = '', rounded = 'md' }) {
     <div
       aria-hidden="true"
       className={[
-        'animate-pulse bg-[#E8ECE6]',
+        'animate-pulse bg-[#EAEEE7]',
         shapes[rounded] ?? shapes.md,
         className,
       ]
@@ -95,7 +95,7 @@ export function LoadingState({ label = 'Cargando…', compact = false, block = f
   return (
     <div
       className={[
-        'flex flex-col items-center justify-center gap-3 text-[#5C6A69]',
+        'flex flex-col items-center justify-center gap-3 text-[#5A6B6A]',
         block ? 'w-full' : 'w-full',
         compact ? 'py-6' : 'py-16',
         className,
@@ -180,7 +180,7 @@ export function EmptyState({
   return (
     <div
       className={[
-        'rounded-2xl border-2 border-dashed border-[#ABB1AB]/45 bg-[#F6FAF2]',
+        'rounded-2xl border-2 border-dashed border-[#ABB1AB]/45 bg-[#F8FAF6]',
         compact ? 'px-5 py-8' : 'px-6 py-14',
         'text-center',
         className,
@@ -188,12 +188,12 @@ export function EmptyState({
         .filter(Boolean)
         .join(' ')}
     >
-      <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#E8F8E4] text-[#2F7F3C]">
+      <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#E9F8EA] text-[#2A7A35]">
         <Icon name={icon} className="h-6 w-6" />
       </span>
-      <p className="text-sm font-bold text-[#31494A]">{title}</p>
+      <p className="text-sm font-bold text-[#304744]">{title}</p>
       {description && (
-        <p className="mx-auto mt-1.5 max-w-md text-sm text-[#5C6A69]">{description}</p>
+        <p className="mx-auto mt-1.5 max-w-md text-sm text-[#5A6B6A]">{description}</p>
       )}
       {action && <div className="mt-5 flex justify-center gap-2">{action}</div>}
     </div>

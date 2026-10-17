@@ -69,8 +69,8 @@ export default function Tooltip({
           id={id}
           className={[
             'pointer-events-none absolute z-40 w-max max-w-[16rem] rounded-lg px-2.5 py-1.5',
-            'bg-[#31494A] text-xs font-medium leading-snug text-white',
-            'shadow-[0_8px_24px_rgba(49,73,74,0.28)]',
+            'bg-[#304744] text-xs font-medium leading-snug text-white',
+            'shadow-[0_8px_24px_rgba(48,71,68,0.28)]',
             positions[position] ?? positions.top,
           ].join(' ')}
         >
