@@ -21,16 +21,3 @@ export function canRequestBot(bot, nowMs) {
   }
   return false
 }
-
-/**
- * URL publica de recallWebhook. Un override explicito gana; si no, se deriva:
- * https://<region>-<project>.cloudfunctions.net/recallWebhook
- */
-export function resolveWebhookUrl({ override, functionsRegion, projectId }) {
-  const explicit = typeof override === 'string' ? override.trim() : ''
-  if (explicit) return explicit
-  if (!functionsRegion || !projectId) {
-    throw new TypeError('Falta la region o el proyecto para derivar la URL del webhook.')
-  }
-  return `https://${functionsRegion}-${projectId}.cloudfunctions.net/recallWebhook`
-}

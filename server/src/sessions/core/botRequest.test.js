@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { STALE_REQUEST_MS, canRequestBot, resolveWebhookUrl } from './botRequest.js'
+import { STALE_REQUEST_MS, canRequestBot } from './botRequest.js'
 
 const NOW = 1_000_000
 
@@ -28,23 +28,5 @@ describe('canRequestBot', () => {
     const old = NOW - STALE_REQUEST_MS - 1
     expect(canRequestBot({ id: null, status: 'requested', requestedAtMs: old }, NOW)).toBe(true)
     expect(canRequestBot({ id: null, status: 'requested' }, NOW)).toBe(true)
-  })
-})
-
-describe('resolveWebhookUrl', () => {
-  it('prefers an explicit override', () => {
-    expect(
-      resolveWebhookUrl({ override: ' https://x.test/hook ', functionsRegion: 'europe-west1', projectId: 'p' }),
-    ).toBe('https://x.test/hook')
-  })
-
-  it('derives the URL from region and project', () => {
-    expect(resolveWebhookUrl({ override: '', functionsRegion: 'europe-west1', projectId: 'koeduko-app' })).toBe(
-      'https://europe-west1-koeduko-app.cloudfunctions.net/recallWebhook',
-    )
-  })
-
-  it('fails when it cannot derive the URL', () => {
-    expect(() => resolveWebhookUrl({ override: '', functionsRegion: 'europe-west1', projectId: '' })).toThrow(TypeError)
   })
 })
