@@ -82,6 +82,11 @@ service cloud.firestore {
         allow read: if isTeacher() || (isStudent() && resource.data.studentId == request.auth.uid);
         allow write: if false; // Solo Cloud Functions escriben aqui.
       }
+
+      match /liveEvents/{eventId} {
+        allow read: if isTeacher() || isStudent();
+        allow write: if false; // Solo Cloud Functions (recallWebhook) escriben aqui.
+      }
     }
 
     match /{document=**} {
