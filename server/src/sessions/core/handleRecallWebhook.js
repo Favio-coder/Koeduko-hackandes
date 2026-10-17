@@ -23,11 +23,14 @@ export function tokensMatch(received, expected) {
  * @param {{
  *   expectedToken: string,
  *   saveEvent: (sessionId: string, eventId: string, event: object) => Promise<void>,
+ *   onSaved?: (saved: { sessionId: string, eventId: string, event: object }) => void,
  *   logger: { info: Function, warn: Function, error: Function },
  * }} deps
+ * onSaved se llama despues de guardar, sin esperar su resultado: sirve para encolar trabajo
+ * posterior (senales, tutor) sin retrasar la respuesta a Recall. Si falla, no cambia el 200.
  * @returns {Promise<{ status: 200 | 401 }>}
  */
-export async function handleRecallWebhook({ token, body }, { expectedToken, saveEvent, logger }) {
+export async function handleRecallWebhook({ token, body }, { expectedToken, saveEvent, onSaved, logger }) {
   if (!tokensMatch(token, expectedToken)) {
     logger.warn('recallWebhook: token rechazado')
     return { status: 401 }
@@ -43,11 +46,26 @@ export async function handleRecallWebhook({ token, body }, { expectedToken, save
     const { sessionId, eventId, event } = normalized
     await saveEvent(sessionId, eventId, event)
     logger.info('recallWebhook: evento guardado', { sessionId, type: event.type })
+
+    try {
+      onSaved?.({ sessionId, eventId, event })
+    } catch (error) {
+      logger.error('recallWebhook: fallo el trabajo posterior', safeErrorInfo(error))
+    }
   } catch (error) {
-    logger.error('recallWebhook: no se pudo guardar el evento', {
-      name: error?.name ?? 'Error',
-      code: error?.code ?? null,
-    })
+    logger.error('recallWebhook: no se pudo guardar el evento', safeErrorInfo(error))
   }
   return { status: 200 }
+}
+
+/**
+ * Datos seguros de un error para el log: nombre y codigo siempre; el mensaje solo si lo
+ * escribimos nosotros (`expose`), nunca el de librerias, que puede traer datos sensibles.
+ */
+function safeErrorInfo(error) {
+  return {
+    name: error?.name ?? 'Error',
+    code: error?.code ?? null,
+    ...(error?.expose === true ? { detail: error.message } : {}),
+  }
 }

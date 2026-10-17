@@ -77,6 +77,49 @@ describe('handleRecallWebhook', () => {
     expect(logger.error).toHaveBeenCalledWith(expect.any(String), { name: 'Error', code: 'unavailable' })
   })
 
+  it('logs the message only for errors we wrote (expose), never for library errors', async () => {
+    const ours = Object.assign(new Error('FIREBASE_SERVICE_ACCOUNT_B64 (falta)'), { expose: true, code: 'server-misconfigured' })
+    const theirs = new Error('library error with sensitive details')
+
+    const withOurs = setup({ saveEvent: vi.fn().mockRejectedValue(ours) })
+    await handleRecallWebhook({ token: EXPECTED, body }, withOurs.deps)
+    expect(withOurs.logger.error).toHaveBeenCalledWith(expect.any(String), {
+      name: 'Error',
+      code: 'server-misconfigured',
+      detail: 'FIREBASE_SERVICE_ACCOUNT_B64 (falta)',
+    })
+
+    const withTheirs = setup({ saveEvent: vi.fn().mockRejectedValue(theirs) })
+    await handleRecallWebhook({ token: EXPECTED, body }, withTheirs.deps)
+    expect(JSON.stringify(withTheirs.logger.error.mock.calls)).not.toContain('sensitive details')
+  })
+
+  it('calls onSaved with the saved event after a successful save', async () => {
+    const onSaved = vi.fn()
+    const { deps } = setup({ onSaved })
+
+    await handleRecallWebhook({ token: EXPECTED, body }, deps)
+
+    expect(onSaved).toHaveBeenCalledTimes(1)
+    expect(onSaved.mock.calls[0][0]).toMatchObject({ sessionId: 'session-001', event: { type: 'speech_on' } })
+  })
+
+  it('does not call onSaved when nothing was saved', async () => {
+    const onSaved = vi.fn()
+    const failing = setup({ onSaved, saveEvent: vi.fn().mockRejectedValue(new Error('x')) })
+    await handleRecallWebhook({ token: EXPECTED, body }, failing.deps)
+    await handleRecallWebhook({ token: 'wrong', body }, failing.deps)
+    await handleRecallWebhook({ token: EXPECTED, body: null }, failing.deps)
+    expect(onSaved).not.toHaveBeenCalled()
+  })
+
+  it('still answers 200 when onSaved throws', async () => {
+    const { deps, logger } = setup({ onSaved: vi.fn(() => { throw new Error('boom') }) })
+    const result = await handleRecallWebhook({ token: EXPECTED, body }, deps)
+    expect(result.status).toBe(200)
+    expect(logger.error).toHaveBeenCalledTimes(1)
+  })
+
   it('returns 200 for malformed bodies', async () => {
     const { deps } = setup()
     expect((await handleRecallWebhook({ token: EXPECTED, body: null }, deps)).status).toBe(200)
