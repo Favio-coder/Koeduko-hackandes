@@ -22,12 +22,45 @@ describe('normalizeRecallEvent', () => {
     expect(result.event).toEqual({
       type: 'speech_on',
       participantKey: 'ana torres',
+      participantId: 100,
       studentId: null,
       t: 132.4,
       tEnd: null,
       text: null,
       occurredAt: '2026-10-17T20:00:00Z',
     })
+  })
+
+  it('stores join and leave so participants can be mapped and reconnections detected', () => {
+    const join = normalizeRecallEvent(speech('participant_events.join', 0.5))
+    const leave = normalizeRecallEvent(speech('participant_events.leave', 16.2))
+
+    expect(join.event).toMatchObject({ type: 'join', participantKey: 'ana torres', participantId: 100, t: 0.5, text: null })
+    expect(leave.event).toMatchObject({ type: 'leave', participantKey: 'ana torres', participantId: 100, t: 16.2 })
+    expect(join.eventId).toMatch(/^evt-join/)
+    expect(leave.eventId).toMatch(/^evt-leave/)
+  })
+
+  it('tells a reconnection apart: same name, new Recall participant id', () => {
+    const make = (id, relative) =>
+      normalizeRecallEvent({
+        event: 'participant_events.join',
+        data: { data: { participant: { id, name: 'Luis' }, timestamp: { relative } }, bot },
+      })
+    const first = make(5, 3)
+    const again = make(9, 40)
+
+    expect(first.event.participantKey).toBe(again.event.participantKey)
+    expect(first.event.participantId).not.toBe(again.event.participantId)
+    expect(first.eventId).not.toBe(again.eventId)
+  })
+
+  it('uses a null participantId when Recall does not send a numeric id', () => {
+    const result = normalizeRecallEvent({
+      event: 'participant_events.join',
+      data: { data: { participant: { name: 'Luis' }, timestamp: { relative: 1 } }, bot },
+    })
+    expect(result.event.participantId).toBeNull()
   })
 
   it('keeps the absolute time of the last word end for transcripts', () => {
@@ -125,7 +158,7 @@ describe('normalizeRecallEvent', () => {
   })
 
   it.each([
-    ['unused event types', { ...speech('participant_events.join', 1) }],
+    ['unused event types', { ...speech('participant_events.chat_message', 1) }],
     ['a missing sessionId', { ...speech('participant_events.speech_on', 1), data: { data: speech('x', 1).data.data, bot: { id: 'b', metadata: {} } } }],
     ['an unsafe sessionId', { ...speech('participant_events.speech_on', 1), data: { data: speech('x', 1).data.data, bot: { id: 'b', metadata: { sessionId: 'a/b' } } } }],
     ['a missing timestamp', { event: 'participant_events.speech_on', data: { data: { participant }, bot } }],

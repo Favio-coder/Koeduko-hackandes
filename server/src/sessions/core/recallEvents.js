@@ -14,6 +14,9 @@ const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
 const EVENT_TYPES = {
   'participant_events.speech_on': 'speech_on',
   'participant_events.speech_off': 'speech_off',
+  // join/leave se guardan para mapear participantes a estudiantes y detectar reconexiones.
+  'participant_events.join': 'join',
+  'participant_events.leave': 'leave',
   'transcript.data': 'transcript',
 }
 
@@ -84,6 +87,16 @@ export function normalizeRecallEvent(payload) {
   return {
     sessionId,
     eventId,
-    event: { type, participantKey: participantKeyOf(participant), studentId: null, t, tEnd, text, occurredAt },
+    event: {
+      type,
+      participantKey: participantKeyOf(participant),
+      // Id de Recall del participante: distingue a dos personas con el mismo nombre y revela reconexiones.
+      participantId: Number.isFinite(participant?.id) ? participant.id : null,
+      studentId: null,
+      t,
+      tEnd,
+      text,
+      occurredAt,
+    },
   }
 }
