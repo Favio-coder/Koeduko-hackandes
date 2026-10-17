@@ -1,4 +1,13 @@
-import { buildInterventionPrompt, addresseeOf, cleanMessage, fallbackMessage, validateMessage } from './core/interventionPolicy.js'
+import {
+  addresseeOf,
+  buildHintPrompt,
+  buildInterventionPrompt,
+  cleanMessage,
+  fallbackHint,
+  fallbackMessage,
+  validateHint,
+  validateMessage,
+} from './core/interventionPolicy.js'
 import { DEFAULT_TIMEOUT_MS } from './adapters/gemini.js'
 
 class TutorTimeoutError extends Error {
@@ -18,34 +27,66 @@ function withTimeout(promise, ms) {
 }
 
 /**
- * Redacta la intervencion. Gemini solo REDACTA: que se intervenga y a quien lo decidio el motor.
- * Si Gemini falla, tarda mas de `timeoutMs`, no hay key o responde algo que rompe la politica
- * (mas de 2 oraciones, la respuesta, sin nombre, fuera de tema...), se usa el mensaje determinista.
+ * Mecanismo comun del tutor, para intervenciones en vivo y pistas bajo demanda: pide el texto a
+ * Gemini con tiempo limite, lo limpia y lo valida con la politica. Si no hay generador, Gemini falla,
+ * tarda mas de `timeoutMs` o responde algo que rompe la politica, devuelve el mensaje de respaldo:
+ * el tutor nunca queda mudo.
  *
- * @param {{
- *   signal: object, problem?: object|null, transcriptTail?: { k: string, x: string }[],
- *   generate?: ((input: { systemInstruction: string, userPrompt: string, timeoutMs: number }) => Promise<string>)|null,
- *   timeoutMs?: number,
- * }} input
  * @returns {Promise<{ message: string, source: 'gemini'|'fallback', reason: string|null }>}
  */
-export async function composeIntervention({ signal, problem = null, transcriptTail = [], generate = null, timeoutMs = DEFAULT_TIMEOUT_MS }) {
-  const fallback = () => fallbackMessage(signal, { problem })
+async function composeWithFallback({ buildPrompt, validate, fallback, generate, timeoutMs }) {
   if (!generate) return { message: fallback(), source: 'fallback', reason: 'no-generator' }
 
   try {
-    const { systemInstruction, userPrompt } = buildInterventionPrompt({ signal, problem, transcriptTail })
+    const { systemInstruction, userPrompt } = buildPrompt()
     const raw = await withTimeout(generate({ systemInstruction, userPrompt, timeoutMs }), timeoutMs)
     const message = cleanMessage(raw)
-    const check = validateMessage(message, {
-      addressee: addresseeOf(signal),
-      expectedAnswer: problem?.expectedAnswer ?? null,
-      problemText: problem?.text || null,
-    })
+    const check = validate(message)
     if (check.ok) return { message, source: 'gemini', reason: null }
     return { message: fallback(), source: 'fallback', reason: `invalid:${check.reason}` }
   } catch (error) {
     const reason = error?.name === 'TutorTimeoutError' ? 'timeout' : (error?.reason ?? 'error')
     return { message: fallback(), source: 'fallback', reason }
   }
+}
+
+/**
+ * Redacta la intervencion de una senal. Gemini solo REDACTA: que se intervenga y a quien lo decidio
+ * el motor.
+ *
+ * @param {{
+ *   signal: object, problem?: object|null, transcriptTail?: { k: string, x: string }[],
+ *   generate?: ((input: { systemInstruction: string, userPrompt: string, timeoutMs: number }) => Promise<string>)|null,
+ *   timeoutMs?: number,
+ * }} input
+ */
+export function composeIntervention({ signal, problem = null, transcriptTail = [], generate = null, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+  return composeWithFallback({
+    buildPrompt: () => buildInterventionPrompt({ signal, problem, transcriptTail }),
+    validate: (message) =>
+      validateMessage(message, {
+        addressee: addresseeOf(signal),
+        expectedAnswer: problem?.expectedAnswer ?? null,
+        problemText: problem?.text || null,
+      }),
+    fallback: () => fallbackMessage(signal, { problem }),
+    generate,
+    timeoutMs,
+  })
+}
+
+/**
+ * Redacta la pista que pide un estudiante desde la pantalla del tutor (ask-tutor). Usa el mismo
+ * adaptador, la misma politica y el mismo respaldo que la intervencion en vivo.
+ *
+ * @param {{ question: string, problem?: object|null, generate?: Function|null, timeoutMs?: number }} input
+ */
+export function composeHint({ question, problem = null, generate = null, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+  return composeWithFallback({
+    buildPrompt: () => buildHintPrompt({ question, problem }),
+    validate: (message) => validateHint(message, { expectedAnswer: problem?.expectedAnswer ?? null }),
+    fallback: () => fallbackHint({ problem }),
+    generate,
+    timeoutMs,
+  })
 }
