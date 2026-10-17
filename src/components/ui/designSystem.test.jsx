@@ -85,6 +85,29 @@ describe('Estados', () => {
   it('LoadingState es un status con etiqueta', () => {
     render(<LoadingState label="Cargando sesiones" />)
     expect(screen.getByRole('status')).toHaveTextContent('Cargando sesiones')
+    expect(screen.getByRole('status')).toHaveClass('fixed', 'inset-0', 'z-[100]')
+    expect(screen.getByRole('status')).toHaveClass('bg-[#F8FAF6]/75', 'backdrop-blur-sm')
+    expect(document.querySelector('video').parentElement).toHaveClass(
+      'h-40',
+      'w-40',
+      'sm:h-56',
+      'sm:w-56',
+    )
+    expect(document.querySelector('video')).toHaveAttribute('src', '/carga/carga.mp4')
+    expect(document.querySelector('video')).toHaveProperty('muted', true)
+    expect(screen.getByRole('status').querySelector('.animate-spin')).not.toBeInTheDocument()
+  })
+
+  it('permite mostrar la carga dentro del contenido cuando se marca inline', () => {
+    render(<LoadingState label="Cargando vista previa" compact inline />)
+    expect(screen.getByRole('status')).not.toHaveClass('fixed')
+    expect(document.querySelector('video').parentElement).toHaveClass('h-12', 'w-12')
+  })
+
+  it('los botones en estado loading usan el video de marca', () => {
+    render(<Button loading>Guardando</Button>)
+    expect(document.querySelector('video')).toHaveAttribute('src', '/carga/carga.mp4')
+    expect(screen.getByRole('button')).toHaveAttribute('aria-busy', 'true')
   })
 
   it('ErrorState muestra el mensaje del error y el reintento', () => {

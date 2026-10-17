@@ -590,10 +590,10 @@ function Content() {
           <Section id="estados" title="Estados" description="Carga, error y vacío. Se usan dentro de cualquier vista.">
             <div className="grid gap-4 lg:grid-cols-3">
               <Card title="Carga">
-                <LoadingState label="Calculando compatibilidad…" compact />
+                <LoadingState label="Calculando compatibilidad…" compact inline />
               </Card>
               <Card title="Carga compacta">
-                <LoadingState label="Guardando" compact />
+                <LoadingState label="Guardando" compact inline />
               </Card>
               <Card title="Spinner suelto">
                 <div className="flex items-center gap-4 py-6">
