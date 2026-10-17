@@ -30,7 +30,12 @@ export function createRecallWebhookHandler({ getExpectedToken, getStore, afterSa
       { token, body },
       {
         expectedToken: getExpectedToken(),
-        saveEvent: (sessionId, eventId, event) => getStore().processLiveEvent(sessionId, eventId, event),
+        saveEvent: async (sessionId, eventId, event) => {
+          const startedAt = Date.now()
+          const result = await getStore().processLiveEvent(sessionId, eventId, event)
+          // Tiempo real de proceso en el servidor (sin la red hasta Recall): sirve para saber si aguanta el ritmo.
+          return result && typeof result === 'object' ? { ...result, ms: Date.now() - startedAt } : result
+        },
         onSaved: (saved) =>
           waitUntil(
             Promise.resolve(afterSave(saved)).catch((error) =>

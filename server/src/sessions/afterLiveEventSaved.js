@@ -67,7 +67,7 @@ export function createAfterLiveEventSaved({
       ...(composed.reason ? { reason: composed.reason } : {}),
       ms: now() - startedAt,
       // El texto menciona a un nino por su nombre: solo se registra si se pide expresamente.
-      ...(logText ? { message: composed.message } : {}),
+      ...(logText ? { text: composed.message } : {}),
     })
   }
 }

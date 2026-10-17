@@ -149,3 +149,18 @@ describe('recall-webhook handler', () => {
     expect(store.processLiveEvent).not.toHaveBeenCalled()
   })
 })
+
+describe('recall-webhook handler: timing', () => {
+  it('adds the server-side processing time to the result it passes along', async () => {
+    const { handler, deps } = setup()
+    deps.getStore().processLiveEvent.mockResolvedValue({ evaluated: false, ops: { reads: 1, writes: 2, attempts: 1 } })
+
+    await handler(post({ token: TOKEN }), fakeRes())
+
+    expect(deps.afterSave).toHaveBeenCalledTimes(1)
+    const [{ result }] = deps.afterSave.mock.calls[0]
+    expect(result.ops).toEqual({ reads: 1, writes: 2, attempts: 1 })
+    expect(result.ms).toBeGreaterThanOrEqual(0)
+    expect(deps.logger.info).toHaveBeenCalledWith('recallWebhook: evento guardado', expect.objectContaining({ reads: 1, writes: 2, ms: expect.any(Number) }))
+  })
+})

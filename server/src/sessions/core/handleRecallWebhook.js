@@ -62,7 +62,13 @@ export async function handleRecallWebhook({ token, body }, { expectedToken, save
 function opsOf(result) {
   const ops = result?.ops
   if (!ops) return {}
-  return { reads: ops.reads, writes: ops.writes, attempts: ops.attempts, evaluated: Boolean(result.evaluated) }
+  return {
+    reads: ops.reads,
+    writes: ops.writes,
+    attempts: ops.attempts,
+    evaluated: Boolean(result.evaluated),
+    ...(Number.isFinite(result.ms) ? { ms: result.ms } : {}),
+  }
 }
 
 /**

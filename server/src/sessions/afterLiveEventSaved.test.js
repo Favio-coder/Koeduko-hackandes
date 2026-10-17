@@ -92,7 +92,7 @@ describe('afterLiveEventSaved', () => {
 
     const verbose = setup({ options: { logText: true } })
     await verbose.hook({ sessionId: 's1', result })
-    expect(verbose.logger.info).toHaveBeenCalledWith('afterLiveEventSaved: intervencion', expect.objectContaining({ message: expect.stringContaining('Estudiante B') }))
+    expect(verbose.logger.info).toHaveBeenCalledWith('afterLiveEventSaved: intervencion', expect.objectContaining({ text: expect.stringContaining('Estudiante B') }))
   })
 
   it('logs the fallback reason and how long it took', async () => {
