@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   stuckMarkersMin: 2, // >= 2 marcadores de confusion en la ventana
   cooldownSec: 90, // la misma senal no se repite antes de 90 s
   evalEverySec: 5, // como maximo una evaluacion de senales cada 5 s por sesion
-  maxTranscripts: 15, // transcripciones que se conservan en el estado
+  maxTranscripts: 20, // transcripciones que se conservan en el estado (la pantalla muestra 20)
   maxIntervals: 400, // tope de intervalos de habla en el estado
   maxInterventions: 30, // intervenciones recientes que se conservan en el estado
   botKeys: Object.freeze(['tutor koeduko']), // el bot nunca cuenta como participante

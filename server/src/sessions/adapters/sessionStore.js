@@ -1,6 +1,8 @@
 import { canRequestBot } from '../core/botRequest.js'
 import { emptyState, evaluateDue, ingestEvent, problemFromSession } from '../core/liveEngine.js'
+import { viewOf } from '../core/liveView.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
+import { DEFAULT_CONFIG } from '../core/signals.js'
 import { SessionBotError } from '../errors.js'
 
 const ALREADY_EXISTS = 6 // codigo gRPC de Firestore cuando create() encuentra el documento
@@ -38,6 +40,8 @@ export function createSessionStore({ db, FieldValue }) {
      *   - 1 lectura  : learningSessions/{id}/live/state (estado incremental del motor)
      *   - 1 lectura  : la sesion, SOLO cuando toca evaluar (como mucho cada ~5 s) para traer el problema
      *   - 1 escritura: el estado actualizado (se omite si el evento no cambio nada)
+     *   - 1 escritura: live/view para la interfaz, SOLO al evaluar (la pantalla recibe ~12 veces menos cambios
+     *     que si leyera live/state, y cada cambio entregado a cada espectador cuenta como una lectura)
      *   - 1 escritura: el liveEvent crudo, salvo speech_on/off (id determinista: reenviarlo es idempotente)
      * Devuelve tambien las operaciones realmente ejecutadas (con reintentos) para medir la cuota.
      *
@@ -45,6 +49,7 @@ export function createSessionStore({ db, FieldValue }) {
      */
     async processLiveEvent(sessionId, eventId, event, { config = {} } = {}) {
       const stateRef = db.doc(`learningSessions/${sessionId}/live/state`)
+      const viewRef = db.doc(`learningSessions/${sessionId}/live/view`)
       const eventRef = db.doc(`learningSessions/${sessionId}/liveEvents/${eventId}`)
       const ops = { reads: 0, writes: 0, attempts: 0 }
 
@@ -78,6 +83,10 @@ export function createSessionStore({ db, FieldValue }) {
 
         if (state !== before) {
           tx.set(stateRef, state)
+          writes += 1
+        }
+        if (ingested.due) {
+          tx.set(viewRef, viewOf(state, { ...DEFAULT_CONFIG, ...config }))
           writes += 1
         }
         if (!STATE_ONLY_EVENTS.has(event.type)) {

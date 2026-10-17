@@ -44,18 +44,19 @@ function fakeFirestore({ docs = {}, abortFirst = 0, createExists = false } = {})
 }
 
 const STATE = 'learningSessions/s1/live/state'
+const VIEW = 'learningSessions/s1/live/view'
 const SESSION = 'learningSessions/s1'
 
 describe('processLiveEvent: Firestore cost per event', () => {
-  it('costs 2 reads (state + session, because it is the first evaluation) and 2 writes on the first event', async () => {
+  it('costs 2 reads (state + session, because it is the first evaluation) and 3 writes on the first event (state, view, raw join)', async () => {
     const { firebase, committed, readPaths } = fakeFirestore()
     const result = await createSessionStore(firebase).processLiveEvent('s1', 'evt-1', join('a', 0))
 
-    expect(result.ops).toEqual({ reads: 2, writes: 2, attempts: 1 })
+    expect(result.ops).toEqual({ reads: 2, writes: 3, attempts: 1 })
     expect(result.evaluated).toBe(true)
     expect(readPaths).toEqual([STATE, SESSION])
-    expect(committed.map((w) => w.path)).toEqual([STATE, 'learningSessions/s1/liveEvents/evt-1'])
-    expect(committed[1].data).toMatchObject({ type: 'join', receivedAt: 'SERVER_TS' })
+    expect(committed.map((w) => w.path)).toEqual([STATE, VIEW, 'learningSessions/s1/liveEvents/evt-1'])
+    expect(committed[2].data).toMatchObject({ type: 'join', receivedAt: 'SERVER_TS' })
     expect(committed[0].data).toMatchObject({ v: 1, lastT: 0, lastEvalT: 0, presence: [{ k: 'a', s: 0 }] })
   })
 
@@ -98,7 +99,7 @@ describe('processLiveEvent: Firestore cost per event', () => {
 
     const result = await store.processLiveEvent('s1', 'evt-3', on('b', 5))
 
-    expect(result.ops).toEqual({ reads: 2, writes: 1, attempts: 1 })
+    expect(result.ops).toEqual({ reads: 2, writes: 2, attempts: 1 }) // el estado y la vista; el habla no se guarda cruda
     expect(readPaths).toEqual([STATE, SESSION])
   })
 
@@ -117,8 +118,8 @@ describe('processLiveEvent: Firestore cost per event', () => {
     const { firebase, committed } = fakeFirestore({ abortFirst: 2 })
     const result = await createSessionStore(firebase).processLiveEvent('s1', 'evt-1', join('a', 0))
 
-    expect(result.ops).toEqual({ reads: 6, writes: 2, attempts: 3 })
-    expect(committed).toHaveLength(2)
+    expect(result.ops).toEqual({ reads: 6, writes: 3, attempts: 3 })
+    expect(committed).toHaveLength(3)
   })
 
   it('stays flat as the session grows: 200 speech events cost about 1 read and 1 write each', async () => {
@@ -133,7 +134,43 @@ describe('processLiveEvent: Firestore cost per event', () => {
     }
     // 200 eventos en ~80 s de sesion -> ~16 evaluaciones (una lectura extra de la sesion cada una)
     expect(reads).toBeLessThanOrEqual(200 + 20)
-    expect(writes).toBe(200) // solo el estado: el habla no se guarda cruda
+    // el estado en cada evento + la vista en cada evaluacion (~16): el habla no se guarda cruda
+    expect(writes).toBeGreaterThanOrEqual(200)
+    expect(writes).toBeLessThanOrEqual(200 + 20)
+  })
+})
+
+describe('processLiveEvent: the view for the screen', () => {
+  it('writes live/view only when it evaluates, with the speech share already computed', async () => {
+    const { firebase, committed } = fakeFirestore()
+    const store = createSessionStore(firebase)
+
+    await store.processLiveEvent('s1', 'e1', join('a', 0)) // evalua: escribe la vista
+    await store.processLiveEvent('s1', 'e2', join('b', 0)) // no evalua
+    await store.processLiveEvent('s1', 'e3', on('a', 1)) // no evalua
+    await store.processLiveEvent('s1', 'e4', say('a', 2, 4, 'hola a todos')) // no evalua
+    expect(committed.filter((w) => w.path === VIEW)).toHaveLength(1)
+
+    await store.processLiveEvent('s1', 'e5', on('b', 10)) // evalua: nueva vista
+    const views = committed.filter((w) => w.path === VIEW)
+    expect(views).toHaveLength(2)
+
+    const view = views.at(-1).data
+    expect(view.participants).toEqual([
+      expect.objectContaining({ key: 'a', name: 'A', sharePct: 100 }),
+      expect.objectContaining({ key: 'b', name: 'B', sharePct: 0, speaking: true }),
+    ])
+    expect(view.transcripts).toEqual([{ key: 'a', name: 'A', text: 'hola a todos', t: 4 }])
+  })
+
+  it('never puts the expected answer in the view even when a problem is active', async () => {
+    const session = { currentProblem: { id: 'p-03', text: '6 x 8', expectedAnswer: 48, skillId: 'm' } }
+    const { firebase, committed } = fakeFirestore({ docs: { [SESSION]: session } })
+    const store = createSessionStore(firebase)
+    await store.processLiveEvent('s1', 'e1', join('a', 0))
+    await store.processLiveEvent('s1', 'e2', say('a', 6, 8, 'son cuarenta y ocho'))
+    const stored = committed.filter((w) => w.path === VIEW || w.path === STATE).map((w) => JSON.stringify(w.data)).join(' ')
+    expect(stored).not.toContain('expectedAnswer')
   })
 })
 
