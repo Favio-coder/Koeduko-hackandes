@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Badge, Button, Card, ProgressBar } from '@/components/ui'
 import Avatar from '@/components/ui/Avatar'
 import Icon from '@/components/ui/Icon'
@@ -20,6 +21,56 @@ function StatCard({ label, value, icon, hint }) {
   )
 }
 
+/**
+ * Acceso rápido: tarjeta ilustrada que lleva al inicio de cada módulo.
+ *
+ * La ilustración es decorativa (`alt` vacío) y el enlace lleva `aria-label`
+ * con la acción, para no duplicar la lectura del texto.
+ */
+function QuickAction({ to, label, hint, img, icon }) {
+  return (
+    <Link
+      to={to}
+      aria-label={label}
+      className={[
+        'group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#E6EAE3] bg-white',
+        'transition-[box-shadow,border-color,transform] duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none',
+        'hover:-translate-y-1 hover:border-[#B7E8B5] hover:shadow-[0_12px_32px_rgba(48,71,68,0.14)]',
+        'active:scale-[0.99] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/55 focus-visible:ring-offset-2',
+      ].join(' ')}
+    >
+      {/* El ligero zoom recorta el borde oscuro incluido en los PNG sin editar los originales. */}
+      <div className="aspect-[1.94/1] w-full overflow-hidden bg-[#F8FAF6]">
+        <img
+          src={img}
+          alt=""
+          width={622}
+          height={320}
+          loading="lazy"
+          decoding="async"
+          className="block h-full w-full scale-[1.04] object-cover transition-transform duration-300 ease-out group-hover:scale-[1.07] motion-reduce:transform-none motion-reduce:transition-none"
+        />
+      </div>
+
+      <div className="flex min-h-19 items-center gap-3 border-t border-[#E6EAE3] px-3.5 py-3 sm:px-4">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E9F8EA] text-[#2A7A35] transition-[background-color,color,transform] duration-200 group-hover:scale-105 group-hover:bg-[#4CDB59] group-hover:text-[#263D48] group-active:scale-95 motion-reduce:transform-none motion-reduce:transition-none">
+          <Icon name={icon} className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-sm font-bold leading-snug text-[#304744]">
+            {label}
+            <Icon
+              name="chevronRight"
+              className="h-4 w-4 shrink-0 text-[#7D8C8A] transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none"
+            />
+          </p>
+          <p className="mt-1 text-xs leading-snug text-[#5A6B6A] sm:text-[13px]">{hint}</p>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 export default function TeacherDashboard() {
   const { profile } = useAuth()
   const firstName = (profile?.displayName || 'docente').split(' ')[0]
@@ -31,9 +82,27 @@ export default function TeacherDashboard() {
   ]
 
   const shortcuts = [
-    { to: '/assessments', label: 'Diagnosticar estudiantes', icon: 'clipboard', variant: 'primary' },
-    { to: '/matching', label: 'Formar parejas', icon: 'sparkles', variant: 'secondary' },
-    { to: '/sessions', label: 'Gestionar salas', icon: 'video', variant: 'secondary' },
+    {
+      to: '/assessments',
+      label: 'Diagnosticar estudiantes',
+      hint: 'Aplica el diagnóstico inicial del curso.',
+      img: '/botones/diagnosticar-card.png',
+      icon: 'clipboard',
+    },
+    {
+      to: '/matching',
+      label: 'Formar parejas',
+      hint: 'Empareja por conocimientos complementarios.',
+      img: '/botones/emparejar-card.png',
+      icon: 'sparkles',
+    },
+    {
+      to: '/sessions',
+      label: 'Gestionar salas',
+      hint: 'Crea salas y acompaña las reuniones.',
+      img: '/botones/gestionarsalas-card.png',
+      icon: 'video',
+    },
   ]
 
   return (
@@ -51,9 +120,7 @@ export default function TeacherDashboard() {
             </p>
           </div>
         </div>
-        <Badge tone="neutral" dot className="self-start sm:ml-auto sm:self-center">
-          Datos de demostración
-        </Badge>
+
       </header>
 
       {/* Métricas */}
@@ -65,11 +132,9 @@ export default function TeacherDashboard() {
 
       {/* Accesos rápidos */}
       <Card title="Accesos rápidos" description="Puntos de entrada al flujo principal del MVP.">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {shortcuts.map((s) => (
-            <Button key={s.to} to={s.to} variant={s.variant} icon={s.icon} className="w-full">
-              {s.label}
-            </Button>
+            <QuickAction key={s.to} {...s} />
           ))}
         </div>
       </Card>
