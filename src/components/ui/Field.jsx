@@ -14,7 +14,7 @@ import Icon from './Icon'
 import { LoadingAnimation } from './States'
 
 const controlBase = [
-  'w-full rounded-xl border bg-[#FFFFFF] text-sm text-[#304744] placeholder:text-[#7D8C8A]',
+  'min-w-0 w-full max-w-full rounded-xl border bg-[#FFFFFF] text-base sm:text-sm text-[#304744] placeholder:text-[#7D8C8A]',
   'transition-[background-color,border-color,box-shadow] duration-150 ease-out',
   'focus:outline-none focus:ring-[3px] focus:ring-[#4CDB59]/40',
   'disabled:cursor-not-allowed disabled:bg-[#F8FAF6] disabled:text-[#7D8C8A]',
@@ -27,9 +27,9 @@ const toneClasses = {
 
 function FieldShell({ id, label, hint, error, required, children, className = '', labelRight }) {
   return (
-    <div className={['w-full', className].filter(Boolean).join(' ')}>
+    <div className={['min-w-0 w-full', className].filter(Boolean).join(' ')}>
       {(label || labelRight) && (
-        <div className="mb-1.5 flex items-baseline justify-between gap-3">
+        <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
           {label && (
             <label htmlFor={id} className="text-sm font-semibold text-[#304744]">
               {label}
@@ -109,8 +109,8 @@ export function Input({
             controlBase,
             toneClasses[error ? 'error' : 'default'],
             'h-11',
-            icon && 'pl-10',
-            loading && 'pr-10',
+            icon ? 'pl-10' : 'pl-3',
+            loading ? 'pr-10' : 'pr-3',
             className,
           ]
             .filter(Boolean)
@@ -158,7 +158,7 @@ export function Textarea({
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
-        className={[controlBase, toneClasses[error ? 'error' : 'default'], 'resize-y py-2.5 leading-relaxed', className]
+        className={[controlBase, toneClasses[error ? 'error' : 'default'], 'resize-y px-3 py-2.5 leading-relaxed', className]
           .filter(Boolean)
           .join(' ')}
         {...props}
@@ -207,7 +207,7 @@ export function Select({
           className={[
             controlBase,
             toneClasses[error ? 'error' : 'default'],
-            'h-11 cursor-pointer appearance-none pr-10',
+            'h-11 cursor-pointer appearance-none pl-3 pr-10',
             className,
           ]
             .filter(Boolean)

@@ -347,7 +347,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
   }).length;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-12 text-[#304744]">
+    <div className="mx-auto min-w-0 w-full max-w-5xl space-y-6 pb-12 text-[#304744]">
       <header className="flex flex-col gap-4 rounded-3xl border border-[#D8E8D5] bg-[#E9F8EA] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A7A35]">
@@ -884,14 +884,14 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
         </div>
       </fieldset>
 
-      <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#D8E8D5] bg-white p-3 shadow-[0_4px_24px_rgba(48,71,68,0.12)] sm:p-4">
-        <div className="flex items-center gap-3">
+      <div className="sticky bottom-2 z-10 flex flex-col gap-3 rounded-2xl border border-[#D8E8D5] bg-white p-3 shadow-[0_4px_24px_rgba(48,71,68,0.12)] sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div className="flex items-center justify-between gap-3 sm:justify-start">
           <Button variant="ghost" icon="chevronLeft" disabled={busy || step === 0} onClick={() => setStep(step - 1)}>Anterior</Button>
           <p role="status" className="text-xs text-[#5A6B6A]">Paso <strong className="text-[#304744]">{step + 1}</strong> de 4</p>
         </div>
-        {step < 3 && <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" loading={busy} onClick={() => save(false)}>Guardar borrador</Button>
-          <Button icon="chevronRight" iconPosition="right" disabled={busy} onClick={nextStep}>Siguiente</Button>
+        {step < 3 && <div className="flex flex-col gap-2 min-[400px]:flex-row">
+          <Button className="w-full sm:w-auto" variant="secondary" loading={busy} onClick={() => save(false)}>Guardar borrador</Button>
+          <Button className="w-full sm:w-auto" icon="chevronRight" iconPosition="right" disabled={busy} onClick={nextStep}>Siguiente</Button>
         </div>}
       </div>
 

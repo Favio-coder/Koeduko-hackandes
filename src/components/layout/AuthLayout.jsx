@@ -65,11 +65,11 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
       </aside>
 
       {/* Formulario */}
-      <main className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
-        <div className="w-full max-w-md">
-          <div className="rounded-3xl border border-[#E6EAE3] bg-white p-6 shadow-[0_1px_3px_rgba(48,71,68,0.08),0_12px_32px_rgba(48,71,68,0.06)] sm:p-8">
+      <main className="flex min-w-0 flex-1 items-center justify-center px-4 py-6 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
+        <div className="mx-auto min-w-0 w-full max-w-lg">
+          <div className="rounded-3xl border border-[#E6EAE3] bg-white px-5 py-7 shadow-[0_1px_3px_rgba(48,71,68,0.08),0_12px_32px_rgba(48,71,68,0.06)] sm:p-9 lg:p-10">
             <h1 className="text-2xl font-bold tracking-tight text-[#304744]">{title}</h1>
-            {subtitle && <p className="mt-1.5 text-sm text-[#5A6B6A]">{subtitle}</p>}
+            {subtitle && <p className="mt-2 text-sm leading-relaxed text-[#5A6B6A]">{subtitle}</p>}
             <div className="mt-6">{children}</div>
           </div>
 
