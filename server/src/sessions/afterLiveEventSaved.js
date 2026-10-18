@@ -1,11 +1,18 @@
 import { deterministicId } from './core/ids.js'
 import { addresseeOf } from './core/interventionPolicy.js'
 import { DEFAULT_CONFIG } from './core/signals.js'
+import { chooseStyle, describeLearning } from './core/learning.js'
 import { memoryQueryOf } from './core/memoryText.js'
 import { memoryCacheKey, memoryScopeOf, studentKeyOf } from './core/studentKey.js'
+import { describeProfile } from './core/studentProfile.js'
+import { withTimeout } from './timeout.js'
 import { synthesize } from './adapters/elevenlabs.js'
 import { sendAudio, sendChatMessage } from './adapters/recall.js'
 import { composeIntervention } from './tutor.js'
+
+const PROFILE_TIMEOUT_MS = 1500
+/** Lo que describeProfile devuelve cuando aun no hay nada que decir: no se manda al prompt. */
+const NO_PATTERNS = 'Sin patrones claros aun.'
 
 /**
  * La evidencia que se guarda la pueden leer los estudiantes de la sesion (reglas de Firestore),
@@ -102,6 +109,41 @@ export function createAfterLiveEventSaved({
     return { notes, cache: 'miss' }
   }
 
+  /**
+   * Que se sabe del destinatario como PERFIL (conteos guardados al cerrar sesiones anteriores) y que estilo de
+   * intervencion elegir para el. Sin perfil, el estilo se elige igual (explorando). Nunca lanza.
+   */
+  async function learnFromProfile({ intervention, problem, sessionId, loadSession }) {
+    const none = (profile) => ({ notes: [], style: null, reason: null, profile })
+    const seed = `${sessionId}:${intervention.type}:${intervention.participantKey ?? 'grupo'}:${Math.floor(intervention.t)}`
+
+    let profile = null
+    const store = getStore()
+    if (intervention.participantKey && typeof store.getProfile === 'function') {
+      const loaded = await loadSession()
+      if (!loaded.failed) {
+        const key = studentKeyOf({ studentId: intervention.studentId, participantKey: intervention.participantKey, scope: memoryScopeOf(loaded.session) })
+        if (key) {
+          try {
+            profile = await withTimeout(store.getProfile(key), PROFILE_TIMEOUT_MS)
+          } catch {
+            profile = null
+          }
+        }
+      }
+    }
+
+    try {
+      const { style, reason } = chooseStyle(profile, intervention.type, seed)
+      const described = profile ? describeProfile(profile, { skillId: problem?.skillId }) : ''
+      const learning = profile ? describeLearning(profile, intervention.type) : ''
+      const notes = [described && described !== NO_PATTERNS ? described : '', learning].filter(Boolean)
+      return { notes, style, reason, profile: Boolean(profile) }
+    } catch {
+      return none(Boolean(profile))
+    }
+  }
+
   /** Escribe el mensaje en el chat de Meet. Nunca lanza. No registra nada: eso lo hace deliver(). */
   async function sendToChat({ message, loadSession }) {
     const chat = getChat()
@@ -194,18 +236,19 @@ export function createAfterLiveEventSaved({
       return sessionLoad
     }
 
-    const { notes: memoryNotes, cache: memoryCache } = await recallNotes({
-      sessionId,
-      intervention,
-      problem: context.problem ?? null,
-      cached: context.memory,
-      loadSession,
-    })
+    const [recalled, learned] = await Promise.all([
+      recallNotes({ sessionId, intervention, problem: context.problem ?? null, cached: context.memory, loadSession }),
+      learnFromProfile({ intervention, problem: context.problem ?? null, sessionId, loadSession }),
+    ])
+    const { cache: memoryCache } = recalled
+    // Lo que dice el perfil (patrones y estilo que le ha servido) va primero: es lo mas especifico del estudiante.
+    const memoryNotes = [...learned.notes, ...recalled.notes]
     const composed = await composeIntervention({
       signal: intervention,
       problem: context.problem ?? null,
       transcriptTail: context.transcriptTail ?? [],
       memoryNotes,
+      style: learned.style,
       generate: getGenerate(),
     })
 
@@ -225,6 +268,7 @@ export function createAfterLiveEventSaved({
       evidence: publicEvidence(intervention.evidence),
       message: composed.message,
       source: composed.source,
+      style: learned.style,
       deliveredTo: ['app'],
       t: intervention.t,
     })
@@ -238,6 +282,9 @@ export function createAfterLiveEventSaved({
       created,
       memoryNotes: memoryNotes.length,
       memoryCache,
+      style: learned.style,
+      styleReason: learned.reason,
+      profile: learned.profile,
       chat: delivery.chat,
       ...(delivery.chatStatus !== undefined ? { chatStatus: delivery.chatStatus } : {}),
       voice: delivery.voice,

@@ -17,6 +17,9 @@ const STATE_ONLY_EVENTS = new Set(['speech_on', 'speech_off'])
 
 /** Tope de transcripciones que se leen al cerrar (una sesion de ~100 s tuvo 29; esto cubre horas). */
 const MAX_CLOSE_TRANSCRIPTS = 2000
+const MAX_CLOSE_INTERVENTIONS = 200
+/** Id de documento seguro para una clave de estudiante (un uid o "<scope>:<hash>"). */
+const profileDocId = memoryCacheKey
 
 /** Cuantas transcripciones recientes se le pasan al tutor como contexto. */
 const TRANSCRIPT_TAIL = 8
@@ -230,6 +233,32 @@ export function createSessionStore({ db, FieldValue }) {
         .map((doc) => doc.data())
         .filter((event) => typeof event.participantKey === 'string' && Number.isFinite(event.t) && typeof event.text === 'string')
         .map((event) => ({ k: event.participantKey, t: event.t, e: Number.isFinite(event.tEnd) ? event.tEnd : event.t, x: event.text }))
+    },
+
+    /**
+     * Intervenciones de la sesion, para medir que paso despues de cada una (1 lectura por documento, con tope).
+     * @returns {Promise<{ id: string, signal: string, participantKey: string|null, t: number|null, style: string|null }[]>}
+     */
+    async getInterventions(sessionId) {
+      const snap = await db.collection(`learningSessions/${sessionId}/agentInterventions`).limit(MAX_CLOSE_INTERVENTIONS).get()
+      return snap.docs.map((doc) => {
+        const data = doc.data()
+        return { id: doc.id, signal: data.signal, participantKey: data.participantKey ?? null, t: Number.isFinite(data.t) ? data.t : null, style: data.style ?? null }
+      })
+    },
+
+    /**
+     * Perfil de aprendizaje de un estudiante (1 lectura), o null. Vive en `studentProfiles/{clave}`: sin reglas para
+     * clientes, asi que solo el servidor lo lee y lo escribe. La clave es un seudonimo (uid o hash), nunca el nombre.
+     */
+    async getProfile(studentKey) {
+      const snap = await db.doc(`studentProfiles/${profileDocId(studentKey)}`).get()
+      return snap.exists ? snap.data().profile ?? null : null
+    },
+
+    /** Guarda el perfil de un estudiante (1 escritura). */
+    async saveProfile(studentKey, profile) {
+      await db.doc(`studentProfiles/${profileDocId(studentKey)}`).set({ profile, updatedAt: FieldValue.serverTimestamp() })
     },
 
     /** Guarda el reporte final y cierra la sesion en un solo lote (2 escrituras). */

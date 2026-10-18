@@ -1,9 +1,12 @@
 import { buildClassifierPrompt, parseClassification } from './core/competencyClassifier.js'
 import { buildCompetencyReport, doubtfulSentences, participantKeysOf } from './core/competencyEvidence.js'
+import { OUTCOME, outcomesOf } from './core/interventionOutcome.js'
+import { recordOutcomes } from './core/learning.js'
 import { activityIdOf } from './core/liveEngine.js'
 import { memoryTextOf } from './core/memoryText.js'
 import { DEFAULT_CONFIG } from './core/signals.js'
 import { memoryScopeOf, studentKeyOf } from './core/studentKey.js'
+import { emptyProfile, profileFromReport } from './core/studentProfile.js'
 import { SessionBotError } from './errors.js'
 import { withTimeout } from './timeout.js'
 
@@ -12,6 +15,7 @@ const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
 export const LEAVE_TIMEOUT_MS = 4000
 export const CLASSIFY_TIMEOUT_MS = 6000
 export const REMEMBER_TIMEOUT_MS = 4000
+export const LEARN_TIMEOUT_MS = 4000
 export const SUMMARY_VERSION = 1
 
 /** Un codigo corto de por que fallo un paso: nunca el mensaje, el texto ni datos del estudiante. */
@@ -49,7 +53,7 @@ export async function closeSession({ sessionId, store, memory = null, leaveBot =
   if (typeof sessionId !== 'string' || !SESSION_ID_PATTERN.test(sessionId)) {
     throw new SessionBotError('invalid-argument', 'sessionId es obligatorio.')
   }
-  const limits = { leave: LEAVE_TIMEOUT_MS, classify: CLASSIFY_TIMEOUT_MS, remember: REMEMBER_TIMEOUT_MS, ...timeouts }
+  const limits = { leave: LEAVE_TIMEOUT_MS, classify: CLASSIFY_TIMEOUT_MS, remember: REMEMBER_TIMEOUT_MS, learn: LEARN_TIMEOUT_MS, ...timeouts }
 
   const session = await store.getSession(sessionId)
   if (!session) throw new SessionBotError('not-found', 'La sesion no existe.')
@@ -150,6 +154,32 @@ export async function closeSession({ sessionId, store, memory = null, leaveBot =
         }
       }),
     )
+  }
+
+  // 5b. Aprender: que paso despues de cada intervencion y que estilo le sirvio a cada estudiante. Nunca rompe el cierre.
+  steps.learning = 'skipped'
+  if (typeof store.getInterventions === 'function' && typeof store.getProfile === 'function' && typeof store.saveProfile === 'function') {
+    try {
+      const interventions = await withTimeout(store.getInterventions(sessionId), limits.learn)
+      const outcomes = outcomesOf({ interventions, transcripts: humanTranscripts, problem })
+      let profiles = 0
+      await Promise.all(
+        report.estudiantes.map(async (student) => {
+          const key = studentKeyOf({ studentId: student.studentId, participantKey: student.key, scope })
+          if (!key) return
+          const previous = (await withTimeout(store.getProfile(key), limits.learn)) ?? emptyProfile()
+          // profileFromReport solo conoce conteos de habilidades y senales: los estilos se conservan aparte.
+          const counted = { ...profileFromReport(previous, { ...student, skillId: report.problema?.skillId }), styles: previous.styles ?? {} }
+          const updated = recordOutcomes(counted, outcomes.filter((outcome) => outcome.key === student.key))
+          await withTimeout(store.saveProfile(key, updated), limits.learn)
+          profiles += 1
+        }),
+      )
+      const count = (name) => outcomes.filter((outcome) => outcome.outcome === name).length
+      steps.learning = { profiles, improved: count(OUTCOME.IMPROVED), noChange: count(OUTCOME.NO_CHANGE), unknown: count(OUTCOME.UNKNOWN) }
+    } catch (error) {
+      steps.learning = `failed:${reasonOf(error)}`
+    }
   }
 
   // 6. Guardar el resumen y cerrar (Firestore: si esto falla, el cierre falla).

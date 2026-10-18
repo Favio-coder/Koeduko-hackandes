@@ -6,6 +6,7 @@
  * pregunta socratica sobre el problema actual, y nombrar al destinatario.
  */
 
+import { STYLE_GUIDE } from './learning.js'
 import { extractNumbers } from './spanishNumbers.js'
 import { foldText } from './text.js'
 
@@ -186,12 +187,13 @@ const memoryNoteText = (note) => String(note ?? '').replace(/[«»]/g, '').repla
  * @param {{ signal: object, problem?: object|null, transcriptTail?: { k: string, x: string }[], memoryNotes?: string[] }} input
  * @returns {{ systemInstruction: string, userPrompt: string }}
  */
-export function buildInterventionPrompt({ signal, problem = null, transcriptTail = [], memoryNotes = [] }) {
+export function buildInterventionPrompt({ signal, problem = null, transcriptTail = [], memoryNotes = [], style = null }) {
   const quoted = quotableProblem(problem)
   const lines = [
     `Señal detectada: ${signal.type}`,
     `Destinatario: ${addresseeOf(signal)}`,
     GUIDANCE[signal.type] ? `Qué hacer: ${GUIDANCE[signal.type]}` : '',
+    STYLE_GUIDE[style] ?? '',
     `Problema actual: ${quoted ?? (problem ? '(texto no disponible)' : '(no hay un problema definido)')}`,
     evidenceLine(signal),
   ]
