@@ -184,6 +184,17 @@ export async function closeSession({ sessionId, store, memory = null, leaveBot =
     }
   }
 
+  // 5c. Sumar esta sala al acumulado del docente (lo que mas cuesta en sus salas): sirve al docente y a las salas siguientes.
+  steps.insights = 'skipped'
+  if (typeof store.updateInsights === 'function' && typeof session.createdBy === 'string' && report.estudiantes.length > 0) {
+    try {
+      await withTimeout(store.updateInsights(session.createdBy, report), limits.learn)
+      steps.insights = 'ok'
+    } catch (error) {
+      steps.insights = `failed:${reasonOf(error)}`
+    }
+  }
+
   // 6. Guardar el resumen y cerrar (Firestore: si esto falla, el cierre falla).
   await store.saveClosure(sessionId, { v: SUMMARY_VERSION, sessionId, report, steps })
 

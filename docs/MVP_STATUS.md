@@ -18,6 +18,8 @@ Qué hace el sistema hoy, quién lo dispara y qué está **verificado** (con qu�
 | 9 | Cierre al irse la última persona: reporte, memoria y perfil | Automático | **Verificado** |
 | 10 | Análisis para el docente | El docente lo ve en la sala | **Funciona**, pero ver abajo |
 | 11 | Qué ve el **alumno** al terminar | Automático (`/api/my-summary`, tarjeta «Tu sesión») | **Hecho, con tests; sin probar en vivo con un alumno real.** Solo ve SU parte, en frases amables y fijas: lo que hizo bien y qué probar la próxima vez. Sin notas, porcentajes, citas ni nada de su compañero |
+| 10b | Resumen de **todas** las salas del docente | Automático al cerrar cada sala (`teacherInsights`, `/api/class-insights`, tarjeta «Lo que más cuesta en tus salas» en Salas) | Hecho; ver abajo si se probó en vivo |
+| 10c | El tutor aprende de lo que pasó en **otras salas** del mismo docente | Automático (memoria por alumno + lo que más costó en otras salas) | Hecho; la línea de otras salas necesita ≥ 3 observaciones para aparecer |
 | 12 | Mapeo a la malla curricular / SIAGIE | – | **No existe.** Solo evidencia formativa por capacidad, con citas |
 
 ## Lo que no se ha probado

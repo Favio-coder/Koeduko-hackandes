@@ -3,6 +3,7 @@ import { anchorOf, tickPlan } from '../core/heartbeat.js'
 import { activityIdOf, emptyState, evaluateDue, ingestEvent, problemFromSession } from '../core/liveEngine.js'
 import { viewOf } from '../core/liveView.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
+import { addReport } from '../core/classInsights.js'
 import { pickProblem } from '../core/problemBank.js'
 import { rolesOf } from '../core/roles.js'
 import { DEFAULT_CONFIG } from '../core/signals.js'
@@ -405,6 +406,21 @@ export function createSessionStore({ db, FieldValue }) {
         if (isValidMeetUrl(current)) return { saved: false, meetingUrl: current }
         tx.update(sessionRef(sessionId), { meetingUrl, meetingProvider: 'google-meet', meetingCreatedBy: 'server' })
         return { saved: true, meetingUrl }
+      })
+    },
+
+    /** Acumulado de lo que pasa en las salas de un docente (core/classInsights.js), o null (1 lectura). Solo servidor. */
+    async getInsights(teacherUid) {
+      const snap = await db.doc(`teacherInsights/${teacherUid}`).get()
+      return snap.exists ? snap.data() : null
+    },
+
+    /** Suma el reporte de una sala cerrada al acumulado del docente (transaccion: 1 lectura y 1 escritura). */
+    async updateInsights(teacherUid, report) {
+      const ref = db.doc(`teacherInsights/${teacherUid}`)
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref)
+        tx.set(ref, addReport(snap.exists ? snap.data() : null, report))
       })
     },
 
