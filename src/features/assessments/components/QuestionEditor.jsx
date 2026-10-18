@@ -1,4 +1,5 @@
-import { Button, Card } from "@/components/ui";
+import { useState } from "react";
+import { Badge, Button, Card, Icon } from "@/components/ui";
 import { Input, Select, Textarea } from "@/components/ui/Field";
 import IntegerInput from "./IntegerInput";
 
@@ -13,18 +14,32 @@ export default function QuestionEditor({
   onMove,
   onRemove,
 }) {
+  const [expanded, setExpanded] = useState(() => index === 0 || typeof q.prompt !== "string" || !q.prompt.trim());
   const set = (key, value) => onChange({ ...q, [key]: value });
   const answerErrors = [errors.options, errors.correctAnswer]
     .filter(Boolean)
     .join(" ");
   return (
     <Card
-      title={`Pregunta ${index + 1}`}
-      description="Define el enunciado, la habilidad evaluada y su puntaje."
+      padding="none"
       className="scroll-mt-24"
       id={`question-${index + 1}`}
     >
-      <div className="space-y-5">
+      <details open={expanded || Object.keys(errors).length > 0} onToggle={(event) => setExpanded(event.currentTarget.open)} className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4CDB59] [&::-webkit-details-marker]:hidden">
+          <div className="flex min-w-0 items-center gap-3">
+            <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#E9F8EA] text-sm font-bold text-[#2A7A35]">{index + 1}</span>
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-[#304744]">Pregunta {index + 1}</h3>
+              <p className="mt-1 truncate text-xs text-[#7D8C8A]">{q.prompt || "Escribe el enunciado y sus alternativas."}</p>
+            </div>
+          </div>
+          <span className="flex shrink-0 items-center gap-3">
+            <Badge tone="neutral">{q.maxScore === "" ? "Sin puntaje" : q.maxScore + " pts"}</Badge>
+            <Icon name="chevronDown" className="h-4 w-4 text-[#7D8C8A] transition-transform group-open:rotate-180" />
+          </span>
+        </summary>
+      <div className="space-y-5 border-t border-[#E6EAE3] p-5">
         <Textarea
           label="Enunciado"
           value={q.prompt}
@@ -85,12 +100,12 @@ export default function QuestionEditor({
             Alternativas
           </legend>
           <p className="text-xs text-[#5A6B6A]">
-            Marca con el control de selección la única respuesta correcta.
+            Escribe las opciones y marca una como correcta.
           </p>
           {q.options.map((option, optionIndex) => (
             <div
               key={`${q.questionId}-option-${optionIndex}`}
-              className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+              className={`grid gap-3 rounded-xl border p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center ${q.correctAnswer === optionIndex ? "border-[#B7E8B5] bg-[#E9F8EA]" : "border-[#E6EAE3] bg-white"}`}
             >
               <Input
                 label={`Alternativa ${optionIndex + 1}`}
@@ -119,13 +134,14 @@ export default function QuestionEditor({
                   name={`correct-${q.questionId}`}
                   checked={q.correctAnswer === optionIndex}
                   onChange={() => set("correctAnswer", optionIndex)}
-                  className="h-5 w-5 accent-[#304744]"
+                  className="h-5 w-5 accent-[#2A7A35]"
                 />
                 Correcta
               </label>
               <Button
                 variant="ghost"
                 disabled={q.type === "true_false" || q.options.length <= 2}
+                icon="close"
                 aria-label={`Eliminar alternativa ${optionIndex + 1}`}
                 onClick={() => {
                   const options = q.options.filter(
@@ -184,11 +200,12 @@ export default function QuestionEditor({
           >
             Bajar pregunta
           </Button>
-          <Button variant="danger" onClick={onRemove}>
+          <Button variant="dangerSoft" onClick={onRemove}>
             Eliminar pregunta
           </Button>
         </div>
       </div>
+      </details>
     </Card>
   );
 }

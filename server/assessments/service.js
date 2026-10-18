@@ -229,9 +229,62 @@ export function createAssessmentService(db) {
     return copy;
   };
 
+  /**
+   * Alta automática del estudiante en el curso de destino (matemática) para que
+   * una cuenta recién creada vea evaluaciones desde el primer ingreso.
+   *
+   * Qué cursos son de registro abierto, en orden de preferencia:
+   *   1. los marcados con `selfEnrollment: true` en `assessmentCourseAccess`
+   *      (la vía explícita: el docente decide a qué curso se puede entrar solo);
+   *   2. y, si no hay ninguno marcado, el único curso del catálogo: en una
+   *     /demo de un solo curso es exactamente el que se quiere.
+   *
+   * La matrícula es idempotente (no duplica al repetir la llamada) y no otorga
+   * rol: sigue siendo una decisión del servidor sobre un curso que el propio
+   * docente habilitó.
+   */
+  async function selfEnroll(uid) {
+    const catalog = rows(await db.collection("assessmentCourseAccess").get());
+    const open = catalog.filter(
+      (course) =>
+        course.selfEnrollment === true &&
+        typeof course.teacherId === "string" &&
+        course.teacherId.length > 0 &&
+        Array.isArray(course.studentIds),
+    );
+    const targets = open.length ? open : catalog.length === 1 ? catalog : [];
+    requireThat(
+      targets.length > 0,
+      "No hay cursos con registro abierto.",
+      409,
+    );
+    const joined = [];
+    for (const course of targets) {
+      const ref = db.collection("assessmentCourseAccess").doc(course.id);
+      const alreadyIn = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const studentIds = Array.isArray(snap.data()?.studentIds)
+          ? snap.data().studentIds
+          : [];
+        if (studentIds.includes(uid)) return true;
+        tx.update(ref, {
+          studentIds: [...studentIds, uid],
+          enrolledAt: new Date().toISOString(),
+        });
+        return false;
+      });
+      joined.push({ id: course.id, name: course.name, alreadyIn });
+    }
+    return { courses: joined, joined: joined.filter((c) => !c.alreadyIn) };
+  }
+
   return async function execute(uid, action, payload = {}) {
     const profile = await actor(uid);
     const teacher = profile.role === "teacher";
+    if (action === "selfEnroll") {
+      requireThat(!teacher, "Solo estudiantes.", 403);
+      return selfEnroll(uid);
+    }
     if (action === "bootstrap") {
       /* Las dos consultas son independientes: en paralelo el tiempo total es el
          de la más lenta en lugar de la suma. */

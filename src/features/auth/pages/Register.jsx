@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button'
 import { Input } from '@/components/ui/Field'
 import AuthLayout from '@/components/layout/AuthLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import { joinDefaultCourse } from '@/features/assessments/services/courseEnrollmentService'
 
 export default function Register() {
   const { register, isAuthenticated } = useAuth()
@@ -27,7 +28,14 @@ export default function Register() {
     setSubmitting(true)
     try {
       await register({ email: form.email, password: form.password, displayName: form.displayName })
-      navigate('/dashboard', { replace: true })
+      /* Cuenta nueva = estudiante: el servidor la mete sola en el curso de
+         matemática para que vea evaluaciones desde el primer ingreso. Si el
+         API no responde, la cuenta sigue creada y se avisa al entrar. */
+      const enrolled = await joinDefaultCourse()
+      navigate('/dashboard', {
+        replace: true,
+        state: enrolled?.joined?.length ? { course: enrolled.joined[0].name } : undefined,
+      })
     } catch (err) {
       setError(
         err.code === 'auth/email-already-in-use'
@@ -42,7 +50,7 @@ export default function Register() {
   return (
     <AuthLayout
       title="Crear cuenta"
-      subtitle="Las cuentas nuevas se registran con rol estudiante. La promoción a docente la realiza un administrador."
+      subtitle="Las cuentas nuevas se registran con rol estudiante y se asignan solas al curso de matemática. La promoción a docente la realiza un administrador."
       footer={
         <>
           ¿Ya tienes cuenta?{' '}
