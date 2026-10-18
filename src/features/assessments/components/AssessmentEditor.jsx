@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Button, Card, LoadingState } from "@/components/ui";
+import { Alert, Badge, Button, Card, Icon, LoadingState } from "@/components/ui";
 import { Checkbox, Input, Select, Textarea } from "@/components/ui/Field";
 import Modal from "@/components/ui/Modal";
 import {
@@ -21,10 +21,10 @@ import QuestionCard from "./QuestionCard";
 import IntegerInput from "./IntegerInput";
 
 const sections = [
-  ["general", "Información general"],
-  ["settings", "Configuración"],
-  ["questions", "Preguntas"],
-  ["review", "Revisión y publicación"],
+  ["general", "Información general", "Nombre y curso"],
+  ["settings", "Configuración", "Tiempo y estudiantes"],
+  ["questions", "Preguntas", "Contenido del examen"],
+  ["review", "Revisión y publicación", "Última revisión"],
 ];
 
 function serverErrorField(message) {
@@ -328,16 +328,16 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-12 text-[#304744]">
-      <header className="flex flex-col gap-4 rounded-2xl border border-[#E6EAE3] bg-[#F8FAF6] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <header className="flex flex-col gap-4 rounded-3xl border border-[#D8E8D5] bg-[#E9F8EA] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#2A7A35]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A7A35]">
             {form.id ? "Borrador de evaluación" : "Nueva evaluación"}
           </p>
           <h1 className="mt-1 text-2xl font-bold text-[#304744]">
             {form.title || "Configurar evaluación"}
           </h1>
           <p className="mt-1 text-sm text-[#5A6B6A]">
-            Organiza los datos, prepara preguntas y revisa antes de publicar.
+            {course.name} · Prepara tu evaluación paso a paso.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -369,17 +369,18 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
         aria-label="Secciones del constructor"
         className="grid grid-cols-2 gap-2 rounded-2xl border border-[#E6EAE3] bg-white p-2 sm:grid-cols-4"
       >
-        {sections.map(([id, label], index) => (
+        {sections.map(([id, label, hint], index) => (
           <button
             type="button"
             key={id}
             disabled={busy}
             aria-current={step === index ? "step" : undefined}
+            aria-label={`${index + 1}. ${label}`}
             onClick={() => setStep(index)}
-            className={`rounded-xl px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4CDB59] ${step === index ? "bg-[#304744] text-white shadow-sm" : "text-[#304744] hover:bg-[#E9F8EA]"}`}
+            className={`flex items-start gap-3 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4CDB59] ${step === index ? "border-[#B7E8B5] bg-[#E9F8EA] text-[#304744]" : "border-transparent text-[#5A6B6A] hover:bg-[#F8FAF6]"}`}
           >
-            <span className="mr-1 text-[#2A7A35]">{index + 1}.</span>
-            {label}
+            <span aria-hidden="true" className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${step === index ? "bg-[#2A7A35] text-white" : "bg-[#F0F3EF] text-[#5A6B6A]"}`}>{index + 1}</span>
+            <span className="min-w-0"><span className="block text-sm font-bold">{label}</span><span className="mt-1 hidden text-[11px] font-normal leading-relaxed text-[#7D8C8A] sm:block">{hint}</span></span>
           </button>
         ))}
       </nav>
@@ -389,7 +390,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
         <Card
           id="general"
           title="A. Información general"
-          description="Identifica la evaluación y el contexto curricular autorizado para el curso."
+          description="Elige un nombre y ubica lo que vas a evaluar."
           className="scroll-mt-6"
         >
           <div className="grid gap-4 sm:grid-cols-2">
@@ -414,7 +415,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
                 value: item.id,
                 label: item.name,
               }))}
-              hint="Solo aparecen cursos autorizados para tu cuenta."
+              hint="El curso determina los estudiantes y habilidades disponibles."
               required
             />
             <Select
@@ -433,7 +434,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
               hint={
                 course.areas?.length
                   ? "Catálogo configurado para este curso."
-                  : "Este curso aún no tiene áreas configuradas en su ACL."
+                  : "Este curso aún no tiene áreas configuradas."
               }
               required
             />
@@ -447,7 +448,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
                 value: competency.id,
                 label: competency.label,
               }))}
-              hint="Área y competencia son catálogos distintos."
+              hint="Selecciona el aprendizaje que quieres evaluar."
               required
             />
             <Select
@@ -487,10 +488,12 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
         <Card
           id="settings"
           title="B. Configuración"
-          description="Define puntaje, disponibilidad, intentos y quiénes podrán resolverla."
+          description="Organiza las condiciones de la evaluación y elige a sus participantes."
           className="scroll-mt-6"
         >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <section className="rounded-2xl border border-[#E6EAE3] bg-[#F8FAF6] p-4 sm:p-5">
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold"><Icon name="chart" className="h-4 w-4 text-[#2A7A35]" />Puntaje de la evaluación</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Select
               id="assessment-scale"
               label="Escala de presentación"
@@ -517,6 +520,11 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
               hint={`De 1 a ${form.scale} puntos. Las preguntas suman ${points}.`}
               required
             />
+          </div>
+          </section>
+          <section className="mt-5 rounded-2xl border border-[#E6EAE3] bg-white p-4 sm:p-5">
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold"><Icon name="calendar" className="h-4 w-4 text-[#2A7A35]" />Tiempo e intentos</h3>
+          <div className="grid items-start gap-5 sm:grid-cols-2">
             <div>
             <IntegerInput
               id="assessment-durationMinutes"
@@ -571,6 +579,11 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
               hint="Se utiliza el último intento enviado."
               required
             />
+          </div>
+          </section>
+          <section className="mt-5 rounded-2xl border border-[#E6EAE3] bg-[#F8FAF6] p-4 sm:p-5">
+          <h3 className="mb-4 text-sm font-bold">Después de responder</h3>
+          <div className="max-w-xl">
             <Select
               id="assessment-feedbackMode"
               label="Política de retroalimentación"
@@ -596,14 +609,15 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
             />
           </div>
 
-          <div className="mt-6 border-t border-[#E6EAE3] pt-5">
+          </section>
+
+          <div className="mt-5 rounded-2xl border border-[#B7E8B5] bg-[#E9F8EA]/40 p-4 sm:p-5">
             <div className="mb-4">
-              <h3 className="font-semibold text-[#304744]">
-                Estudiantes asignados
+              <h3 className="flex items-center gap-2 font-semibold text-[#304744]">
+                <Icon name="users" className="h-4 w-4 text-[#2A7A35]" />Estudiantes asignados
               </h3>
               <p className="mt-1 text-sm text-[#5A6B6A]">
-                {form.studentIds.length} seleccionados · solo estudiantes
-                matriculados en este curso.
+                <strong className="text-[#2A7A35]">{form.studentIds.length} de {course.students.length} seleccionados</strong> · solo ellos recibirán esta evaluación.
               </p>
             </div>
             <Button
@@ -623,8 +637,8 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
             </Button>
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {course.students.map((student) => (
+                <div key={student.id} className={`rounded-xl border p-3 transition-colors ${form.studentIds.includes(student.id) ? "border-[#B7E8B5] bg-white" : "border-[#E6EAE3] bg-[#F8FAF6]"}`}>
                 <Checkbox
-                  key={student.id}
                   label={student.name}
                   checked={form.studentIds.includes(student.id)}
                   onChange={(event) =>
@@ -636,6 +650,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
                     )
                   }
                 />
+                </div>
               ))}
             </div>
             {!course.students.length && (
@@ -664,7 +679,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
               </p>
             </div>
             <Button
-              variant="secondary"
+              icon="plus"
               disabled={questions.length >= 60}
               onClick={() =>
                 set(
@@ -727,7 +742,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
         <Card
           id="review"
           title="D. Revisión y publicación"
-          description="Comprueba que el contenido y la puntuación sean consistentes antes de asignar la evaluación."
+          description="Revisa este resumen y confirma cuando todo esté listo."
           className="scroll-mt-6"
         >
           <div className="grid gap-3 sm:grid-cols-2">
@@ -798,12 +813,12 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
           )}
 
           <div className="mt-6 flex flex-col-reverse gap-3 border-t border-[#E6EAE3] pt-5 sm:flex-row sm:justify-between">
-            <Button variant="blueSoft" icon="clipboard" onClick={() => setPreview(true)}>
+            <Button variant="secondary" icon="clipboard" onClick={() => setPreview(true)}>
               Vista previa de preguntas
             </Button>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
-                variant="blue"
+                variant="secondary"
                 loading={busy}
                 onClick={() => save(false)}
               >
@@ -826,11 +841,15 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
         </div>
       </fieldset>
 
-      <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E6EAE3] bg-white p-3 shadow-lg sm:p-4">
-        <Button variant="secondary" disabled={busy || step === 0} onClick={() => setStep(step - 1)}>Anterior</Button>
-        <p role="status" className="text-sm text-[#5A6B6A]">Paso {step + 1} de 4</p>
-        {step < 3 && <Button variant="blue" disabled={busy} onClick={nextStep}>Siguiente</Button>}
-        {step < 3 && <Button variant="blueSoft" loading={busy} onClick={() => save(false)}>Guardar borrador</Button>}
+      <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#D8E8D5] bg-white p-3 shadow-[0_4px_24px_rgba(48,71,68,0.12)] sm:p-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" icon="chevronLeft" disabled={busy || step === 0} onClick={() => setStep(step - 1)}>Anterior</Button>
+          <p role="status" className="text-xs text-[#5A6B6A]">Paso <strong className="text-[#304744]">{step + 1}</strong> de 4</p>
+        </div>
+        {step < 3 && <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" loading={busy} onClick={() => save(false)}>Guardar borrador</Button>
+          <Button icon="chevronRight" iconPosition="right" disabled={busy} onClick={nextStep}>Siguiente</Button>
+        </div>}
       </div>
 
       {/* Koala de marca mientras el servidor guarda o publica. */}
