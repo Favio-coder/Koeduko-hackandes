@@ -2,7 +2,7 @@
 /**
  * Crea una sesion de prueba de aceptacion (accept-*) en Firestore con firebase-admin.
  *
- *   node scripts/createAcceptanceSession.js --teacher-uid <uid> [--session accept-001]
+ *   node scripts/createAcceptanceSession.js --teacher-uid <uid> | --teacher-uid-file <archivo> [--session accept-001]
  *        [--meeting-url https://meet.google.com/htp-bkeg-oeb] [--service-account <archivo.json>]
  *
  * La cuenta de servicio se lee de un archivo FUERA del repo (por defecto
@@ -21,6 +21,8 @@ import { buildAcceptanceAnswer, buildAcceptanceSession } from '../src/sessions/c
 const { values } = parseArgs({
   options: {
     'teacher-uid': { type: 'string' },
+    // Alternativa para no pasar el uid por el chat ni dejarlo en el historial: un archivo con el uid.
+    'teacher-uid-file': { type: 'string' },
     session: { type: 'string', default: 'accept-001' },
     'meeting-url': { type: 'string', default: 'https://meet.google.com/htp-bkeg-oeb' },
     'service-account': { type: 'string', default: join(homedir(), 'Downloads', 'service-account.json') },
@@ -32,9 +34,18 @@ function fail(message) {
   process.exit(1)
 }
 
+let teacherUid = values['teacher-uid']
+if (values['teacher-uid-file']) {
+  try {
+    teacherUid = readFileSync(values['teacher-uid-file'], 'utf8').trim()
+  } catch {
+    fail(`no pude leer el uid del docente en ${values['teacher-uid-file']}.`)
+  }
+}
+
 let data
 try {
-  data = buildAcceptanceSession({ sessionId: values.session, teacherUid: values['teacher-uid'], meetingUrl: values['meeting-url'] })
+  data = buildAcceptanceSession({ sessionId: values.session, teacherUid, meetingUrl: values['meeting-url'] })
 } catch (error) {
   fail(error.message)
 }
