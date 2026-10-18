@@ -99,20 +99,39 @@ muestran un mensaje en español.
 
 ## 5. Assessments — DEV 2
 
-Interfaz a definir en `src/features/assessments/services/assessmentService.js`:
+La gestión de evaluaciones utiliza `src/features/assessments/services/assessmentService.js`
+y el endpoint autenticado `POST /api/assessments`. Las operaciones privilegiadas
+se ejecutan en `server/assessments/`; React no escribe directamente las
+colecciones de evaluaciones.
 
 ```javascript
-getAssessment(assessmentId): Promise<Assessment>
-saveResponses(assessmentId, studentId, responses: Record<itemId, number>): Promise<void>
-computeKnowledgeProfile(assessmentId, studentId): Promise<KnowledgeProfile>
-listProfilesByAssessment(assessmentId): Promise<KnowledgeProfile[]>
+assessmentRequest(action, payload?): Promise<object>
 ```
 
-`computeKnowledgeProfile` debe:
-1. Puntuar cada respuesta contra `correctIndex`.
-2. Mapear cada item a su `skillId`.
-3. Devolver mastery por `SKILL_IDS` en `[0, 1]`.
-4. Guardar `strengths` y `difficulties`.
+Acciones docentes: `bootstrap`, `save`, `detail`, `publish`, `results`, `close`,
+`finalize` y `export`. El servidor obtiene rol, matrícula, competencias y
+habilidades autorizadas desde Firestore; nunca confía en permisos enviados por
+React. `export` conserva el contrato `StudentKnowledgeProfile v1.0` y también está disponible en
+`GET /api/assessments/matching-profile?courseId=...&assessmentId=...`, autenticado
+y autorizado para el docente responsable. La pantalla de matching obtiene el
+perfil directamente al abrirse con los parámetros `courseId` y `assessmentId`;
+no se descarga JSON manualmente ni se inicia el agrupamiento sin confirmación
+docente.
+
+El adaptador `src/features/matching/services/assessmentProfileService.js`
+expone `fetchMatchingProfile(assessmentId, courseId, getIdToken)` y consume ese
+endpoint con el token de Firebase Auth.
+
+Ver [Fase 2: gestión docente de evaluaciones](./assessments-phase-2.md) y
+[esquema de Firestore](./FIRESTORE_SCHEMA.md) para los payloads y el detalle de
+persistencia, validación y protección de respuestas correctas.
+
+Para intentos de estudiante, `start` devuelve un intento recuperable con
+preguntas públicas, `saveAnswers` guarda respuestas con control de revisión y
+`submit` persiste el envío final de forma idempotente. Los permisos y la
+disponibilidad se vuelven a validar en servidor en cada operación. Ver
+[Fase 3: examen interactivo del estudiante](./assessments-phase-3.md) y
+[Fase 4: calificación y contrato de matching](./assessments-redesign-phase-4.md).
 
 ## 6. Matching — DEV 2
 

@@ -19,6 +19,7 @@
  */
 import { Link } from 'react-router-dom'
 import Icon from './Icon'
+import { LoadingAnimation } from './States'
 
 const variants = {
   primary:
@@ -85,10 +86,7 @@ export default function Button({
   const content = (
     <>
       {loading ? (
-        <span
-          className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
-          aria-hidden="true"
-        />
+        <LoadingAnimation className="h-5 w-5" fallbackSize="sm" />
       ) : (
         icon &&
         iconPosition === 'left' && <Icon name={icon} className={`shrink-0 ${iconSizes[size]}`} />

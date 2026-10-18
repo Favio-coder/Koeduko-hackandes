@@ -9,13 +9,16 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:assessments:integration": "npx --yes firebase-tools@13.35.1 emulators:exec --project demo-koeduko-assessments --config firebase.assessments.json --only firestore,auth \"node --test server/assessments/integration.test.js\""
   },
   "dependencies": {
     "firebase": "^13.0.0",
+    "firebase-admin": "^13.10.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "sweetalert2": "^11.26.25"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "courseId": "matematica-5A",
+  "assessmentId": "diagnostico-001",
+  "competencyId": "resuelve-problemas-cantidad",
+  "generatedAt": "2026-10-17T22:00:00Z",
+  "status": "finalized",
+  "students": [
+    {
+      "studentId": "student-001",
+      "overallScore": 16,
+      "maxScore": 20,
+      "skills": [
+        { "skillId": "adicion", "score": 9, "maxScore": 10, "mastery": 0.9, "evidenceCount": 5 },
+        { "skillId": "sustraccion", "score": 3, "maxScore": 5, "mastery": 0.6, "evidenceCount": 2 },
+        { "skillId": "fracciones", "score": 4, "maxScore": 5, "mastery": 0.8, "evidenceCount": 3 }
+      ]
+    },
+    {
+      "studentId": "student-002",
+      "overallScore": 14,
+      "maxScore": 20,
+      "skills": [
+        { "skillId": "adicion", "score": 3, "maxScore": 10, "mastery": 0.3, "evidenceCount": 5 },
+        { "skillId": "sustraccion", "score": 5, "maxScore": 5, "mastery": 1, "evidenceCount": 2 },
+        { "skillId": "fracciones", "score": 4, "maxScore": 5, "mastery": 0.8, "evidenceCount": 3 }
+      ]
+    }
+  ]
+}

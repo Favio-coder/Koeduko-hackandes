@@ -4,6 +4,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/((?!api/|assets/|.*\\.).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/|assets/|@vite/|@react-refresh|@id/|@fs/|node_modules/|.*\\.).*)",
+      "destination": "/index.html"
+    }
   ]
 }

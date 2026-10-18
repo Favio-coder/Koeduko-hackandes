@@ -15,9 +15,21 @@ const S = USER_ROLES.STUDENT
 
 /** `roles: null` → visible para cualquier usuario autenticado. */
 export const SIDEBAR_ITEMS = [
-  { to: '/dashboard', label: 'Principal', icon: 'home', roles: null },
+  {
+    to: '/dashboard',
+    label: 'Principal',
+    icon: 'home',
+    roles: null,
+    /**
+     * `/dashboard` es un índice que redirige por rol a `/dashboard/teacher` o
+     * `/dashboard/student`. Por eso declara sus subrutas: al pulsar «Principal»
+     * el usuario aterriza en el panel del rol y el indicador debe quedarse en
+     * «Principal», no saltar a otro ítem.
+     */
+    matches: ['/dashboard', '/dashboard/teacher', '/dashboard/student'],
+  },
   { to: '/assessments', label: 'Curso', icon: 'book', roles: null },
-  { to: '/dashboard/teacher', label: 'Estudiantes', icon: 'users', roles: [T] },
+  { to: '/students', label: 'Estudiantes', icon: 'users', roles: [T] },
   { to: '/matching', label: 'Emparejamiento', icon: 'sparkles', roles: [T] },
   { to: '/matching/results', label: 'Resultados', icon: 'chart', roles: [T], nested: true },
   { to: '/sessions', label: 'Salas', icon: 'video', roles: [S, T] },
@@ -48,6 +60,7 @@ export function primaryItemsForRole(role) {
 const SECTION_TITLES = [
   { to: '/dashboard', label: 'Principal' },
   { to: '/assessments', label: 'Curso' },
+  { to: '/students', label: 'Estudiantes' },
   { to: '/dashboard/teacher', label: 'Panel docente' },
   { to: '/matching', label: 'Emparejamiento' },
   { to: '/matching/results', label: 'Resultados de emparejamiento' },
@@ -65,4 +78,35 @@ const ORDERED_TITLES = [...SECTION_TITLES].sort((a, b) => b.to.length - a.to.len
  */
 export function sectionTitleFor(pathname = '') {
   return ORDERED_TITLES.find((s) => pathname.startsWith(s.to))?.label ?? 'KoEduko'
+}
+
+/**
+ * Resuelve qué ítem del menú debe verse activo para una ruta dada.
+ *
+ * Antes se delegaba en el `isActive` de `NavLink`, que compara por prefijo y
+ * dejaba dos opciones encendidas a la vez (`/dashboard` encendía «Principal» y
+ * «Estudiantes» en `/dashboard/teacher`). Ahora hay **un único responsable**:
+ *
+ * 1. Coincidencia exacta (respeta `matches` cuando el ítem la declara).
+ * 2. Si no hay exacta, la coincidencia por prefijo más específica.
+ *
+ * Se usa el mismo resolvedor en `Navbar` y en `Sidebar`, así el indicador
+ * siempre coincide entre las dos barras.
+ *
+ * @param {string} pathname ruta actual de react-router.
+ * @param {Array} [items] ítems visibles para el rol (por defecto, todos).
+ * @returns {string|null} `to` del ítem activo, o `null`.
+ */
+export function activeItemTo(pathname = '', items = SIDEBAR_ITEMS) {
+  const claims = (item) =>
+    item.matches?.includes(pathname) || pathname === item.to || pathname.startsWith(`${item.to}/`)
+
+  const candidates = items.filter(claims)
+  if (!candidates.length) return null
+
+  const exact = candidates.filter((item) => item.matches?.includes(pathname) || pathname === item.to)
+  if (exact.length === 1) return exact[0].to
+
+  // Sin coincidencia exacta gana la coincidencia por prefijo más específica.
+  return candidates.sort((a, b) => b.to.length - a.to.length)[0].to
 }

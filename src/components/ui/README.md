@@ -171,10 +171,19 @@ toast.success('Sesión guardada.')
 
 ### Rutas de navegación (todas conservadas)
 
-`Principal` `/dashboard` · `Curso` `/assessments` · `Estudiantes`
-`/dashboard/teacher` (solo docente) · `Emparejamiento` `/matching` ·
+`Principal` `/dashboard` (redirige por rol) · `Curso` `/assessments` ·
+`Estudiantes` `/students` (solo docente) · `Emparejamiento` `/matching` ·
 `Resultados` `/matching/results` · `Salas` `/sessions` · `Sesión activa`
 `/sessions/demo-session-1` · `Tutor IA` `/sessions/demo-session-1/tutor`.
+
+`/students` es un punto de extensión: la pantalla ya está maquetada con datos
+demo y el CRUD real (lectura de `students` del aula, alta, edición y baja) queda
+documentado en `features/dashboard/pages/StudentsPage.jsx`.
+
+El indicador de ruta activa lo decide `activeItemTo()` en
+`layout-kit/navConfig.js`, no `NavLink`: cada entrada tiene **un solo**
+responsable, resolviendo primero la coincidencia exacta y luego el prefijo más
+específico.
 
 ## 5. Vista previa
 

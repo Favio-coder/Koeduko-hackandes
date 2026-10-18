@@ -1,0 +1,203 @@
+{
+  "simulated": true,
+  "seed": 20261017,
+  "studentCount": 40,
+  "scoredItemCount": 960,
+  "fortyStudentCandidatePairs": 780,
+  "fortyOneStudentCandidateTriples": 10660,
+  "productionSolverFor40Executed": false,
+  "interpretation": "Verificación de fórmula y casos pequeños; sin evidencia de eficacia educativa.",
+  "cosineScaleExample": 1,
+  "fourStudentExample": {
+    "status": "OPTIMAL_FOR_ROUNDED_DEMO_OBJECTIVE",
+    "groups": [
+      [
+        "A",
+        "B"
+      ],
+      [
+        "C",
+        "D"
+      ]
+    ],
+    "pendingStudentIds": [],
+    "score": 0.9,
+    "examinedPartitions": 3
+  },
+  "sizeChecks": [
+    {
+      "n": 0,
+      "status": "EMPTY",
+      "groups": [],
+      "pendingStudentIds": [],
+      "score": 0,
+      "examinedPartitions": 0
+    },
+    {
+      "n": 1,
+      "status": "WAITING",
+      "groups": [],
+      "pendingStudentIds": [
+        "sim-001"
+      ],
+      "score": 0,
+      "examinedPartitions": 0
+    },
+    {
+      "n": 2,
+      "status": "OPTIMAL_FOR_ROUNDED_DEMO_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-002"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "score": 0.40364583,
+      "examinedPartitions": 1
+    },
+    {
+      "n": 3,
+      "status": "OPTIMAL_FOR_ROUNDED_DEMO_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-002",
+          "sim-003"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "score": 0.6953125,
+      "examinedPartitions": 1
+    },
+    {
+      "n": 4,
+      "status": "OPTIMAL_FOR_ROUNDED_DEMO_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-003"
+        ],
+        [
+          "sim-002",
+          "sim-004"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "score": 1.046875,
+      "examinedPartitions": 3
+    },
+    {
+      "n": 5,
+      "status": "OPTIMAL_FOR_ROUNDED_DEMO_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-002",
+          "sim-004"
+        ],
+        [
+          "sim-003",
+          "sim-005"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "score": 1.58854167,
+      "examinedPartitions": 10
+    },
+    {
+      "n": 6,
+      "status": "OPTIMAL_FOR_ROUNDED_DEMO_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-003"
+        ],
+        [
+          "sim-002",
+          "sim-004"
+        ],
+        [
+          "sim-005",
+          "sim-006"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "score": 1.671875,
+      "examinedPartitions": 15
+    },
+    {
+      "n": 7,
+      "status": "OPTIMAL_FOR_ROUNDED_DEMO_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-005",
+          "sim-006"
+        ],
+        [
+          "sim-002",
+          "sim-004"
+        ],
+        [
+          "sim-003",
+          "sim-007"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "score": 2.26822916,
+      "examinedPartitions": 105
+    },
+    {
+      "n": 8,
+      "status": "OPTIMAL_FOR_ROUNDED_DEMO_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-007"
+        ],
+        [
+          "sim-002",
+          "sim-004"
+        ],
+        [
+          "sim-003",
+          "sim-008"
+        ],
+        [
+          "sim-005",
+          "sim-006"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "score": 2.39583333,
+      "examinedPartitions": 105
+    },
+    {
+      "n": 9,
+      "status": "OPTIMAL_FOR_ROUNDED_DEMO_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-007"
+        ],
+        [
+          "sim-002",
+          "sim-004",
+          "sim-009"
+        ],
+        [
+          "sim-003",
+          "sim-008"
+        ],
+        [
+          "sim-005",
+          "sim-006"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "score": 3.0625,
+      "examinedPartitions": 1260
+    }
+  ]
+}

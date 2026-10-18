@@ -43,6 +43,11 @@ export default function DashboardLayout({ children }) {
     }
   }, [drawerOpen])
 
+  /* En una SPA el navegador no vuelve arriba solo al cambiar de vista. */
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [location.pathname])
+
   return (
     <ToastProvider>
       <div className="min-h-dvh bg-[#F8FAF6] text-[#304744]">

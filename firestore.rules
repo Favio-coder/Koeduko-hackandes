@@ -140,6 +140,15 @@ service cloud.firestore {
       }
     }
 
+    // Módulo v1: toda lectura/escritura pasa por API autenticada y autorizada.
+    // ACL provisionada exclusivamente mediante Admin SDK/consola.
+    match /assessmentCourseAccess/{courseId} {
+      allow read, write: if false;
+    }
+    match /assessmentModules/{document=**} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

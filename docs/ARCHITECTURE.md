@@ -19,11 +19,13 @@ evidencia empírica y no debe afirmarse lo contrario.
 | Routing | React Router v7 |
 | Autenticación | Firebase Authentication (email/password) |
 | Datos | Cloud Firestore |
-| Hosting del frontend | Vercel (el proyecto de la raíz) |
-| **Backend privilegiado** | **`server/`: funciones serverless de Vercel (Node.js 22)** |
+| Hosting del frontend y endpoints de evaluaciones | Vercel (el proyecto de la raíz: Vite + Vercel Functions en `api/`) |
+| Backend de evaluaciones | `api/` (handlers Vercel) + `server/assessments/` y `server/firebaseAdmin.js` (lógica privada) |
+| **Backend de sesiones en vivo** | **`server/`: proyecto Vercel independiente (`ko_eduko`), funciones serverless Node.js 22** |
 | IA | Gemini, invocado **solo** desde `server/` |
 | Videollamadas | Google Meet |
 | Bot en la reunión | Recall.ai (bot participante, transcripción con Deepgram en español) |
+| Memoria por estudiante | AtomicMemory (HTTP directo) con respaldo en Firestore |
 | Pruebas | Vitest + Testing Library |
 
 ### Plan de Firebase: Spark (gratuito)
@@ -59,17 +61,25 @@ src/
 ├── services/firebase.js     # Instancias de Firebase (Auth, Firestore, Storage)
 └── test/setup.js
 
-server/                      # Proyecto Vercel independiente (único backend privilegiado)
-├── api/                     # Bordes HTTP delgados; solo aquí se lee process.env
-│   ├── recall-webhook.js    #   eventos en vivo de Recall
-│   ├── start-session-bot.js #   el docente invita al bot a la reunión
-│   └── ask-tutor.js         #   pista del tutor para un estudiante
+api/                         # Vercel Functions del frontend (proyecto de la raíz): evaluaciones
+└── assessments.js           #   autenticación y dispatcher
+
+server/                      # Aquí conviven DOS cosas independientes:
+├── firebaseAdmin.js         #   (evaluaciones) Admin SDK usado por api/ de la raíz
+├── assessments/             #   (evaluaciones) dominio y servicio privado
+│
+├── api/                     #   (sesiones) bordes HTTP delgados; solo aquí se lee process.env
+│   ├── recall-webhook.js    #     eventos en vivo de Recall
+│   ├── start-session-bot.js #     el docente invita al bot a la reunión
+│   ├── ask-tutor.js         #     pista del tutor para un estudiante
+│   └── close-session.js     #     cierra la sesión: reporte de competencias + memoria
+├── src/http/                #   handlers con dependencias inyectadas (CORS, errores)
 ├── src/sessions/
-│   ├── core/                # Lógica pura y testeable (motor de señales, estado, política del tutor)
-│   ├── adapters/            # Recall, Gemini y Firestore
-│   └── http/                # Handlers con dependencias inyectadas (CORS, errores)
-├── fixtures/                # Sesión real anonimizada (datos de prueba y plan B de la demo)
-└── scripts/                 # Reproductor de sesiones contra el webhook desplegado
+│   ├── core/                #     lógica pura y testeable (motor de señales, estado, política del tutor, competencias)
+│   └── adapters/            #     Recall, Gemini, AtomicMemory y Firestore
+├── fixtures/                #   sesión real anonimizada (datos de prueba y plan B de la demo)
+├── scripts/                 #   reproductor de sesiones y scripts de administración
+└── .env.example             #   manifiesto de variables (sin valores)
 
 docs/               # Documentación compartida
 firestore.rules     # Reglas de seguridad
@@ -85,16 +95,20 @@ firebase.json       # Firestore, Hosting y emuladores (sin Functions)
    - Firestore (colecciones documentadas en `FIRESTORE_SCHEMA.md`)
    - `src/components/ui/` (primitivas visuales)
 
-2. `services/firebase.js` es la **única** instancia de Firebase en el navegador. Nadie llama
-   `initializeApp` por su cuenta.
+2. `src/services/firebase.js` es la **única** instancia de Firebase cliente: nadie llama `initializeApp` por su
+   cuenta en el navegador. `firebase-admin` se inicializa por separado y solo dentro de `api/` y `server/`.
 
-3. **`server/` es la única vía para operaciones privilegiadas y para llamar a Gemini o a Recall.**
-   Las claves nunca llegan al navegador. Nada dentro de `server/` importa código de fuera de esa
-   carpeta, y el navegador solo habla con él por HTTP, con el ID token de Firebase del usuario.
+3. **Para las sesiones en vivo, `server/` es la única vía para operaciones privilegiadas y para llamar a Gemini o a
+   Recall.** Las claves nunca llegan al navegador. El código de sesiones dentro de `server/` no importa nada de
+   fuera de esa carpeta, y el navegador solo habla con él por HTTP, con el ID token de Firebase del usuario.
+   Las Vercel Functions de `api/` (evaluaciones) siguen el mismo principio: verifican el ID token con el Admin SDK.
 
 4. **Los datos de la sesión en vivo los escribe únicamente el servidor** (`firebase-admin`, que no pasa
    por las reglas). El navegador solo los **lee**, y solo si es el docente o un estudiante de esa
    sesión (ver §6).
+
+5. `npm run dev` inicia solo Vite. `npx vercel dev` sirve el frontend y las funciones HTTP de `api/` en local; esa API
+   requiere `FIREBASE_SERVICE_ACCOUNT_JSON` como variable privada del servidor.
 
 ## 5. Flujo de datos del MVP
 

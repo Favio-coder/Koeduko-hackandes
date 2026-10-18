@@ -24,7 +24,7 @@ export default defineConfig([
     rules: { 'react-refresh/only-export-components': 'off' },
   },
   {
-    files: ['server/**/*.js'],
+    files: ['server/**/*.js', 'api/**/*.js'],
     languageOptions: { globals: { ...globals.node } },
   },
 ])

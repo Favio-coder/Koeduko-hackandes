@@ -26,6 +26,9 @@ dist-ssr
 
 .env/
 .env
+.env*
+# Las plantillas SI se versionan (sin valores): server/.env.example y .env.example
+!.env.example
 
 # Vercel y credenciales de cuentas de servicio (nunca se commitean)
 .vercel

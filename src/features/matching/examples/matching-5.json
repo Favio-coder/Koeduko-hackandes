@@ -1,0 +1,756 @@
+{
+  "schemaVersion": "assessment-grouping-json-v1",
+  "status": "proposal",
+  "source": {
+    "kind": "simulated",
+    "containsSimulatedData": true,
+    "reference": "shared/lib/demoData.js",
+    "assessmentId": null,
+    "independentStudentSample": false
+  },
+  "variables": {
+    "used": [
+      {
+        "id": "addition",
+        "label": "Adicion",
+        "domain": "mathematics",
+        "scale": [
+          0,
+          1
+        ],
+        "interpretation": "Puntaje recibido por habilidad; no se interpreta como probabilidad de dominio."
+      },
+      {
+        "id": "subtraction",
+        "label": "Resta",
+        "domain": "mathematics",
+        "scale": [
+          0,
+          1
+        ],
+        "interpretation": "Puntaje recibido por habilidad; no se interpreta como probabilidad de dominio."
+      },
+      {
+        "id": "multiplication",
+        "label": "Multiplicacion",
+        "domain": "mathematics",
+        "scale": [
+          0,
+          1
+        ],
+        "interpretation": "Puntaje recibido por habilidad; no se interpreta como probabilidad de dominio."
+      },
+      {
+        "id": "division",
+        "label": "Division",
+        "domain": "mathematics",
+        "scale": [
+          0,
+          1
+        ],
+        "interpretation": "Puntaje recibido por habilidad; no se interpreta como probabilidad de dominio."
+      },
+      {
+        "id": "fraction",
+        "label": "Fracciones",
+        "domain": "mathematics",
+        "scale": [
+          0,
+          1
+        ],
+        "interpretation": "Puntaje recibido por habilidad; no se interpreta como probabilidad de dominio."
+      },
+      {
+        "id": "estimation",
+        "label": "Estimacion",
+        "domain": "mathematics",
+        "scale": [
+          0,
+          1
+        ],
+        "interpretation": "Puntaje recibido por habilidad; no se interpreta como probabilidad de dominio."
+      }
+    ],
+    "missingFromCurrentDemo": {
+      "mathematics": [
+        "problem_solving",
+        "mathematical_reasoning",
+        "word_problem_comprehension",
+        "item_level_errors",
+        "prerequisites",
+        "evidence_item_counts"
+      ],
+      "reading": [
+        "literal_comprehension",
+        "inferential_comprehension",
+        "critical_comprehension_if_grade_appropriate",
+        "main_ideas",
+        "text_interpretation"
+      ],
+      "collaboration": [
+        "explaining_ideas",
+        "listening_and_turn_taking",
+        "helping_and_receiving_help",
+        "participation",
+        "joint_solution_building"
+      ],
+      "interpersonal": [
+        "collaboration_history",
+        "teacher_reported_conflicts_or_positive_relations",
+        "working_comfort",
+        "support_requirements"
+      ],
+      "progress": [
+        "comparable_pre_post_scores",
+        "correct_activities",
+        "hint_types_and_counts",
+        "session_participation",
+        "previous_groups"
+      ]
+    },
+    "excludedPredictors": [
+      "displayName",
+      "studentId",
+      "grade",
+      "personality_inferred_from_scores",
+      "unobserved_social_traits"
+    ],
+    "recommendations": [
+      "Conservar las habilidades por contenido. Los seis campos actuales son ejemplos amplios, no un diagnóstico validado.",
+      "Medir resolución, comprensión del enunciado y justificación con ítems y rúbricas propios; no deducirlos de la nota de operaciones.",
+      "Registrar aciertos, ítems evaluados, competencia y evaluación. Cero aciertos no equivale a falta de datos.",
+      "Colaboración y convivencia requieren observaciones del docente; progreso requiere mediciones longitudinales comparables.",
+      "No añadir pesos a lectura, colaboración, convivencia, IA o progreso mientras no haya datos e instrumentos apropiados."
+    ],
+    "notUsedSkillIds": []
+  },
+  "method": {
+    "representation": {
+      "type": "normalized_skill_vector",
+      "order": [
+        "addition",
+        "subtraction",
+        "multiplication",
+        "division",
+        "fraction",
+        "estimation"
+      ],
+      "missingValues": "rejected_not_imputed",
+      "cosineUsed": false,
+      "cosineLimitation": "Compara direcciones: [0.9,0.9] y [0.3,0.3] tienen coseno 1 pese a sus distintos puntajes."
+    },
+    "graph": {
+      "nodes": "students",
+      "edges": "allowed_pairs",
+      "weights": "opportunities_for_skill_specific_peer_support",
+      "forbiddenPairs": "hard_constraints"
+    },
+    "scoring": {
+      "helperMinimum": 0.75,
+      "minimumGap": 0.25,
+      "thresholdsValidated": false,
+      "skillWeightWithinFocus": "1 / number_of_focus_skills",
+      "incomingSupport": "u_i = sum_k max_eligible_j ((1 - score_i_k) * (score_j_k - score_i_k) / number_of_focus_skills)",
+      "groupUtility": "Q_G = sum_i(u_i) + size(G) * min_i(u_i)",
+      "objective": [
+        "maximize_students_with_detected_support",
+        "maximize_total_Q"
+      ],
+      "numericWeights": {
+        "supportSum": 1,
+        "minimumSupport": "group_size"
+      },
+      "weightStatus": "design_hypothesis_not_fitted_or_educationally_validated",
+      "inactiveCriteria": [
+        "reading",
+        "collaboration",
+        "interpersonal_compatibility",
+        "ai_support",
+        "progress_and_pair_history"
+      ],
+      "inactiveCriteriaPolicy": "excluded_not_assigned_fictitious_scores_or_weights",
+      "benefitInterpretation": "Oportunidad inferida de apoyo; no predicción ni medición de aprendizaje."
+    },
+    "optimization": {
+      "algorithm": "maximum_weight_matching_blossom",
+      "even": "exact_weighted_pair_matching",
+      "odd": "enumerate_each_allowed_trio_and_solve_remaining_pairs",
+      "greedy": false,
+      "scope": "Exacto para el objetivo entero definido, todas las parejas y como máximo un trío; no óptimo educativo demostrado.",
+      "references": [
+        "edmonds1965",
+        "lechuga2022"
+      ]
+    },
+    "dualSubjectPatterns": {
+      "mathematics": [
+        "Alto-Alto",
+        "Alto-En desarrollo",
+        "En desarrollo-Alto",
+        "En desarrollo-En desarrollo"
+      ],
+      "reading": [
+        "Alto-Alto",
+        "Alto-En desarrollo",
+        "En desarrollo-Alto",
+        "En desarrollo-En desarrollo"
+      ],
+      "possibleJointPatterns": 16,
+      "currentStatus": "not_computable_reading_evidence_missing",
+      "rule": "Niveles por competencia y tarea, con cortes validados del diagnóstico; no etiquetas permanentes. No se imputa lectura desde matemática."
+    },
+    "modelVersion": "skill-scoped-peer-support-v2",
+    "scorePrecision": 0.000001
+  },
+  "strategyComparison": [
+    {
+      "id": "academic_complementarity",
+      "when": "Fortalezas específicas diferentes y una competencia común a trabajar.",
+      "limitation": "Ser diferentes no demuestra que puedan enseñar ni que cumplan prerrequisitos.",
+      "currentImplementation": "Solo oportunidades de apoyo en las seis habilidades matemáticas.",
+      "references": [
+        "lechuga2022"
+      ]
+    },
+    {
+      "id": "peer_tutoring",
+      "when": "Un integrante aporta evidencia de mayor desempeño en una habilidad pertinente.",
+      "limitation": "Necesita interacción estructurada y preparación; la ventaja numérica no prueba capacidad de explicar.",
+      "currentImplementation": "Identifica apoyos dirigidos y recíprocos; no ejecuta tutorías.",
+      "references": [
+        "alegre2019",
+        "wang2023"
+      ]
+    },
+    {
+      "id": "homogeneous",
+      "when": "Preparación similar para una tarea común y diferenciación de contenidos.",
+      "limitation": "La similitud global puede ocultar fortalezas distintas; no implica superioridad general.",
+      "currentImplementation": "Alternativa documentada; no es el objetivo de optimización activo.",
+      "references": [
+        "lechuga2022",
+        "fuchs1998"
+      ]
+    },
+    {
+      "id": "shared_difficulties",
+      "when": "Dificultad específica compartida con acompañamiento disponible.",
+      "limitation": "Sin guía pueden reforzarse errores. La disponibilidad o eficacia de IA no está medida.",
+      "currentImplementation": "Se avisa cuando no se detecta apoyo entre pares; no se presupone IA disponible.",
+      "references": [
+        "lechuga2022"
+      ]
+    },
+    {
+      "id": "deepening",
+      "when": "Desempeño alto en el contenido y tarea de mayor demanda.",
+      "limitation": "Dos puntajes altos no garantizan colaboración ni permiten inferir éxito.",
+      "currentImplementation": "Detecta el criterio provisional de desempeño alto; no genera retos.",
+      "references": [
+        "fuchs1998"
+      ]
+    },
+    {
+      "id": "adaptive",
+      "when": "Nuevas evaluaciones y evidencias comparables de progreso e interacción.",
+      "limitation": "Requiere historial y criterio de actualización; cambiar de compañero por sí solo no demuestra mejora.",
+      "currentImplementation": "Se recalcula con nuevas entradas; no hay seguimiento longitudinal ni reagrupamiento programado.",
+      "references": [
+        "lechuga2022"
+      ]
+    }
+  ],
+  "validation": {
+    "optimizationStatus": "optimal",
+    "optimalForDefinedObjective": true,
+    "educationallyValidatedForKoeduko": false,
+    "assessmentInstrumentValidated": null,
+    "requiresTeacherReview": true,
+    "checks": {
+      "validRequiredScores": true,
+      "uniqueMembership": true,
+      "allStudentsAccountedFor": true,
+      "validGroupSizes": true,
+      "forbiddenPairsRespected": true
+    },
+    "limitations": [
+      "Se usan datos ficticios; las réplicas no son estudiantes independientes para validar aprendizaje.",
+      "No se han verificado la validez del instrumento, la dificultad de los ítems ni sus prerrequisitos.",
+      "Las diferencias de puntaje no prueban capacidad de explicar, afinidad ni beneficio para ambos.",
+      "Los umbrales, la función de puntuación y sus pesos son hipótesis pendientes de evaluación educativa."
+    ],
+    "educationalValidationPlan": [
+      "Validar ítems, rúbricas y puntajes por competencia; estudiar fiabilidad y acuerdo entre evaluadores cuando corresponda.",
+      "Comparar asignación aleatoria restringida, similitud y complementariedad con iguales tareas, tiempo y acompañamiento.",
+      "Medir aprendizaje individual antes/después y retención, participación y calidad de explicaciones en ambos integrantes.",
+      "Registrar agrupamientos y ajustar pesos en datos de desarrollo; evaluar aparte con otras aulas y análisis de incertidumbre."
+    ]
+  },
+  "constraints": {
+    "forbiddenPairs": [],
+    "interpersonalCompatibilityMeasured": false,
+    "groupsOf": [
+      2,
+      3
+    ],
+    "maximumTrios": 1
+  },
+  "profiles": [
+    {
+      "studentId": "student-001",
+      "displayName": "Ana Torres",
+      "vector": [
+        0.92,
+        0.78,
+        0.55,
+        0.3,
+        0.2,
+        0.4
+      ],
+      "evidence": [
+        {
+          "skillId": "addition",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "subtraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "multiplication",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "division",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "fraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "estimation",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        }
+      ],
+      "otherCompetencies": {
+        "reading": null,
+        "collaboration": null,
+        "interpersonal": null,
+        "progress": null
+      }
+    },
+    {
+      "studentId": "student-002",
+      "displayName": "Luis Rojas",
+      "vector": [
+        0.45,
+        0.5,
+        0.85,
+        0.7,
+        0.6,
+        0.55
+      ],
+      "evidence": [
+        {
+          "skillId": "addition",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "subtraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "multiplication",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "division",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "fraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "estimation",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        }
+      ],
+      "otherCompetencies": {
+        "reading": null,
+        "collaboration": null,
+        "interpersonal": null,
+        "progress": null
+      }
+    },
+    {
+      "studentId": "student-003",
+      "displayName": "Mia Quispe",
+      "vector": [
+        0.88,
+        0.9,
+        0.35,
+        0.25,
+        0.15,
+        0.5
+      ],
+      "evidence": [
+        {
+          "skillId": "addition",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "subtraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "multiplication",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "division",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "fraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "estimation",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        }
+      ],
+      "otherCompetencies": {
+        "reading": null,
+        "collaboration": null,
+        "interpersonal": null,
+        "progress": null
+      }
+    },
+    {
+      "studentId": "student-004",
+      "displayName": "Diego Huaman",
+      "vector": [
+        0.4,
+        0.35,
+        0.4,
+        0.45,
+        0.75,
+        0.65
+      ],
+      "evidence": [
+        {
+          "skillId": "addition",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "subtraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "multiplication",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "division",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "fraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "estimation",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        }
+      ],
+      "otherCompetencies": {
+        "reading": null,
+        "collaboration": null,
+        "interpersonal": null,
+        "progress": null
+      }
+    },
+    {
+      "studentId": "student-005",
+      "displayName": "Sofia Vega",
+      "vector": [
+        0.7,
+        0.6,
+        0.65,
+        0.5,
+        0.4,
+        0.75
+      ],
+      "evidence": [
+        {
+          "skillId": "addition",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "subtraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "multiplication",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "division",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "fraction",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        },
+        {
+          "skillId": "estimation",
+          "type": "simulated",
+          "itemCount": null,
+          "correctCount": null
+        }
+      ],
+      "otherCompetencies": {
+        "reading": null,
+        "collaboration": null,
+        "interpersonal": null,
+        "progress": null
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "group-student-001+student-004",
+      "size": 2,
+      "members": [
+        {
+          "studentId": "student-001",
+          "displayName": "Ana Torres"
+        },
+        {
+          "studentId": "student-004",
+          "displayName": "Diego Huaman"
+        }
+      ],
+      "focusSkillIds": [
+        "fraction",
+        "estimation"
+      ],
+      "proposedMode": "directed_peer_support",
+      "scoring": {
+        "utility": 0.22,
+        "studentsWithDetectedSupport": 1,
+        "probabilityOfSuccess": null
+      },
+      "inferredSupports": [
+        {
+          "helperId": "student-004",
+          "learnerId": "student-001",
+          "skillId": "fraction",
+          "helperScore": 0.75,
+          "learnerScore": 0.2,
+          "gap": 0.55,
+          "evidenceType": "inferred_opportunity_not_observed_learning"
+        }
+      ],
+      "rationale": "Diego Huaman puede apoyar a Ana Torres en fracciones.",
+      "requiresTeacherReview": true,
+      "reviewReasons": [
+        "Revisar con el docente: el modelo no detecta apoyo para todos. Explicar también puede aportar aprendizaje."
+      ],
+      "suggestedTurnPolicy": [
+        "proponer_y_explicar",
+        "contrastar_y_comprobar"
+      ],
+      "rolesArePermanent": false
+    },
+    {
+      "id": "group-student-002+student-003+student-005",
+      "size": 3,
+      "members": [
+        {
+          "studentId": "student-002",
+          "displayName": "Luis Rojas"
+        },
+        {
+          "studentId": "student-003",
+          "displayName": "Mia Quispe"
+        },
+        {
+          "studentId": "student-005",
+          "displayName": "Sofia Vega"
+        }
+      ],
+      "focusSkillIds": [
+        "addition",
+        "subtraction",
+        "estimation"
+      ],
+      "proposedMode": "reciprocal_peer_support",
+      "scoring": {
+        "utility": 0.347167,
+        "studentsWithDetectedSupport": 3,
+        "probabilityOfSuccess": null
+      },
+      "inferredSupports": [
+        {
+          "helperId": "student-003",
+          "learnerId": "student-002",
+          "skillId": "addition",
+          "helperScore": 0.88,
+          "learnerScore": 0.45,
+          "gap": 0.43,
+          "evidenceType": "inferred_opportunity_not_observed_learning"
+        },
+        {
+          "helperId": "student-003",
+          "learnerId": "student-002",
+          "skillId": "subtraction",
+          "helperScore": 0.9,
+          "learnerScore": 0.5,
+          "gap": 0.4,
+          "evidenceType": "inferred_opportunity_not_observed_learning"
+        },
+        {
+          "helperId": "student-005",
+          "learnerId": "student-003",
+          "skillId": "estimation",
+          "helperScore": 0.75,
+          "learnerScore": 0.5,
+          "gap": 0.25,
+          "evidenceType": "inferred_opportunity_not_observed_learning"
+        },
+        {
+          "helperId": "student-003",
+          "learnerId": "student-005",
+          "skillId": "subtraction",
+          "helperScore": 0.9,
+          "learnerScore": 0.6,
+          "gap": 0.30000000000000004,
+          "evidenceType": "inferred_opportunity_not_observed_learning"
+        }
+      ],
+      "rationale": "Mia Quispe puede apoyar a Luis Rojas en adicion. Mia Quispe puede apoyar a Luis Rojas en resta. Sofia Vega puede apoyar a Mia Quispe en estimacion. Mia Quispe puede apoyar a Sofia Vega en resta.",
+      "requiresTeacherReview": true,
+      "reviewReasons": [],
+      "suggestedTurnPolicy": [
+        "proponer",
+        "explicar_o_contrastar",
+        "comprobar"
+      ],
+      "rolesArePermanent": false
+    }
+  ],
+  "unassigned": [],
+  "summary": {
+    "studentCount": 5,
+    "pairCount": 1,
+    "trioCount": 1,
+    "supportedStudentCount": 4,
+    "reviewGroupCount": 1,
+    "candidateTriples": 10
+  },
+  "references": [
+    {
+      "id": "edmonds1965",
+      "title": "Maximum matching and a polyhedron with 0,1-vertices",
+      "url": "https://doi.org/10.6028/jres.069b.013",
+      "supports": "Optimización global de parejas con pesos.",
+      "limitation": "No valida criterios educativos."
+    },
+    {
+      "id": "lechuga2022",
+      "title": "Three Algorithms for Grouping Students",
+      "url": "https://doi.org/10.1007/s40593-022-00309-y",
+      "supports": "Perfiles por habilidad, preparación y agrupamientos según el objetivo.",
+      "limitation": "Simula grupos con datos reales de álgebra; no prueba ganancias de aprendizaje por el algoritmo."
+    },
+    {
+      "id": "alegre2019",
+      "title": "Peer tutoring in mathematics in primary education: a systematic review",
+      "url": "https://doi.org/10.1080/00131911.2018.1474176",
+      "supports": "Tutoría estructurada en matemática de primaria.",
+      "limitation": "Los resultados de programas no validan los pesos ni las parejas concretas de KoEduko."
+    },
+    {
+      "id": "fuchs1998",
+      "title": "High-Achieving Students’ Interactions and Performance on Complex Mathematical Tasks as a Function of Homogeneous and Heterogeneous Pairings",
+      "url": "https://doi.org/10.3102/00028312035002227",
+      "supports": "La conveniencia de una composición depende de la tarea y de los participantes.",
+      "limitation": "Estudio pequeño con diez estudiantes de alto rendimiento en tercero/cuarto; no establece una regla universal."
+    },
+    {
+      "id": "wang2023",
+      "title": "Student Performance, Peer Effects, and Friend Networks: Evidence from a Randomized Peer Intervention",
+      "url": "https://doi.org/10.1257/pol.20200563",
+      "supports": "En ese experimento, las parejas alto-bajo mejoraron matemática de estudiantes con menor rendimiento.",
+      "limitation": "Parejas de pupitre en primaria de China; no valida una puntuación multicriterio de KoEduko."
+    },
+    {
+      "id": "fuchs2015",
+      "title": "Is Word-Problem Solving a Form of Text Comprehension?",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4391820/",
+      "supports": "Distinguir cálculo, comprensión del lenguaje y resolución de problemas.",
+      "limitation": "Estudio predictivo en segundo grado; no demuestra causalidad ni una regla de emparejamiento."
+    }
+  ]
+}

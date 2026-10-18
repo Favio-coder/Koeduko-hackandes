@@ -19,7 +19,15 @@ export { Input, Textarea, Select, Checkbox, RadioGroup } from './Field'
 export { default as Modal, ConfirmDialog } from './Modal'
 
 /* estado y feedback */
-export { Spinner, Skeleton, SkeletonRow, LoadingState, ErrorState, EmptyState } from './States'
+export {
+  Spinner,
+  Skeleton,
+  SkeletonRow,
+  LoadingAnimation,
+  LoadingState,
+  ErrorState,
+  EmptyState,
+} from './States'
 export { default as Alert } from './Alert'
 export { ToastProvider } from './Toast'
 export { default as useToast } from './useToast'
