@@ -171,11 +171,16 @@ describe('the competency report', () => {
     expect(screen.getByText('Habló 25% del tiempo · 1 turno')).toBeInTheDocument()
   })
 
-  it('never shows a grade (AD / A / B / C)', () => {
+  it('the report itself never shows a grade (AD / A / B / C); only the optional selector of the teacher offers them, and it starts empty', () => {
     withSummary()
     const { container } = renderPage()
-    expect(container.textContent).not.toMatch(/\b(AD|Nota:|Calificación:)/)
-    expect(container.textContent).not.toMatch(/Logro (destacado|esperado)/i)
+    const report = container.querySelector('section[aria-label="Evidencia por competencias"]')
+    expect(report.textContent).not.toMatch(/\b(AD|Nota:|Calificación:)/)
+    expect(report.textContent).not.toMatch(/Logro (destacado|esperado)/i)
+    // El registro auxiliar deja elegir un calificativo al docente, pero KoEduko no propone ninguno: todo arranca vacío.
+    const selects = [...container.querySelectorAll('details select')]
+    expect(selects.length).toBeGreaterThan(0)
+    for (const select of selects) expect(select.value).toBe('')
   })
 
   it('warns the teacher about what did not work when closing (the tutor is still in the meeting)', () => {

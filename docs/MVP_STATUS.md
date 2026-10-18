@@ -20,6 +20,7 @@ Qué hace el sistema hoy, quién lo dispara y qué está **verificado** (con qu�
 | 11 | Qué ve el **alumno** al terminar | Automático (`/api/my-summary`, tarjeta «Tu sesión») | **Hecho, con tests; sin probar en vivo con un alumno real.** Solo ve SU parte, en frases amables y fijas: lo que hizo bien y qué probar la próxima vez. Sin notas, porcentajes, citas ni nada de su compañero |
 | 10b | Resumen de **todas** las salas del docente | Automático al cerrar cada sala (`teacherInsights`, `/api/class-insights`, tarjeta «Lo que más cuesta en tus salas» en Salas) | Hecho; ver abajo si se probó en vivo |
 | 10c | El tutor aprende de lo que pasó en **otras salas** del mismo docente | Automático (memoria por alumno + lo que más costó en otras salas) | Hecho; la línea de otras salas necesita ≥ 3 observaciones para aparecer |
+| 10d | **Registro auxiliar de Matemática (Excel)** con la evidencia de la sala | El docente, con un botón en el reporte («Descargar registro auxiliar (Excel)») | **Hecho y probado en localhost** con una sala real: hojas por bimestre, nombre del alumno, observaciones con el estado de cada capacidad, una cita con su minuto y la fuente. **Los calificativos AD/A/B/C solo se escriben si el docente los elige**; LOGRO queda vacío. La plantilla oficial **no está en el repositorio** (trae nombres reales): se reproduce su estructura |
 | 12 | Mapeo a la malla curricular / SIAGIE | – | **No existe.** Solo evidencia formativa por capacidad, con citas |
 
 ## Lo que no se ha probado

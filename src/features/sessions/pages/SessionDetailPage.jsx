@@ -13,6 +13,7 @@ import StudentFeedback from '../components/StudentFeedback'
 import TalkShareCard from '../components/TalkShareCard'
 import TranscriptCard from '../components/TranscriptCard'
 import MeetingLinkForm from '../components/MeetingLinkForm'
+import RegistroAuxiliar from '../components/RegistroAuxiliar'
 import { useLiveSession } from '../hooks/useLiveSession'
 import { useNow } from '../hooks/useNow'
 import { useSessionHeartbeat } from '../hooks/useSessionHeartbeat'
@@ -134,6 +135,7 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
       {isTeacher && !isClosed && <InviteTutor sessionId={sessionId} botStatus={botStatus} />}
       {isTeacher && !isClosed && <CloseSession sessionId={sessionId} onClosed={setClosed} />}
       {report && <CompetencyReport report={report} steps={reportSteps} />}
+      {isTeacher && report && <RegistroAuxiliar report={report} sessionId={sessionId} />}
       {!isTeacher && session?.status === SESSION_STATUS.COMPLETED && <StudentFeedback sessionId={sessionId} />}
 
       {session && !session.meetingUrl && !isClosed && (
