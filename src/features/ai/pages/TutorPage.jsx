@@ -12,8 +12,10 @@ import { askTutor } from '../services/tutorService'
  *
  * Solo presentación: mismo envío, mismos mensajes, mismo servicio.
  */
-export default function TutorPage() {
-  const { sessionId } = useParams()
+export default function TutorPage({ sessionId: resolvedId }) {
+  const params = useParams()
+  // `sessionId` por prop lo usa "Tutor IA" del menú (ya resolvió el id); por la ruta /sessions/:sessionId/tutor sale de la URL.
+  const sessionId = resolvedId ?? params.sessionId
   const [question, setQuestion] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)

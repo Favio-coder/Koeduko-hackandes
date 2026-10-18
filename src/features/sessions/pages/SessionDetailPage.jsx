@@ -32,8 +32,10 @@ const STATUS_META = {
 const BACK_LINK_CLASS =
   'inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-[#5A6B6A] transition-colors duration-150 hover:text-[#2A7A35] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45'
 
-export default function SessionDetailPage() {
-  const { sessionId } = useParams()
+/** `sessionId` por prop lo usa "Sesión activa" del menú (ya resolvió el id); por la ruta /sessions/:sessionId sale de la URL. */
+export default function SessionDetailPage({ sessionId: resolvedId }) {
+  const params = useParams()
+  const sessionId = resolvedId ?? params.sessionId
   const { isTeacher } = useAuth()
   const { loading, error, session, view, interventions, retry } = useLiveSession(sessionId)
   const nowMs = useNow()
