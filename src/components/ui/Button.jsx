@@ -4,7 +4,7 @@
  * Polimórfico: renderiza `<button>`, o un `<Link>` de react-router si se pasa
  * `to`, o el elemento indicado en `as`.
  *
- * Variantes: primary · secondary · ghost · subtle · danger · dangerSoft
+ * Variantes: primary · blue · blueSoft · secondary · ghost · subtle · danger · dangerSoft
  * Tamaños:  sm · md · lg
  *
  * Accesibilidad:
@@ -24,6 +24,11 @@ import { LoadingAnimation } from './States'
 const variants = {
   primary:
     'bg-[#4CDB59] text-[#263D48] hover:bg-[#3FC94D] active:bg-[#35B645] shadow-[0_1px_2px_rgba(48,71,68,0.10)]',
+  /* Acciones secundarias con color propio: más fáciles de distinguir de la
+     acción principal sin caer en el minimalismo. Azul para acciones de apoyo. */
+  blue: 'bg-[#1D63D6] text-white hover:bg-[#1753B4] active:bg-[#14479A] shadow-[0_1px_2px_rgba(29,99,214,0.28)]',
+  blueSoft:
+    'bg-[#E8F0FE] text-[#12459B] border border-[#BBD1F7] hover:bg-[#DBE7FD] active:bg-[#CFE0FC]',
   secondary:
     'bg-[#FFFFFF] text-[#304744] border border-[#ABB1AB]/60 hover:bg-[#F8FAF6] hover:border-[#4CDB59] active:bg-[#EDF5E9]',
   ghost: 'bg-transparent text-[#304744] hover:bg-[#F8FAF6] active:bg-[#E9F8EA]',
@@ -44,7 +49,7 @@ const disabledStyles = 'cursor-not-allowed opacity-55 shadow-none'
 
 /**
  * @param {object} props
- * @param {'primary'|'secondary'|'ghost'|'subtle'|'danger'|'dangerSoft'} [props.variant]
+ * @param {'primary'|'blue'|'blueSoft'|'secondary'|'ghost'|'subtle'|'danger'|'dangerSoft'} [props.variant]
  * @param {'sm'|'md'|'lg'} [props.size]
  * @param {boolean} [props.loading]
  * @param {string} [props.to]  renderiza un `<Link>` de react-router.

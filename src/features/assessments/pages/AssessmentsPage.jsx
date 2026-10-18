@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Alert, Button, Card } from "@/components/ui";
+import { Alert, Button, Card, LoadingState } from "@/components/ui";
 import { Select } from "@/components/ui/Field";
+import { loadBootstrap } from "../services/assessmentService";
 import { assessmentRequest } from "../services/assessmentService";
 import { useOperation } from "../hooks/useOperation";
 import { newAssessment, statusLabels } from "../utils/forms";
@@ -13,13 +15,23 @@ import GradeHistoryPanel from "../components/GradeHistoryPanel";
 
 export default function AssessmentsPage() {
   const { isTeacher, user } = useAuth();
+  const location = useLocation();
+  const exitRef = useRef(null);
   const [data, setData] = useState(null);
   const [view, setView] = useState(null);
   const [filter, setFilter] = useState("");
   const [now, setNow] = useState(0);
   const { busy, error, run } = useOperation();
+  const refresh = useCallback(
+    (options) => run(async () => setData(await loadBootstrap(options))),
+    [run],
+  );
+  const back = useCallback(() => {
+    setView(null);
+    refresh();
+  }, [refresh]);
   useEffect(() => {
-    run(async () => setData(await assessmentRequest("bootstrap")));
+    run(async () => setData(await loadBootstrap()));
   }, [run]);
   useEffect(() => {
     if (view?.kind !== "detail") return undefined;
@@ -28,10 +40,17 @@ export default function AssessmentsPage() {
     const timer = setInterval(refreshTime, 30_000);
     return () => clearInterval(timer);
   }, [view?.kind]);
-  const back = () => {
-    setView(null);
-    run(async () => setData(await assessmentRequest("bootstrap")));
-  };
+  /* Volver a pulsar «Curso» en el menú devuelve al listado del módulo, incluso
+     desde el editor: se respeta la confirmación de cambios sin guardar. */
+  const navIntent = location.state?.koedukoNav;
+  useEffect(() => {
+    if (navIntent !== "/assessments" || !view) return;
+    if (view.kind === "edit" && exitRef.current) {
+      exitRef.current();
+      return;
+    }
+    back();
+  }, [navIntent, view, back]);
   const open = (a) =>
     run(async () => {
       if (isTeacher) {
@@ -90,6 +109,7 @@ export default function AssessmentsPage() {
         initial={view.value}
         courses={data.courses}
         onDone={back}
+        exitRef={exitRef}
       />
     );
   if (view?.kind === "attempt")
@@ -141,10 +161,8 @@ export default function AssessmentsPage() {
           </div>
         </Alert>
       )}
-      {busy && <p role="status">Cargando…</p>}
-      {!data && !busy && !error && (
-        <p role="status">Preparando evaluaciones…</p>
-      )}
+      {busy && !view && <LoadingState label="Cargando evaluaciones…" />}
+      {!data && !busy && !error && <LoadingState label="Preparando evaluaciones…" />}
       {view?.kind === "detail" ? (
         <Card title={view.value.title}>
           <div className="space-y-4">
@@ -272,7 +290,7 @@ export default function AssessmentsPage() {
               )}
               {!isTeacher && (
                 <Button
-                  variant="secondary"
+                  variant="blue"
                   disabled={busy}
                   onClick={() =>
                     run(async () =>
@@ -286,7 +304,12 @@ export default function AssessmentsPage() {
                   Mis calificaciones
                 </Button>
               )}
-              <Button variant="secondary" disabled={busy} onClick={back}>
+              <Button
+                variant="blueSoft"
+                icon="refresh"
+                disabled={busy}
+                onClick={() => refresh({ refresh: true })}
+              >
                 Actualizar
               </Button>
             </div>
@@ -319,7 +342,8 @@ export default function AssessmentsPage() {
                         Cierre: {new Date(a.endsAt).toLocaleString()}
                       </p>
                       <Button
-                        variant="secondary"
+                        variant="blue"
+                        icon="edit"
                         disabled={busy}
                         onClick={() => open(a)}
                       >

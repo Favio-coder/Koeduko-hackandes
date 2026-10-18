@@ -126,3 +126,19 @@ Después de validar la URL Vercel, inspeccionar `vercel domains inspect edukolea
 - `vercel dev`: rutas `/`, `/login`, `/assessments`, `/matching`, `/matching/results`, `/sessions`, `/sessions/test/tutor` devuelven 200 HTML. Endpoints devuelven los 401/405 JSON esperados. Servidor de prueba detenido al finalizar.
 - Pendiente: login visual y flujo E2E con cuentas autorizadas, lecturas/escrituras reales en Firestore, verificación de proveedores, reglas desplegadas e IA. HTTP 200 HTML no demuestra renderizado ni funcionalidad autenticada.
 - Producción: bloqueada por variable Admin ausente, prueba pendiente y validación real incompleta. No hay URL nueva de despliegue ni resultados E2E de producción.
+
+## Rendimiento del módulo de evaluaciones
+
+Medición desde la red del equipo (18 octubre 2026, lecturas reales y sin escritura): una lectura de documento tardó entre 500 y 1800 ms, `getAll` de cuatro perfiles 512 ms, `bootstrap` docente entre 2,3 y 3,1 s y `detail` docente 1,6 s. La latencia es de red hacia Firestore, no del código: el proyecto está en `nam5` (Iowa) y Vercel en `iad1`, la región más cercana disponible. No conviene mover la función a `europe-west1` porque cruzaría el Atlántico.
+
+Reducciones aplicadas, todas verificables:
+
+- `bootstrap`: las dos consultas (cursos y evaluaciones) se ejecutan en paralelo; el roster de estudiantes ya se traía con `getAll`. De tres esperas secuenciales a dos.
+- `detail` de docente: la autorización y la definición privada se leen en paralelo. De cuatro esperas a tres, con la última también en paralelo.
+- Guardado: el servidor devuelve `revision` y `updatedAt`, así el editor ya no pide `detail` después de guardar. Un guardado pasa de dos peticiones a una.
+- Cliente: `loadBootstrap` reutiliza la respuesta 30 s y se invalida al guardar o publicar, que son las únicas acciones del cliente que cambian el listado. Evita repetir la lectura más pesada en cada montaje de página y en cada regreso del editor.
+- Interfaz: la carga de assessments y el guardado/publicación muestran el koala de marca, para que el tiempo de espera se perciba como esperado y no como bloqueo.
+
+Pendiente por medir en producción: el tiempo real desde la función desplegada, que es la única cifra representativa para los docentes.
+
+Nota de coherencia: la Cloud Function `askTutor` se despliega en `europe-west1` mientras Firestore está en `nam5`. Es el módulo de IA, ajeno a esta tarea; se deja como está y se documenta para el equipo.

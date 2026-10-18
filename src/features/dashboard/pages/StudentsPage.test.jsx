@@ -21,6 +21,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 }))
 vi.mock('@/features/assessments/services/assessmentService', () => ({
   assessmentRequest: (action, payload) => bootstrap(action, payload),
+  loadBootstrap: (options) => bootstrap('bootstrap', options),
 }))
 // Firebase v13: la lectura usa la API modular (`collection` + `getDocs`), no `db.collection()`.
 vi.mock('firebase/firestore', () => ({ collection, getDocs }))
