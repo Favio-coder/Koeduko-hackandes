@@ -1,0 +1,1378 @@
+{
+  "simulated": true,
+  "objective": "Q(G) = sum incoming opportunity + lambda * group size * min incoming opportunity",
+  "lambda": 1,
+  "integerScale": 768,
+  "scoreInterpretation": "Utilidad de diseño, no porcentaje ni predicción calibrada de aprendizaje.",
+  "solver": {
+    "name": "edmonds-blossom",
+    "version": "1.0.0",
+    "license": "MIT",
+    "oddPolicy": "enumerate-all-triples-then-blossom"
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "evidenceLimit": "Fixture única y validación computacional; sin estudiantes reales, calibración ni evaluación educativa. Prerrequisitos de actividad aún no incorporados.",
+  "verification": {
+    "exactSmallSizes": "0–9",
+    "randomizedOracleChecks": 60,
+    "forbiddenPairs": true,
+    "missingData": true,
+    "duplicateIds": true,
+    "equalProfiles": true,
+    "inputOrderInvariantForForty": true
+  },
+  "forty": {
+    "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+    "groups": [
+      [
+        "sim-001",
+        "sim-033"
+      ],
+      [
+        "sim-002",
+        "sim-030"
+      ],
+      [
+        "sim-003",
+        "sim-020"
+      ],
+      [
+        "sim-004",
+        "sim-022"
+      ],
+      [
+        "sim-005",
+        "sim-012"
+      ],
+      [
+        "sim-006",
+        "sim-027"
+      ],
+      [
+        "sim-007",
+        "sim-010"
+      ],
+      [
+        "sim-008",
+        "sim-026"
+      ],
+      [
+        "sim-009",
+        "sim-021"
+      ],
+      [
+        "sim-011",
+        "sim-029"
+      ],
+      [
+        "sim-013",
+        "sim-032"
+      ],
+      [
+        "sim-014",
+        "sim-036"
+      ],
+      [
+        "sim-015",
+        "sim-035"
+      ],
+      [
+        "sim-016",
+        "sim-028"
+      ],
+      [
+        "sim-017",
+        "sim-019"
+      ],
+      [
+        "sim-018",
+        "sim-024"
+      ],
+      [
+        "sim-023",
+        "sim-037"
+      ],
+      [
+        "sim-025",
+        "sim-034"
+      ],
+      [
+        "sim-031",
+        "sim-038"
+      ],
+      [
+        "sim-039",
+        "sim-040"
+      ]
+    ],
+    "pendingStudentIds": [],
+    "priority": "utility",
+    "objectiveInteger": 8868,
+    "scoreInteger": 8868,
+    "score": 11.546875,
+    "testedTriples": 0,
+    "elapsedMs": 4.5439,
+    "groupDetails": [
+      {
+        "members": [
+          "sim-001",
+          "sim-033"
+        ],
+        "score": 0.677083333,
+        "evidence": [
+          {
+            "studentId": "sim-001",
+            "incomingOpportunity": 0.333333333,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "equivalence",
+              "additiveProcedures",
+              "wordProblemTranslation"
+            ]
+          },
+          {
+            "studentId": "sim-033",
+            "incomingOpportunity": 0.114583333,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-002",
+          "sim-030"
+        ],
+        "score": 0.528645833,
+        "evidence": [
+          {
+            "studentId": "sim-002",
+            "incomingOpportunity": 0.125,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "magnitudeComparison",
+              "wordProblemTranslation"
+            ]
+          },
+          {
+            "studentId": "sim-030",
+            "incomingOpportunity": 0.153645833,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-003",
+          "sim-020"
+        ],
+        "score": 0.46875,
+        "evidence": [
+          {
+            "studentId": "sim-003",
+            "incomingOpportunity": 0.020833333,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "equivalence"
+            ]
+          },
+          {
+            "studentId": "sim-020",
+            "incomingOpportunity": 0.40625,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-004",
+          "sim-022"
+        ],
+        "score": 0.963541667,
+        "evidence": [
+          {
+            "studentId": "sim-004",
+            "incomingOpportunity": 0.260416667,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "equivalence"
+            ]
+          },
+          {
+            "studentId": "sim-022",
+            "incomingOpportunity": 0.234375,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "magnitudeComparison",
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-005",
+          "sim-012"
+        ],
+        "score": 0.4375,
+        "evidence": [
+          {
+            "studentId": "sim-005",
+            "incomingOpportunity": 0.15625,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "magnitudeComparison",
+              "additiveProcedures",
+              "wordProblemTranslation"
+            ]
+          },
+          {
+            "studentId": "sim-012",
+            "incomingOpportunity": 0.09375,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "equivalence"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-006",
+          "sim-027"
+        ],
+        "score": 0.90625,
+        "evidence": [
+          {
+            "studentId": "sim-006",
+            "incomingOpportunity": 0.25,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "equivalence"
+            ]
+          },
+          {
+            "studentId": "sim-027",
+            "incomingOpportunity": 0.21875,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-007",
+          "sim-010"
+        ],
+        "score": 0.625,
+        "evidence": [
+          {
+            "studentId": "sim-007",
+            "incomingOpportunity": 0.15625,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "magnitudeComparison",
+              "equivalence"
+            ]
+          },
+          {
+            "studentId": "sim-010",
+            "incomingOpportunity": 0.15625,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-008",
+          "sim-026"
+        ],
+        "score": 0.614583333,
+        "evidence": [
+          {
+            "studentId": "sim-008",
+            "incomingOpportunity": 0.614583333,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "equivalence",
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          },
+          {
+            "studentId": "sim-026",
+            "incomingOpportunity": 0,
+            "dimensionsWherePeerHasHigherObservedScore": []
+          }
+        ],
+        "supportFlags": [
+          "El modelo no detecta oportunidades de recibir ayuda para todos; revisar actividad y aportes de explicar."
+        ]
+      },
+      {
+        "members": [
+          "sim-009",
+          "sim-021"
+        ],
+        "score": 0.588541667,
+        "evidence": [
+          {
+            "studentId": "sim-009",
+            "incomingOpportunity": 0.588541667,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "equivalence",
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          },
+          {
+            "studentId": "sim-021",
+            "incomingOpportunity": 0,
+            "dimensionsWherePeerHasHigherObservedScore": []
+          }
+        ],
+        "supportFlags": [
+          "El modelo no detecta oportunidades de recibir ayuda para todos; revisar actividad y aportes de explicar."
+        ]
+      },
+      {
+        "members": [
+          "sim-011",
+          "sim-029"
+        ],
+        "score": 0.513020833,
+        "evidence": [
+          {
+            "studentId": "sim-011",
+            "incomingOpportunity": 0.125,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "equivalence"
+            ]
+          },
+          {
+            "studentId": "sim-029",
+            "incomingOpportunity": 0.138020833,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-013",
+          "sim-032"
+        ],
+        "score": 0.380208333,
+        "evidence": [
+          {
+            "studentId": "sim-013",
+            "incomingOpportunity": 0.09375,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "equivalence",
+              "additiveProcedures"
+            ]
+          },
+          {
+            "studentId": "sim-032",
+            "incomingOpportunity": 0.098958333,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "wordProblemTranslation",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-014",
+          "sim-036"
+        ],
+        "score": 0.729166667,
+        "evidence": [
+          {
+            "studentId": "sim-014",
+            "incomingOpportunity": 0.125,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation"
+            ]
+          },
+          {
+            "studentId": "sim-036",
+            "incomingOpportunity": 0.354166667,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "magnitudeComparison",
+              "equivalence",
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-015",
+          "sim-035"
+        ],
+        "score": 0.518229167,
+        "evidence": [
+          {
+            "studentId": "sim-015",
+            "incomingOpportunity": 0.197916667,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "equivalence",
+              "wordProblemTranslation"
+            ]
+          },
+          {
+            "studentId": "sim-035",
+            "incomingOpportunity": 0.106770833,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "additiveProcedures",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-016",
+          "sim-028"
+        ],
+        "score": 0.53125,
+        "evidence": [
+          {
+            "studentId": "sim-016",
+            "incomingOpportunity": 0.53125,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "equivalence",
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          },
+          {
+            "studentId": "sim-028",
+            "incomingOpportunity": 0,
+            "dimensionsWherePeerHasHigherObservedScore": []
+          }
+        ],
+        "supportFlags": [
+          "El modelo no detecta oportunidades de recibir ayuda para todos; revisar actividad y aportes de explicar."
+        ]
+      },
+      {
+        "members": [
+          "sim-017",
+          "sim-019"
+        ],
+        "score": 0.421875,
+        "evidence": [
+          {
+            "studentId": "sim-017",
+            "incomingOpportunity": 0.421875,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "equivalence",
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          },
+          {
+            "studentId": "sim-019",
+            "incomingOpportunity": 0,
+            "dimensionsWherePeerHasHigherObservedScore": []
+          }
+        ],
+        "supportFlags": [
+          "El modelo no detecta oportunidades de recibir ayuda para todos; revisar actividad y aportes de explicar."
+        ]
+      },
+      {
+        "members": [
+          "sim-018",
+          "sim-024"
+        ],
+        "score": 0.447916667,
+        "evidence": [
+          {
+            "studentId": "sim-018",
+            "incomingOpportunity": 0.166666667,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "additiveProcedures",
+              "wordProblemTranslation"
+            ]
+          },
+          {
+            "studentId": "sim-024",
+            "incomingOpportunity": 0.09375,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "equivalence",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-023",
+          "sim-037"
+        ],
+        "score": 0.611979167,
+        "evidence": [
+          {
+            "studentId": "sim-023",
+            "incomingOpportunity": 0.424479167,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "equivalence",
+              "additiveProcedures",
+              "justification"
+            ]
+          },
+          {
+            "studentId": "sim-037",
+            "incomingOpportunity": 0.0625,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "wordProblemTranslation"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-025",
+          "sim-034"
+        ],
+        "score": 0.5625,
+        "evidence": [
+          {
+            "studentId": "sim-025",
+            "incomingOpportunity": 0.135416667,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "magnitudeComparison",
+              "wordProblemTranslation"
+            ]
+          },
+          {
+            "studentId": "sim-034",
+            "incomingOpportunity": 0.15625,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "equivalence",
+              "additiveProcedures"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-031",
+          "sim-038"
+        ],
+        "score": 0.552083333,
+        "evidence": [
+          {
+            "studentId": "sim-031",
+            "incomingOpportunity": 0.145833333,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "additiveProcedures"
+            ]
+          },
+          {
+            "studentId": "sim-038",
+            "incomingOpportunity": 0.135416667,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "magnitudeComparison",
+              "equivalence",
+              "wordProblemTranslation"
+            ]
+          }
+        ],
+        "supportFlags": []
+      },
+      {
+        "members": [
+          "sim-039",
+          "sim-040"
+        ],
+        "score": 0.46875,
+        "evidence": [
+          {
+            "studentId": "sim-039",
+            "incomingOpportunity": 0,
+            "dimensionsWherePeerHasHigherObservedScore": []
+          },
+          {
+            "studentId": "sim-040",
+            "incomingOpportunity": 0.46875,
+            "dimensionsWherePeerHasHigherObservedScore": [
+              "unitRepresentation",
+              "equivalence",
+              "additiveProcedures",
+              "wordProblemTranslation",
+              "justification"
+            ]
+          }
+        ],
+        "supportFlags": [
+          "El modelo no detecta oportunidades de recibir ayuda para todos; revisar actividad y aportes de explicar."
+        ]
+      }
+    ]
+  },
+  "fortyPrioritizingSupportCoverage": {
+    "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+    "groups": [
+      [
+        "sim-001",
+        "sim-033"
+      ],
+      [
+        "sim-002",
+        "sim-024"
+      ],
+      [
+        "sim-003",
+        "sim-020"
+      ],
+      [
+        "sim-004",
+        "sim-022"
+      ],
+      [
+        "sim-005",
+        "sim-006"
+      ],
+      [
+        "sim-007",
+        "sim-027"
+      ],
+      [
+        "sim-008",
+        "sim-040"
+      ],
+      [
+        "sim-009",
+        "sim-035"
+      ],
+      [
+        "sim-010",
+        "sim-039"
+      ],
+      [
+        "sim-011",
+        "sim-029"
+      ],
+      [
+        "sim-012",
+        "sim-021"
+      ],
+      [
+        "sim-013",
+        "sim-032"
+      ],
+      [
+        "sim-014",
+        "sim-036"
+      ],
+      [
+        "sim-015",
+        "sim-030"
+      ],
+      [
+        "sim-016",
+        "sim-018"
+      ],
+      [
+        "sim-017",
+        "sim-031"
+      ],
+      [
+        "sim-019",
+        "sim-038"
+      ],
+      [
+        "sim-023",
+        "sim-037"
+      ],
+      [
+        "sim-025",
+        "sim-034"
+      ],
+      [
+        "sim-026",
+        "sim-028"
+      ]
+    ],
+    "pendingStudentIds": [],
+    "priority": "supportCoverage",
+    "objectiveInteger": 2465630,
+    "scoreInteger": 7990,
+    "score": 10.403645833,
+    "testedTriples": 0,
+    "elapsedMs": 6.2242,
+    "metrics": {
+      "score": 10.403645833,
+      "scoreInteger": 7990,
+      "groupsWithPositiveSupportForEveryMember": 20,
+      "studentsWithPositiveIncomingSupport": 40
+    }
+  },
+  "thirtyNine": {
+    "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+    "groups": [
+      [
+        "sim-001",
+        "sim-019"
+      ],
+      [
+        "sim-002",
+        "sim-012"
+      ],
+      [
+        "sim-003",
+        "sim-005"
+      ],
+      [
+        "sim-004",
+        "sim-022"
+      ],
+      [
+        "sim-006",
+        "sim-027"
+      ],
+      [
+        "sim-007",
+        "sim-031"
+      ],
+      [
+        "sim-008",
+        "sim-026"
+      ],
+      [
+        "sim-009",
+        "sim-021"
+      ],
+      [
+        "sim-010",
+        "sim-033"
+      ],
+      [
+        "sim-011",
+        "sim-035"
+      ],
+      [
+        "sim-013",
+        "sim-032"
+      ],
+      [
+        "sim-014",
+        "sim-036"
+      ],
+      [
+        "sim-015",
+        "sim-020",
+        "sim-034"
+      ],
+      [
+        "sim-016",
+        "sim-028"
+      ],
+      [
+        "sim-017",
+        "sim-039"
+      ],
+      [
+        "sim-018",
+        "sim-024"
+      ],
+      [
+        "sim-023",
+        "sim-037"
+      ],
+      [
+        "sim-025",
+        "sim-029"
+      ],
+      [
+        "sim-030",
+        "sim-038"
+      ]
+    ],
+    "pendingStudentIds": [],
+    "priority": "utility",
+    "objectiveInteger": 8996,
+    "scoreInteger": 8996,
+    "score": 11.713541667,
+    "testedTriples": 9139,
+    "elapsedMs": 3392.8527
+  },
+  "baselinesOnForty": {
+    "optimalProposedObjective": {
+      "score": 11.546875,
+      "scoreInteger": 8868,
+      "groupsWithPositiveSupportForEveryMember": 15,
+      "studentsWithPositiveIncomingSupport": 35
+    },
+    "greedyProposedObjective": {
+      "score": 10.533854167,
+      "scoreInteger": 8090,
+      "groupsWithPositiveSupportForEveryMember": 17,
+      "studentsWithPositiveIncomingSupport": 36
+    },
+    "adjacentByOverallScore": {
+      "score": 7.5625,
+      "scoreInteger": 5808,
+      "groupsWithPositiveSupportForEveryMember": 19,
+      "studentsWithPositiveIncomingSupport": 38
+    },
+    "maximumCosineMatching": {
+      "score": 2.635416667,
+      "scoreInteger": 2024,
+      "groupsWithPositiveSupportForEveryMember": 6,
+      "studentsWithPositiveIncomingSupport": 25
+    },
+    "random500": {
+      "meanScore": 7.067703125,
+      "bestScore": 9.424479167,
+      "worstScore": 5.4375
+    },
+    "interpretation": "Comparaciones dentro de la utilidad propuesta. Su máximo será favorable por construcción: no son pruebas de mayor aprendizaje."
+  },
+  "lambdaSensitivity": [
+    {
+      "lambda": 0,
+      "groups": [
+        [
+          "sim-001",
+          "sim-019"
+        ],
+        [
+          "sim-002",
+          "sim-012"
+        ],
+        [
+          "sim-003",
+          "sim-017"
+        ],
+        [
+          "sim-004",
+          "sim-022"
+        ],
+        [
+          "sim-005",
+          "sim-013"
+        ],
+        [
+          "sim-006",
+          "sim-029"
+        ],
+        [
+          "sim-007",
+          "sim-027"
+        ],
+        [
+          "sim-008",
+          "sim-026"
+        ],
+        [
+          "sim-009",
+          "sim-021"
+        ],
+        [
+          "sim-010",
+          "sim-033"
+        ],
+        [
+          "sim-011",
+          "sim-020"
+        ],
+        [
+          "sim-014",
+          "sim-036"
+        ],
+        [
+          "sim-015",
+          "sim-035"
+        ],
+        [
+          "sim-016",
+          "sim-028"
+        ],
+        [
+          "sim-018",
+          "sim-024"
+        ],
+        [
+          "sim-023",
+          "sim-037"
+        ],
+        [
+          "sim-025",
+          "sim-034"
+        ],
+        [
+          "sim-030",
+          "sim-038"
+        ],
+        [
+          "sim-031",
+          "sim-032"
+        ],
+        [
+          "sim-039",
+          "sim-040"
+        ]
+      ],
+      "score": 8.098958333,
+      "scoreInteger": 6220,
+      "groupsWithPositiveSupportForEveryMember": 14,
+      "studentsWithPositiveIncomingSupport": 34
+    },
+    {
+      "lambda": 0.5,
+      "groups": [
+        [
+          "sim-001",
+          "sim-019"
+        ],
+        [
+          "sim-002",
+          "sim-012"
+        ],
+        [
+          "sim-003",
+          "sim-008"
+        ],
+        [
+          "sim-004",
+          "sim-022"
+        ],
+        [
+          "sim-005",
+          "sim-013"
+        ],
+        [
+          "sim-006",
+          "sim-027"
+        ],
+        [
+          "sim-007",
+          "sim-029"
+        ],
+        [
+          "sim-009",
+          "sim-021"
+        ],
+        [
+          "sim-010",
+          "sim-033"
+        ],
+        [
+          "sim-011",
+          "sim-020"
+        ],
+        [
+          "sim-014",
+          "sim-036"
+        ],
+        [
+          "sim-015",
+          "sim-035"
+        ],
+        [
+          "sim-016",
+          "sim-028"
+        ],
+        [
+          "sim-017",
+          "sim-026"
+        ],
+        [
+          "sim-018",
+          "sim-024"
+        ],
+        [
+          "sim-023",
+          "sim-037"
+        ],
+        [
+          "sim-025",
+          "sim-034"
+        ],
+        [
+          "sim-030",
+          "sim-038"
+        ],
+        [
+          "sim-031",
+          "sim-032"
+        ],
+        [
+          "sim-039",
+          "sim-040"
+        ]
+      ],
+      "score": 9.747395833,
+      "scoreInteger": 7486,
+      "groupsWithPositiveSupportForEveryMember": 14,
+      "studentsWithPositiveIncomingSupport": 34
+    },
+    {
+      "lambda": 1,
+      "groups": [
+        [
+          "sim-001",
+          "sim-033"
+        ],
+        [
+          "sim-002",
+          "sim-030"
+        ],
+        [
+          "sim-003",
+          "sim-020"
+        ],
+        [
+          "sim-004",
+          "sim-022"
+        ],
+        [
+          "sim-005",
+          "sim-012"
+        ],
+        [
+          "sim-006",
+          "sim-027"
+        ],
+        [
+          "sim-007",
+          "sim-010"
+        ],
+        [
+          "sim-008",
+          "sim-026"
+        ],
+        [
+          "sim-009",
+          "sim-021"
+        ],
+        [
+          "sim-011",
+          "sim-029"
+        ],
+        [
+          "sim-013",
+          "sim-032"
+        ],
+        [
+          "sim-014",
+          "sim-036"
+        ],
+        [
+          "sim-015",
+          "sim-035"
+        ],
+        [
+          "sim-016",
+          "sim-028"
+        ],
+        [
+          "sim-017",
+          "sim-019"
+        ],
+        [
+          "sim-018",
+          "sim-024"
+        ],
+        [
+          "sim-023",
+          "sim-037"
+        ],
+        [
+          "sim-025",
+          "sim-034"
+        ],
+        [
+          "sim-031",
+          "sim-038"
+        ],
+        [
+          "sim-039",
+          "sim-040"
+        ]
+      ],
+      "score": 11.546875,
+      "scoreInteger": 8868,
+      "groupsWithPositiveSupportForEveryMember": 15,
+      "studentsWithPositiveIncomingSupport": 35
+    }
+  ],
+  "sizeChecks": [
+    {
+      "n": 0,
+      "status": "EMPTY",
+      "groups": [],
+      "pendingStudentIds": [],
+      "scoreInteger": 0,
+      "score": 0,
+      "testedTriples": 0,
+      "elapsedMs": 0.4764
+    },
+    {
+      "n": 1,
+      "status": "WAITING",
+      "groups": [],
+      "pendingStudentIds": [
+        "sim-001"
+      ],
+      "scoreInteger": 0,
+      "score": 0,
+      "testedTriples": 0,
+      "elapsedMs": 0.0491
+    },
+    {
+      "n": 2,
+      "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-002"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "priority": "utility",
+      "objectiveInteger": 310,
+      "scoreInteger": 310,
+      "score": 0.403645833,
+      "testedTriples": 0,
+      "elapsedMs": 8.8672
+    },
+    {
+      "n": 3,
+      "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-002",
+          "sim-003"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "priority": "utility",
+      "objectiveInteger": 534,
+      "scoreInteger": 534,
+      "score": 0.6953125,
+      "testedTriples": 1,
+      "elapsedMs": 0.1336
+    },
+    {
+      "n": 4,
+      "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-003"
+        ],
+        [
+          "sim-002",
+          "sim-004"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "priority": "utility",
+      "objectiveInteger": 804,
+      "scoreInteger": 804,
+      "score": 1.046875,
+      "testedTriples": 0,
+      "elapsedMs": 0.429
+    },
+    {
+      "n": 5,
+      "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-002",
+          "sim-004"
+        ],
+        [
+          "sim-003",
+          "sim-005"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "priority": "utility",
+      "objectiveInteger": 1220,
+      "scoreInteger": 1220,
+      "score": 1.588541667,
+      "testedTriples": 10,
+      "elapsedMs": 0.9706
+    },
+    {
+      "n": 6,
+      "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-003"
+        ],
+        [
+          "sim-002",
+          "sim-004"
+        ],
+        [
+          "sim-005",
+          "sim-006"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "priority": "utility",
+      "objectiveInteger": 1284,
+      "scoreInteger": 1284,
+      "score": 1.671875,
+      "testedTriples": 0,
+      "elapsedMs": 0.148
+    },
+    {
+      "n": 7,
+      "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-005",
+          "sim-006"
+        ],
+        [
+          "sim-002",
+          "sim-004"
+        ],
+        [
+          "sim-003",
+          "sim-007"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "priority": "utility",
+      "objectiveInteger": 1742,
+      "scoreInteger": 1742,
+      "score": 2.268229167,
+      "testedTriples": 35,
+      "elapsedMs": 1.6052
+    },
+    {
+      "n": 8,
+      "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-007"
+        ],
+        [
+          "sim-002",
+          "sim-004"
+        ],
+        [
+          "sim-003",
+          "sim-008"
+        ],
+        [
+          "sim-005",
+          "sim-006"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "priority": "utility",
+      "objectiveInteger": 1840,
+      "scoreInteger": 1840,
+      "score": 2.395833333,
+      "testedTriples": 0,
+      "elapsedMs": 0.2436
+    },
+    {
+      "n": 9,
+      "status": "OPTIMAL_FOR_SPECIFIED_INTEGER_OBJECTIVE",
+      "groups": [
+        [
+          "sim-001",
+          "sim-007"
+        ],
+        [
+          "sim-002",
+          "sim-004",
+          "sim-009"
+        ],
+        [
+          "sim-003",
+          "sim-008"
+        ],
+        [
+          "sim-005",
+          "sim-006"
+        ]
+      ],
+      "pendingStudentIds": [],
+      "priority": "utility",
+      "objectiveInteger": 2352,
+      "scoreInteger": 2352,
+      "score": 3.0625,
+      "testedTriples": 84,
+      "elapsedMs": 4.9429
+    }
+  ]
+}
