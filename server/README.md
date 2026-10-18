@@ -225,8 +225,6 @@ pegado al número, y una pregunta ("¿cuánto son seis por ocho?") no cuenta com
 
 ## Qué no está hecho (honestidad)
 
-- No hay CORS: el navegador no puede llamar todavía a `/api/start-session-bot`.
-- No hay botón "Invitar tutor" en la interfaz; el bot se invita con una llamada directa.
 - El anfitrión debe admitir al bot en Meet manualmente (limitación de Google Meet).
 - El camino completo `start-session-bot` con un docente real no se probó en producción; la prueba
   real creó el bot directamente contra la API de Recall.
