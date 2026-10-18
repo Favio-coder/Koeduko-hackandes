@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { AuthError } from '../errors.js'
+import { AuthError } from '../sessions/errors.js'
 import { createAskTutorHandler } from './askTutorHandler.js'
 
 const FRONT = 'https://koeduko-app.web.app'

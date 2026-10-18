@@ -1,5 +1,5 @@
-import { requireTeacherFromRequest } from '../auth.js'
-import { closeSession } from '../closeSession.js'
+import { requireTeacherFromRequest } from '../sessions/auth.js'
+import { closeSession } from '../sessions/closeSession.js'
 import { handleCors } from './cors.js'
 import { sendError } from './respond.js'
 

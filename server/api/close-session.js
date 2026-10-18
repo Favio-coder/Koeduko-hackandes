@@ -3,8 +3,8 @@ import { consoleLogger } from '../src/logger.js'
 import { leaveCall } from '../src/sessions/adapters/recall.js'
 import { createSessionStore } from '../src/sessions/adapters/sessionStore.js'
 import { createGeminiGenerator } from '../src/sessions/geminiEdge.js'
-import { parseAllowedOrigins } from '../src/sessions/http/cors.js'
-import { createCloseSessionHandler } from '../src/sessions/http/closeSessionHandler.js'
+import { parseAllowedOrigins } from '../src/http/cors.js'
+import { createCloseSessionHandler } from '../src/http/closeSessionHandler.js'
 import { createMemoryFromEnv } from '../src/sessions/memoryEdge.js'
 
 /**

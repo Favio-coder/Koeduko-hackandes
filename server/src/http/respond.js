@@ -1,4 +1,4 @@
-import { httpStatusFor } from '../errors.js'
+import { httpStatusFor } from '../sessions/errors.js'
 
 const SERVER_MISCONFIGURED = 'Configuracion del servidor incompleta.'
 

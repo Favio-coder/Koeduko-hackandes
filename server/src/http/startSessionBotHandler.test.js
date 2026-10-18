@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { RecallApiError } from '../adapters/recall.js'
-import { ConfigError, SessionBotError } from '../errors.js'
+import { RecallApiError } from '../sessions/adapters/recall.js'
+import { ConfigError, SessionBotError } from '../sessions/errors.js'
 import { createStartSessionBotHandler } from './startSessionBotHandler.js'
 
 const config = {

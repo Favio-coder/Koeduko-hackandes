@@ -44,7 +44,7 @@ sin nombre, fuera de tema), se usa un mensaje determinista: la demo nunca queda 
 | `src/sessions/adapters/` | Recall (`recall.js`), Gemini (`gemini.js`) y Firestore (`sessionStore.js`). |
 | `src/sessions/tutor.js`, `afterLiveEventSaved.js` | Redacta la intervención (Gemini con respaldo) y la entrega. |
 | `scripts/replayFixture.js` | Reproduce `fixtures/smoke-001.json` contra el webhook desplegado, sin Recall. |
-| `src/sessions/http/` | Handlers con dependencias inyectadas, probados sin Vercel. |
+| `src/http/` | Handlers con dependencias inyectadas, probados sin Vercel. |
 | `src/firebaseAdmin.js` | Inicializa `firebase-admin` con `FIREBASE_SERVICE_ACCOUNT_B64`. |
 
 ## Variables de entorno (Production, tipo Secret)

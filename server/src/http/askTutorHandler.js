@@ -1,7 +1,7 @@
-import { requireSessionMember } from '../auth.js'
-import { problemFromSession } from '../core/liveEngine.js'
-import { SessionBotError } from '../errors.js'
-import { composeHint } from '../tutor.js'
+import { requireSessionMember } from '../sessions/auth.js'
+import { problemFromSession } from '../sessions/core/liveEngine.js'
+import { SessionBotError } from '../sessions/errors.js'
+import { composeHint } from '../sessions/tutor.js'
 import { handleCors } from './cors.js'
 import { sendError } from './respond.js'
 

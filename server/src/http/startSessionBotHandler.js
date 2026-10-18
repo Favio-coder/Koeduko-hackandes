@@ -1,7 +1,7 @@
-import { requireTeacherFromRequest } from '../auth.js'
+import { requireTeacherFromRequest } from '../sessions/auth.js'
 import { handleCors } from './cors.js'
 import { sendError } from './respond.js'
-import { startSessionBot } from '../startSessionBot.js'
+import { startSessionBot } from '../sessions/startSessionBot.js'
 
 /**
  * POST /api/start-session-bot   Authorization: Bearer <Firebase ID token>   { "sessionId": "..." }

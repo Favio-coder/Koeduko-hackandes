@@ -6,7 +6,7 @@ import { createAfterLiveEventSaved } from '../src/sessions/afterLiveEventSaved.j
 import { readMeetChatConfig } from '../src/sessions/config.js'
 import { createGeminiGenerator } from '../src/sessions/geminiEdge.js'
 import { createMemoryFromEnv } from '../src/sessions/memoryEdge.js'
-import { createRecallWebhookHandler } from '../src/sessions/http/recallWebhookHandler.js'
+import { createRecallWebhookHandler } from '../src/http/recallWebhookHandler.js'
 
 const getStore = () => createSessionStore(getFirebase())
 

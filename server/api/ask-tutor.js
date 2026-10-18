@@ -2,8 +2,8 @@ import { getFirebase } from '../src/firebaseAdmin.js'
 import { consoleLogger } from '../src/logger.js'
 import { createSessionStore } from '../src/sessions/adapters/sessionStore.js'
 import { createGeminiGenerator } from '../src/sessions/geminiEdge.js'
-import { createAskTutorHandler } from '../src/sessions/http/askTutorHandler.js'
-import { parseAllowedOrigins } from '../src/sessions/http/cors.js'
+import { createAskTutorHandler } from '../src/http/askTutorHandler.js'
+import { parseAllowedOrigins } from '../src/http/cors.js'
 
 /**
  * POST /api/ask-tutor

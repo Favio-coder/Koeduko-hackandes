@@ -1,4 +1,4 @@
-import { handleRecallWebhook } from '../core/handleRecallWebhook.js'
+import { handleRecallWebhook } from '../sessions/core/handleRecallWebhook.js'
 
 /**
  * Handler HTTP del webhook de Recall con sus dependencias inyectadas (el archivo de api/

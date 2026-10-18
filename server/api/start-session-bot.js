@@ -3,8 +3,8 @@ import { consoleLogger } from '../src/logger.js'
 import { createBot } from '../src/sessions/adapters/recall.js'
 import { createSessionStore } from '../src/sessions/adapters/sessionStore.js'
 import { readRecallConfig } from '../src/sessions/config.js'
-import { parseAllowedOrigins } from '../src/sessions/http/cors.js'
-import { createStartSessionBotHandler } from '../src/sessions/http/startSessionBotHandler.js'
+import { parseAllowedOrigins } from '../src/http/cors.js'
+import { createStartSessionBotHandler } from '../src/http/startSessionBotHandler.js'
 
 /**
  * POST /api/start-session-bot
