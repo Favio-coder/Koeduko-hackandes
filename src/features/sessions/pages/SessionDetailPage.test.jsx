@@ -7,6 +7,7 @@ const live = { current: null }
 
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => auth }))
 vi.mock('../hooks/useLiveSession', () => ({ useLiveSession: () => live.current }))
+vi.mock('../hooks/useSessionSummary', () => ({ useSessionSummary: () => ({ summary: null, ready: true }) }))
 vi.mock('../services/sessionBotService', () => ({ inviteTutor: vi.fn() }))
 
 import { inviteTutor } from '../services/sessionBotService'

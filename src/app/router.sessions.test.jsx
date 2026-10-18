@@ -24,6 +24,7 @@ vi.mock('@/features/sessions/hooks/useLiveSession', () => ({
     retry: vi.fn(),
   }),
 }))
+vi.mock('@/features/sessions/hooks/useSessionSummary', () => ({ useSessionSummary: () => ({ summary: null, ready: true }) }))
 vi.mock('@/features/sessions/services/sessionBotService', () => ({ inviteTutor: vi.fn() }))
 
 import AppRouter from './router'

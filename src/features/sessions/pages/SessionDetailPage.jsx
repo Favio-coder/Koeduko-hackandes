@@ -1,15 +1,19 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Badge, Button, Card, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import Icon from '@/components/ui/Icon'
 import useToast from '@/components/ui/useToast'
 import { useAuth } from '@/contexts/AuthContext'
 import { SESSION_STATUS } from '@/shared/constants/contracts'
+import CloseSession from '../components/CloseSession'
+import CompetencyReport from '../components/CompetencyReport'
 import InterventionsCard from '../components/InterventionsCard'
 import InviteTutor from '../components/InviteTutor'
 import TalkShareCard from '../components/TalkShareCard'
 import TranscriptCard from '../components/TranscriptCard'
 import { useLiveSession } from '../hooks/useLiveSession'
 import { useNow } from '../hooks/useNow'
+import { useSessionSummary } from '../hooks/useSessionSummary'
 import { botStatusMeta } from '../lib/describeIntervention'
 
 /**
@@ -34,14 +38,20 @@ export default function SessionDetailPage() {
   const { loading, error, session, view, interventions, retry } = useLiveSession(sessionId)
   const nowMs = useNow()
   const toast = useToast()
+  // El reporte de cierre solo lo lee el docente (reglas de Firestore): al estudiante no se le suscribe.
+  const { summary } = useSessionSummary(sessionId, { enabled: isTeacher })
+  const [closed, setClosed] = useState(null) // lo que devolvio close-session, para mostrar el reporte sin esperar a Firestore
 
   if (loading) return <LoadingState label="Cargando sesión..." />
 
   const status = STATUS_META[session?.status]
   const botStatus = session?.bot?.status
   const hasActivity = Boolean(view) || interventions.length > 0
-  // Solo el enunciado: la respuesta esperada vive en el mismo documento, pero nunca se muestra.
+  // Solo el enunciado: la respuesta esperada ya no esta en este documento (vive en private/answer).
   const problemText = session?.currentProblem?.text
+  const report = closed?.report ?? summary?.report ?? null
+  const reportSteps = closed?.steps ?? summary?.steps
+  const isClosed = Boolean(report) || session?.status === SESSION_STATUS.COMPLETED
 
   const handleCopy = async () => {
     try {
@@ -77,7 +87,9 @@ export default function SessionDetailPage() {
         </div>
       </header>
 
-      {isTeacher && <InviteTutor sessionId={sessionId} botStatus={botStatus} />}
+      {isTeacher && !isClosed && <InviteTutor sessionId={sessionId} botStatus={botStatus} />}
+      {isTeacher && !isClosed && <CloseSession sessionId={sessionId} onClosed={setClosed} />}
+      {report && <CompetencyReport report={report} steps={reportSteps} />}
 
       {session?.meetingUrl && (
         <Card title="Reunión de Google Meet" description="Enlace de esta pareja.">
