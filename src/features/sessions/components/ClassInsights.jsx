@@ -26,7 +26,7 @@ export default function ClassInsights({ fetchInsights = fetchClassInsights }) {
   const rows = insights.capacities.filter((capacity) => capacity.total > 0)
 
   return (
-    <Card title="Lo que más cuesta en tus salas" description={`${insights.sessions} ${insights.sessions === 1 ? 'sala cerrada' : 'salas cerradas'} · ${insights.students} participaciones`}>
+    <Card title="Lo que más cuesta en tus salas" description={`${insights.sessions} ${insights.sessions === 1 ? 'sala cerrada' : 'salas cerradas'} · ${insights.students} ${insights.students === 1 ? 'participación' : 'participaciones'}`}>
       <ul className="space-y-3">
         {rows.map((capacity) => (
           <li key={capacity.id}>
