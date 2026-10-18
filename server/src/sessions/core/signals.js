@@ -27,7 +27,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   minPresenceSec: 30, // para acusar de callado, debe llevar al menos esto en la sala
   groupSilenceSec: 40, // nadie habla durante 40 s
   stuckMarkersMin: 2, // >= 2 marcadores de confusion en la ventana
-  cooldownSec: 90, // la misma senal no se repite antes de 90 s
+  cooldownSec: 60, // la misma senal no se repite antes de 60 s
   evalEverySec: 5, // como maximo una evaluacion de senales cada 5 s por sesion
   maxTranscripts: 20, // transcripciones que se conservan en el estado (la pantalla muestra 20)
   maxIntervals: 400, // tope de intervalos de habla en el estado
@@ -165,6 +165,10 @@ function answerSignals(state, keys, from, problem, context, now) {
     const mine = state.transcripts.filter((x) => x.k === key && x.t >= startedAt)
     const last = mine.filter((x) => x.e >= from).at(-1)
     if (!last) continue
+    // Una respuesta que el tutor ya atendio no se vuelve a atender cuando termina la espera: solo cuenta lo dicho DESPUES de la
+    // ultima intervencion de respuesta para esa persona (si no, la misma frase dispararia el tutor otra vez, p. ej. al salir).
+    const handled = (state.interventions ?? []).some((i) => i.k === key && (i.type === 'WRONG_ANSWER' || i.type === 'CORRECT_ANSWER') && i.t >= last.e)
+    if (handled) continue
     // Un fragmento colgado ("cuarenta y") se espera un momento: leerlo solo daria "40" cuando la persona dijo 42.
     if (endsUnfinished(last.x) && now - last.e < CONTINUATION_SEC) continue
     // Si el fragmento anterior quedo colgado y este lo continua, se leen juntos.

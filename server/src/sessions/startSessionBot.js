@@ -26,12 +26,40 @@ function fromRecallFailure(error) {
  * }} input
  * @returns {Promise<{ botId: string, status: 'requested' }>}
  */
-export async function startSessionBot({ sessionId, nowMs, config, store, createBot }) {
+export async function startSessionBot({ sessionId, nowMs, config, store, createBot, ensureMeeting = null }) {
   if (typeof sessionId !== 'string' || !SESSION_ID_PATTERN.test(sessionId)) {
     throw new SessionBotError('invalid-argument', 'sessionId es obligatorio.')
   }
 
+  // Una sala sin enlace de Meet lo recibe aqui, con la cuenta de Google que el docente conecto (si lo hizo).
+  let meeting = { created: false }
+  try {
+    meeting = (await ensureMeeting?.(sessionId)) ?? meeting
+  } catch {
+    meeting = { created: false, reason: 'failed' }
+  }
+  if (meeting.reason === 'teacher-not-connected') {
+    throw new SessionBotError('failed-precondition', 'La sala no tiene enlace de Meet y el docente aun no conecto su cuenta de Google. Conectala o registra el enlace a mano.')
+  }
+
   const { meetingUrl } = await store.claimBot(sessionId, { region: config.region, nowMs })
+
+  // La sala puede haber nacido sin problema (la crea el algoritmo): se le asigna uno segun la habilidad en foco del grupo.
+  // Si falla, el bot entra igual y el observador de la conversacion sigue funcionando sin problema.
+  let problem = { assigned: false }
+  try {
+    problem = (await store.ensureProblem?.(sessionId)) ?? problem
+  } catch {
+    problem = { assigned: false, failed: true }
+  }
+
+  // Quien guia y quien aprende segun el diagnostico (solo servidor). Tampoco bloquea al bot si falla.
+  let rolesAssigned
+  try {
+    rolesAssigned = (await store.ensureContext?.(sessionId))?.created === true
+  } catch {
+    rolesAssigned = false
+  }
 
   let botId
   try {
@@ -56,5 +84,5 @@ export async function startSessionBot({ sessionId, nowMs, config, store, createB
     throw new SessionBotError('internal', 'El bot se creo pero no se pudo guardar su id.', { botId })
   }
 
-  return { botId, status: 'requested' }
+  return { botId, status: 'requested', meetingUrl, meetingCreated: meeting.created === true, problemAssigned: problem.assigned === true, rolesAssigned }
 }

@@ -1,9 +1,11 @@
 import { deterministicId } from './core/ids.js'
 import { addresseeOf } from './core/interventionPolicy.js'
 import { DEFAULT_CONFIG } from './core/signals.js'
+import { buildJudgePrompt, parseJudgeDecision } from './core/conversationJudge.js'
 import { chooseStyle, describeLearning } from './core/learning.js'
 import { memoryQueryOf } from './core/memoryText.js'
 import { memoryCacheKey, memoryScopeOf, studentKeyOf } from './core/studentKey.js'
+import { describeRoles } from './core/roles.js'
 import { describeProfile } from './core/studentProfile.js'
 import { withTimeout } from './timeout.js'
 import { synthesize } from './adapters/elevenlabs.js'
@@ -19,6 +21,7 @@ export function soloAddressee(signal, humans) {
 }
 
 const PROFILE_TIMEOUT_MS = 1500
+const JUDGE_TIMEOUT_MS = 5000
 /** Lo que describeProfile devuelve cuando aun no hay nada que decir: no se manda al prompt. */
 const NO_PATTERNS = 'Sin patrones claros aun.'
 
@@ -71,6 +74,9 @@ export function createAfterLiveEventSaved({
   getChat = () => null,
   sendChat = sendChatMessage,
   getVoice = () => null,
+  getJudge = () => null,
+  getJudgeGenerate = null,
+  closeSessionFor = null,
   synthesizeSpeech = synthesize,
   sendAudioToBot = sendAudio,
   cooldownSec = DEFAULT_CONFIG.cooldownSec,
@@ -225,8 +231,134 @@ export function createAfterLiveEventSaved({
     }
   }
 
+  /** Quien guia y quien aprende segun el diagnostico, como una linea para el prompt. Nunca lanza; sin datos, vacia. */
+  async function rolesLineFor({ sessionId, humans }) {
+    const store = getStore()
+    if (typeof store.getContext !== 'function') return ''
+    try {
+      return describeRoles(await withTimeout(store.getContext(sessionId), PROFILE_TIMEOUT_MS), humans)
+    } catch {
+      return ''
+    }
+  }
+
+  /** Lee la sesion una sola vez y recuerda el resultado (o el fallo). */
+  function sessionLoader(sessionId) {
+    let sessionLoad = null
+    return () => {
+      sessionLoad ??= getStore()
+        .getSession(sessionId)
+        .then(
+          (session) => ({ session }),
+          () => ({ failed: true }),
+        )
+      return sessionLoad
+    }
+  }
+
+  /**
+   * Observador de la conversacion: las reglas no dijeron nada y toca que el modelo lea la conversacion (de cualquier
+   * tema, con o sin problema) y decida hablar o callar. Nunca lanza. Solo registra codigos, nunca lo que dijeron.
+   */
+  async function judgeConversation({ sessionId, judge }) {
+    if (!getJudge()?.enabled) return
+    const generate = (getJudgeGenerate ? getJudgeGenerate() : null) ?? getGenerate()
+    if (!generate) return
+    const humans = (judge.present ?? []).filter((k) => !BOT_KEYS.has(k))
+    if (humans.length === 0 || !(judge.transcriptTail?.length > 0)) return
+
+    const startedAt = now()
+    const rolesLine = await rolesLineFor({ sessionId, humans })
+    const { systemInstruction, userPrompt } = buildJudgePrompt({
+      rolesLine,
+      transcriptTail: judge.transcriptTail,
+      humans,
+      problem: judge.problem ?? null,
+      classContext: judge.classContext ?? null,
+    })
+    let decision
+    try {
+      const raw = await withTimeout(
+        generate({ systemInstruction, userPrompt, timeoutMs: JUDGE_TIMEOUT_MS, generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 400 } }),
+        JUDGE_TIMEOUT_MS,
+      )
+      decision = parseJudgeDecision(raw, { humans, expectedAnswer: judge.problem?.expectedAnswer ?? null })
+    } catch (error) {
+      logger.info('afterLiveEventSaved: observador', { sessionId, speak: false, why: `failed:${error?.name === 'TimeoutError' ? 'timeout' : (error?.reason ?? 'error')}${error?.status ? `:${error.status}` : ''}`, ms: now() - startedAt })
+      return
+    }
+    if (!decision.speak) {
+      logger.info('afterLiveEventSaved: observador', {
+        sessionId,
+        speak: false,
+        why: decision.reason.startsWith('rejected:') || decision.reason === 'invalid-json' ? decision.reason : 'silence',
+        ms: now() - startedAt,
+      })
+      return
+    }
+
+    const signal = { type: 'CONVERSATION', participantKey: decision.to, studentId: null, t: judge.t, evidence: { kind: decision.kind } }
+    const interventionId = deterministicId('int', [sessionId, 'CONVERSATION', signal.participantKey ?? 'grupo', `b${Math.floor(judge.t / cooldownSec)}`])
+    const { created } = await getStore().createIntervention(sessionId, interventionId, {
+      signal: 'CONVERSATION',
+      targetStudentId: null,
+      participantKey: signal.participantKey,
+      targetName: addresseeOf(signal),
+      evidence: { kind: decision.kind },
+      message: decision.message,
+      source: 'observer',
+      style: null,
+      deliveredTo: ['app'],
+      t: judge.t,
+    })
+
+    let delivery = { chat: 'duplicate', voice: 'duplicate' }
+    if (created) {
+      // Que el cooldown de las reglas tambien la recuerde. Si no se puede anotar, el tutor igual habla.
+      try {
+        await getStore().recordIntervention?.(sessionId, { type: 'CONVERSATION', k: signal.participantKey, t: judge.t })
+      } catch {
+        // solo se pierde el cooldown de esta intervencion
+      }
+      delivery = await deliver({ sessionId, interventionId, message: decision.message, loadSession: sessionLoader(sessionId) })
+    }
+    logger.info('afterLiveEventSaved: observador', {
+      sessionId,
+      speak: true,
+      created,
+      kind: decision.kind,
+      chat: delivery.chat,
+      ...(delivery.chatStatus !== undefined ? { chatStatus: delivery.chatStatus } : {}),
+      voice: delivery.voice,
+      ...(delivery.voiceStatus !== undefined ? { voiceStatus: delivery.voiceStatus } : {}),
+      ms: now() - startedAt,
+      ...(logText ? { text: decision.message, reason: decision.reason } : {}),
+    })
+  }
+
+  /**
+   * Se fue la ultima persona: cierra la sesion sola (reporte, memoria, aprendizaje). closeSession es idempotente, asi que
+   * un evento repetido no cierra dos veces. Nunca lanza; si falla, el docente puede cerrarla a mano como siempre.
+   */
+  async function autoClose(sessionId) {
+    const startedAt = now()
+    try {
+      const closed = await closeSessionFor(sessionId)
+      logger.info('afterLiveEventSaved: cierre automatico', { sessionId, alreadyClosed: closed?.alreadyClosed === true, ms: now() - startedAt })
+    } catch (error) {
+      logger.info('afterLiveEventSaved: cierre automatico', { sessionId, failed: true, why: error?.code ?? error?.name ?? 'error', ms: now() - startedAt })
+    }
+  }
+
   return async function afterLiveEventSaved({ sessionId, result }) {
-    if (!result?.intervention) return
+    if (result?.closeNow && closeSessionFor) {
+      await autoClose(sessionId)
+      return
+    }
+    if (!result?.intervention) {
+      if (result?.judge) await judgeConversation({ sessionId, judge: result.judge })
+      return
+    }
 
     const startedAt = now()
     const context = result.context ?? {}
@@ -236,20 +368,12 @@ export function createAfterLiveEventSaved({
     const intervention = soloAddressee(result.intervention, humans)
 
     // La sesion se lee como mucho una vez por intervencion y solo si algo la necesita (memoria o chat).
-    let sessionLoad = null
-    const loadSession = () => {
-      sessionLoad ??= getStore()
-        .getSession(sessionId)
-        .then(
-          (session) => ({ session }),
-          () => ({ failed: true }),
-        )
-      return sessionLoad
-    }
+    const loadSession = sessionLoader(sessionId)
 
-    const [recalled, learned] = await Promise.all([
+    const [recalled, learned, rolesLine] = await Promise.all([
       recallNotes({ sessionId, intervention, problem: context.problem ?? null, cached: context.memory, loadSession }),
       learnFromProfile({ intervention, problem: context.problem ?? null, sessionId, loadSession }),
+      rolesLineFor({ sessionId, humans }),
     ])
     const { cache: memoryCache } = recalled
     // Lo que dice el perfil (patrones y estilo que le ha servido) va primero: es lo mas especifico del estudiante.
@@ -261,6 +385,7 @@ export function createAfterLiveEventSaved({
       memoryNotes,
       style: learned.style,
       participants: humans.length,
+      rolesLine,
       generate: getGenerate(),
     })
 

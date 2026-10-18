@@ -60,9 +60,9 @@ async function composeWithFallback({ buildPrompt, validate, fallback, generate, 
  *   timeoutMs?: number,
  * }} input
  */
-export function composeIntervention({ signal, problem = null, transcriptTail = [], memoryNotes = [], style = null, participants = null, generate = null, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+export function composeIntervention({ signal, problem = null, transcriptTail = [], memoryNotes = [], style = null, participants = null, rolesLine = '', generate = null, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   return composeWithFallback({
-    buildPrompt: () => buildInterventionPrompt({ signal, problem, transcriptTail, memoryNotes, style, participants }),
+    buildPrompt: () => buildInterventionPrompt({ signal, problem, transcriptTail, memoryNotes, style, participants, rolesLine }),
     validate: (message) =>
       validateMessage(message, {
         addressee: addresseeOf(signal),

@@ -2,7 +2,7 @@ import { getFirebase } from '../src/firebaseAdmin.js'
 import { consoleLogger } from '../src/logger.js'
 import { createBot } from '../src/sessions/adapters/recall.js'
 import { createSessionStore } from '../src/sessions/adapters/sessionStore.js'
-import { readRecallConfig } from '../src/sessions/config.js'
+import { readGoogleConfig, readRecallConfig } from '../src/sessions/config.js'
 import { parseAllowedOrigins } from '../src/http/cors.js'
 import { createStartSessionBotHandler } from '../src/http/startSessionBotHandler.js'
 
@@ -16,6 +16,7 @@ export default createStartSessionBotHandler({
   getFirebase: () => getFirebase(),
   createStore: createSessionStore,
   readConfig: () => readRecallConfig(process.env),
+  readGoogleConfig: () => readGoogleConfig(process.env),
   createBot,
   now: () => Date.now(),
   logger: consoleLogger,

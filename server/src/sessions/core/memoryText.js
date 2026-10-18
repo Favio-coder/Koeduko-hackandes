@@ -9,7 +9,7 @@
 
 import { CAPABILITY_IDS, EVIDENCE_STATE } from './competencies.js'
 
-const SKILL_LABELS = Object.freeze({
+export const SKILL_LABELS = Object.freeze({
   addition: 'suma',
   subtraction: 'resta',
   multiplication: 'multiplicación',

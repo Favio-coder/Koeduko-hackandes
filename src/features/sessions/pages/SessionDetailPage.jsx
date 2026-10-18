@@ -14,8 +14,10 @@ import TranscriptCard from '../components/TranscriptCard'
 import MeetingLinkForm from '../components/MeetingLinkForm'
 import { useLiveSession } from '../hooks/useLiveSession'
 import { useNow } from '../hooks/useNow'
+import { useSessionHeartbeat } from '../hooks/useSessionHeartbeat'
 import { useSessionSummary } from '../hooks/useSessionSummary'
-import { botStatusMeta } from '../lib/describeIntervention'
+import { botStatusMeta, canInvite } from '../lib/describeIntervention'
+import { inviteTutor } from '../services/sessionBotService'
 
 /**
  * Sesion en vivo: quien habla, la conversacion y lo que dijo el tutor, todo por onSnapshot.
@@ -43,7 +45,14 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
   const toast = useToast()
   // El reporte de cierre solo lo lee el docente (reglas de Firestore): al estudiante no se le suscribe.
   const { summary } = useSessionSummary(sessionId, { enabled: isTeacher })
+  const [creating, setCreating] = useState(false)
   const [closed, setClosed] = useState(null) // lo que devolvio close-session, para mostrar el reporte sin esperar a Firestore
+
+  // Mientras el tutor esta en la reunion y la sala sigue abierta, la pantalla avisa cada ~20 s para que el servidor reevalue
+  // aunque nadie hable (el silencio no genera eventos). El servidor limita a una evaluacion cada 15 s por sala.
+  useSessionHeartbeat(sessionId, {
+    enabled: session?.bot?.status === 'in_call' && session?.status !== SESSION_STATUS.COMPLETED && !closed && !summary?.report,
+  })
 
   if (loading) return <LoadingState label="Cargando sesión..." />
 
@@ -55,6 +64,31 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
   const report = closed?.report ?? summary?.report ?? null
   const reportSteps = closed?.steps ?? summary?.steps
   const isClosed = Boolean(report) || session?.status === SESSION_STATUS.COMPLETED
+
+  // Quien entra al Meet de la sala (docente o integrante) trae al tutor sin pasos extra. El servidor no duplica el bot
+  // (lo reserva en una transaccion); si algo falla, el docente conserva el boton «Invitar tutor».
+  const handleEnter = () => {
+    window.open(session.meetingUrl, '_blank', 'noreferrer')
+    if (!isClosed && canInvite(botStatus)) inviteTutor({ sessionId }).catch(() => {})
+  }
+
+  // La sala no tiene Meet: el servidor lo crea con la cuenta de Google del docente, trae al tutor y devuelve el enlace. La pestaña
+  // se abre YA, dentro del clic, para que el navegador no la bloquee por esperar la respuesta.
+  const handleCreateAndEnter = async () => {
+    const popup = window.open('about:blank', '_blank')
+    setCreating(true)
+    try {
+      const data = await inviteTutor({ sessionId })
+      if (data?.meetingUrl && popup) popup.location.href = data.meetingUrl
+      else if (data?.meetingUrl) window.location.assign(data.meetingUrl)
+      else popup?.close()
+    } catch (failure) {
+      popup?.close()
+      toast.error(failure.message)
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const handleCopy = async () => {
     try {
@@ -100,6 +134,17 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
       {isTeacher && !isClosed && <CloseSession sessionId={sessionId} onClosed={setClosed} />}
       {report && <CompetencyReport report={report} steps={reportSteps} />}
 
+      {session && !session.meetingUrl && !isClosed && (
+        <Card title="Reunión de Google Meet" description="Esta sala todavía no tiene reunión.">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-[#5A6B6A]">Se crea sola, con la cuenta de Google que conectó el docente, y el tutor entra con ustedes.</p>
+            <Button icon="video" loading={creating} disabled={creating} onClick={handleCreateAndEnter} className="sm:shrink-0">
+              Crear reunión y entrar
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {session?.meetingUrl && (
         <Card title="Reunión de Google Meet" description="Enlace de esta pareja.">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -117,7 +162,7 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
               <Button variant="secondary" icon="link" onClick={handleCopy}>
                 Copiar
               </Button>
-              <Button icon="external" onClick={() => window.open(session.meetingUrl, '_blank', 'noreferrer')}>
+              <Button icon="external" onClick={handleEnter}>
                 Entrar
               </Button>
             </div>

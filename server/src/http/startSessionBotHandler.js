@@ -1,10 +1,18 @@
-import { requireTeacherFromRequest } from '../sessions/auth.js'
+import { requireSessionMember } from '../sessions/auth.js'
+import { SessionBotError } from '../sessions/errors.js'
 import { handleCors } from './cors.js'
 import { sendError } from './respond.js'
+import { ensureMeeting } from '../sessions/ensureMeeting.js'
 import { startSessionBot } from '../sessions/startSessionBot.js'
+
+const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
 
 /**
  * POST /api/start-session-bot   Authorization: Bearer <Firebase ID token>   { "sessionId": "..." }
+ *
+ * Lo puede pedir el docente o un integrante de ESA sala (su uid figura en studentIds): asi el tutor puede entrar solo
+ * cuando el primer alumno abre la sala, sin que el docente tenga que estar. Un estudiante ajeno a la sala recibe 403
+ * (el mismo que si la sala no existe). Invitar dos veces no duplica el bot: claimBot lo impide dentro de una transaccion.
  *
  * @param {{
  *   getFirebase: () => { auth: { verifyIdToken: Function } },
@@ -16,7 +24,7 @@ import { startSessionBot } from '../sessions/startSessionBot.js'
  *   allowedOrigins?: string[],
  * }} deps
  */
-export function createStartSessionBotHandler({ getFirebase, createStore, readConfig, createBot, now, logger, allowedOrigins = [] }) {
+export function createStartSessionBotHandler({ getFirebase, createStore, readConfig, createBot, now, logger, allowedOrigins = [], readGoogleConfig = () => null }) {
   return async function startSessionBotEndpoint(req, res) {
     // CORS primero: el preflight no lleva token y las respuestas de error tambien deben poder leerse.
     if (handleCors(req, res, { allowedOrigins }).preflight) return undefined
@@ -27,14 +35,6 @@ export function createStartSessionBotHandler({ getFirebase, createStore, readCon
     }
 
     try {
-      const firebase = getFirebase()
-      const store = createStore(firebase)
-
-      await requireTeacherFromRequest(req.headers?.authorization, {
-        verifyIdToken: (token) => firebase.auth.verifyIdToken(token),
-        getUserRole: (uid) => store.getUserRole(uid),
-      })
-
       // request.body es un getter que lanza si el JSON llega malformado.
       let sessionId
       try {
@@ -42,9 +42,28 @@ export function createStartSessionBotHandler({ getFirebase, createStore, readCon
       } catch {
         sessionId = undefined
       }
+      if (typeof sessionId !== 'string' || !SESSION_ID_PATTERN.test(sessionId)) {
+        throw new SessionBotError('invalid-argument', 'sessionId es obligatorio.')
+      }
 
-      const result = await startSessionBot({ sessionId, nowMs: now(), config: readConfig(), store, createBot })
-      logger.info('startSessionBot: bot solicitado', { sessionId, botId: result.botId })
+      const firebase = getFirebase()
+      const store = createStore(firebase)
+
+      const { role } = await requireSessionMember(req.headers?.authorization, sessionId, {
+        verifyIdToken: (token) => firebase.auth.verifyIdToken(token),
+        getUserRole: (userId) => store.getUserRole(userId),
+        getSession: (id) => store.getSession(id),
+      })
+
+      const result = await startSessionBot({
+        sessionId,
+        nowMs: now(),
+        config: readConfig(),
+        store,
+        createBot,
+        ensureMeeting: (id) => ensureMeeting({ sessionId: id, store, google: readGoogleConfig() }),
+      })
+      logger.info('startSessionBot: bot solicitado', { sessionId, botId: result.botId, by: role, problemAssigned: result.problemAssigned, meetingCreated: result.meetingCreated })
       return res.status(200).json(result)
     } catch (error) {
       return sendError(res, error, logger, 'startSessionBot')

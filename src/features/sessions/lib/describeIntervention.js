@@ -14,6 +14,16 @@ export const SIGNAL_META = Object.freeze({
   WRONG_ANSWER: { label: 'Pidió verificar', tone: 'danger' },
   CORRECT_ANSWER: { label: 'Pidió explicar', tone: 'success' },
   GROUP_SILENCE: { label: 'Silencio del grupo', tone: 'neutral' },
+  CONVERSATION: { label: 'Leyó la conversación', tone: 'info' },
+})
+
+/** Por qué intervino el observador de la conversación, según el tipo que reportó. */
+const CONVERSATION_REASONS = Object.freeze({
+  confusion: 'Se notó confusión en la conversación',
+  atasco: 'La conversación se quedó atascada',
+  'error-conceptual': 'Se oyó una idea que conviene revisar',
+  'fuera-de-tema': 'La conversación se alejó del tema',
+  excluido: 'Alguien quedó fuera de la conversación',
 })
 
 const FALLBACK_META = { label: 'Intervención', tone: 'neutral' }
@@ -62,6 +72,8 @@ export function describeEvidence(intervention) {
       return isNumber(evidence.markers) ? `Se oyeron ${evidence.markers} frases de confusión${inLast(formatSpan(evidence.windowSec))}` : 'Se oyeron frases de confusión'
     case 'GROUP_SILENCE':
       return isNumber(evidence.silenceSec) ? `Llevan ${Math.round(evidence.silenceSec)} s sin hablar` : 'Dejaron de hablar'
+    case 'CONVERSATION':
+      return CONVERSATION_REASONS[evidence.kind] ?? 'El tutor leyó la conversación y vio que convenía hablar'
     default:
       return ''
   }

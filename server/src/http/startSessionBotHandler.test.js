@@ -3,6 +3,7 @@ import { RecallApiError } from '../sessions/adapters/recall.js'
 import { ConfigError, SessionBotError } from '../sessions/errors.js'
 import { createStartSessionBotHandler } from './startSessionBotHandler.js'
 
+const MEET = 'https://meet.google.com/abc-defg-hij'
 const config = {
   apiKey: 'fake-api-key',
   region: 'us-west-2',
@@ -28,15 +29,16 @@ function fakeRes() {
   return res
 }
 
-function setup({ role = 'teacher', store = {}, createBot, readConfig, getFirebase } = {}) {
+function setup({ role = 'teacher', uid = 'teacher-1', session = { createdBy: 'teacher-1', studentIds: ['student-1', 'student-2'] }, store = {}, createBot, readConfig, getFirebase } = {}) {
   const fakeStore = {
     getUserRole: vi.fn().mockResolvedValue(role),
+    getSession: vi.fn().mockResolvedValue(session),
     claimBot: vi.fn().mockResolvedValue({ meetingUrl: 'https://meet.google.com/abc-defg-hij' }),
     setBotId: vi.fn().mockResolvedValue(undefined),
     markBotFailed: vi.fn().mockResolvedValue(undefined),
     ...store,
   }
-  const verifyIdToken = vi.fn().mockResolvedValue({ uid: 'teacher-1' })
+  const verifyIdToken = vi.fn().mockResolvedValue({ uid })
   const deps = {
     getFirebase: getFirebase ?? (() => ({ auth: { verifyIdToken } })),
     createStore: () => fakeStore,
@@ -63,7 +65,7 @@ describe('start-session-bot handler', () => {
     await handler(request(), res)
 
     expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual({ botId: 'bot-1', status: 'requested' })
+    expect(res.body).toEqual({ botId: 'bot-1', status: 'requested', meetingUrl: MEET, meetingCreated: false, problemAssigned: false, rolesAssigned: false })
     expect(verifyIdToken).toHaveBeenCalledWith('good-token')
     expect(store.getUserRole).toHaveBeenCalledWith('teacher-1')
     expect(deps.createBot).toHaveBeenCalledWith(
@@ -100,12 +102,40 @@ describe('start-session-bot handler', () => {
     expect(deps.createBot).not.toHaveBeenCalled()
   })
 
-  it('answers 403 for a student', async () => {
-    const { handler, deps } = setup({ role: 'student' })
+  it('answers 403 for a student who is not in that room, and never reaches Recall', async () => {
+    const { handler, deps, store } = setup({ role: 'student', uid: 'student-9' })
     const res = fakeRes()
     await handler(request(), res)
     expect(res.statusCode).toBe(403)
+    expect(store.claimBot).not.toHaveBeenCalled()
     expect(deps.createBot).not.toHaveBeenCalled()
+  })
+
+  it('lets a student of that room invite the tutor, and assigns the problem when the room has none', async () => {
+    const ensureProblem = vi.fn().mockResolvedValue({ assigned: true, skillId: 'multiplication' })
+    const { handler, deps } = setup({ role: 'student', uid: 'student-1', store: { ensureProblem } })
+    const res = fakeRes()
+    await handler(request(), res)
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toEqual({ botId: 'bot-1', status: 'requested', meetingUrl: MEET, meetingCreated: false, problemAssigned: true, rolesAssigned: false })
+    expect(ensureProblem).toHaveBeenCalledWith('smoke-001')
+    expect(deps.createBot).toHaveBeenCalledTimes(1)
+  })
+
+  it('still invites the bot when assigning the problem fails', async () => {
+    const { handler, deps } = setup({ store: { ensureProblem: vi.fn().mockRejectedValue(new Error('firestore')) } })
+    const res = fakeRes()
+    await handler(request(), res)
+    expect(res.statusCode).toBe(200)
+    expect(res.body.problemAssigned).toBe(false)
+    expect(deps.createBot).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers 404 to a teacher when the room does not exist', async () => {
+    const { handler } = setup({ session: null })
+    const res = fakeRes()
+    await handler(request(), res)
+    expect(res.statusCode).toBe(404)
   })
 
   it('answers 400 when sessionId is missing or the JSON body is malformed', async () => {

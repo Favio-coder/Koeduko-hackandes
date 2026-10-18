@@ -60,6 +60,54 @@ describe('SessionDetailPage', () => {
     live.current = state({})
   })
 
+  describe('Entrar al Meet trae al tutor solo', () => {
+    const room = (bot) => state({ session: { title: 'Pareja', status: 'scheduled', meetingUrl: 'https://meet.google.com/abc-defg-hij', ...(bot ? { bot } : {}) } })
+
+    it('opens the Meet and invites the tutor when nobody has invited it yet (teacher or student of the room)', async () => {
+      const open = vi.spyOn(window, 'open').mockReturnValue(null)
+      inviteTutor.mockResolvedValue({ botId: 'b1' })
+      for (const isTeacher of [true, false]) {
+        auth.isTeacher = isTeacher
+        inviteTutor.mockClear()
+        live.current = room()
+        const { unmount } = renderPage()
+        fireEvent.click(screen.getByRole('button', { name: 'Entrar' }))
+        expect(open).toHaveBeenCalledWith('https://meet.google.com/abc-defg-hij', '_blank', 'noreferrer')
+        await waitFor(() => expect(inviteTutor).toHaveBeenCalledWith({ sessionId: 'smoke-replay-003' }))
+        unmount()
+      }
+      open.mockRestore()
+    })
+
+    it('does not invite again when the tutor is already requested, in the call, or the room is closed', () => {
+      const open = vi.spyOn(window, 'open').mockReturnValue(null)
+      for (const bot of [{ status: 'requested' }, { status: 'in_call' }]) {
+        live.current = room(bot)
+        const { unmount } = renderPage()
+        fireEvent.click(screen.getByRole('button', { name: 'Entrar' }))
+        unmount()
+      }
+      live.current = state({ session: { title: 'Pareja', status: 'completed', meetingUrl: 'https://meet.google.com/abc-defg-hij' } })
+      const { unmount } = renderPage()
+      fireEvent.click(screen.getByRole('button', { name: 'Entrar' }))
+      unmount()
+      expect(inviteTutor).not.toHaveBeenCalled()
+      expect(open).toHaveBeenCalledTimes(3)
+      open.mockRestore()
+    })
+
+    it('still opens the Meet if the invitation fails (the teacher keeps the manual button)', async () => {
+      const open = vi.spyOn(window, 'open').mockReturnValue(null)
+      inviteTutor.mockRejectedValue(new Error('El tutor ya fue invitado a esta sesion.'))
+      live.current = room()
+      renderPage()
+      fireEvent.click(screen.getByRole('button', { name: 'Entrar' }))
+      expect(open).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(inviteTutor).toHaveBeenCalled())
+      open.mockRestore()
+    })
+  })
+
   it('shows loading', () => {
     live.current = state({ loading: true })
     renderPage()
@@ -158,5 +206,52 @@ describe('SessionDetailPage', () => {
     live.current = state({ session: { bot: { status: 'in_call' } } })
     renderPage()
     expect(screen.getByRole('button', { name: 'Invitar tutor' })).toBeDisabled()
+  })
+})
+
+describe('SessionDetailPage: a room without a Meet creates it', () => {
+  const withoutMeet = (extra = {}) => ({ session: { title: 'Pareja', status: 'scheduled', meetingUrl: null, ...extra } })
+
+  beforeEach(() => {
+    auth.isTeacher = false
+    inviteTutor.mockReset()
+  })
+
+  it('creates the meeting on the server, opens it in the tab that was opened in the click, and brings the tutor', async () => {
+    const popup = { location: { href: '' }, close: vi.fn() }
+    const open = vi.spyOn(window, 'open').mockReturnValue(popup)
+    inviteTutor.mockResolvedValue({ botId: 'b1', meetingUrl: 'https://meet.google.com/abc-defg-hij', meetingCreated: true })
+    live.current = state(withoutMeet())
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear reunión y entrar' }))
+    expect(open).toHaveBeenCalledWith('about:blank', '_blank')
+    await waitFor(() => expect(popup.location.href).toBe('https://meet.google.com/abc-defg-hij'))
+    expect(inviteTutor).toHaveBeenCalledWith({ sessionId: 'smoke-replay-003' })
+    open.mockRestore()
+  })
+
+  it('closes the blank tab and shows the server message when it cannot (teacher has not connected Google)', async () => {
+    const popup = { location: { href: '' }, close: vi.fn() }
+    const open = vi.spyOn(window, 'open').mockReturnValue(popup)
+    inviteTutor.mockRejectedValue(new Error('La sala no tiene enlace de Meet y el docente aun no conecto su cuenta de Google.'))
+    live.current = state(withoutMeet())
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear reunión y entrar' }))
+    await waitFor(() => expect(popup.close).toHaveBeenCalled())
+    expect(popup.location.href).toBe('')
+    open.mockRestore()
+  })
+
+  it('does not offer it when the room already has a link or is closed', () => {
+    live.current = state({ session: { title: 'Pareja', status: 'scheduled', meetingUrl: 'https://meet.google.com/abc-defg-hij' } })
+    const { unmount } = renderPage()
+    expect(screen.queryByRole('button', { name: 'Crear reunión y entrar' })).not.toBeInTheDocument()
+    unmount()
+
+    live.current = state(withoutMeet({ status: 'completed' }))
+    renderPage()
+    expect(screen.queryByRole('button', { name: 'Crear reunión y entrar' })).not.toBeInTheDocument()
   })
 })

@@ -14,6 +14,7 @@ function fakeFirestore({ docs = {}, abortFirst = 0, createExists = false } = {})
   const committed = []
   const readPaths = []
   const created = []
+  const updates = []
   const db = {
     doc: (path) => ({
       path,
@@ -31,16 +32,19 @@ function fakeFirestore({ docs = {}, abortFirst = 0, createExists = false } = {})
             return { exists: ref.path in docs, data: () => structuredClone(docs[ref.path]) }
           },
           set: (ref, data) => pending.push({ path: ref.path, data }),
+          update: (ref, data) => pending.push({ path: ref.path, update: data }),
         }
         const result = await fn(tx)
         if (attempt < abortFirst) continue // conflicto: se descartan las escrituras y se reintenta
-        committed.push(...pending)
-        for (const { path, data } of pending) docs[path] = structuredClone(data)
+        updates.push(...pending.filter((w) => w.update))
+        const writes = pending.filter((w) => !w.update)
+        committed.push(...writes)
+        for (const { path, data } of writes) docs[path] = structuredClone(data)
         return result
       }
     },
   }
-  return { firebase: { db, FieldValue: { serverTimestamp: () => 'SERVER_TS' } }, committed, readPaths, created, docs }
+  return { firebase: { db, FieldValue: { serverTimestamp: () => 'SERVER_TS' } }, committed, readPaths, created, docs, updates }
 }
 
 const STATE = 'learningSessions/s1/live/state'
@@ -293,5 +297,147 @@ describe('processLiveEvent: the expected answer lives in private/answer', () => 
     const exposed = committed.filter((w) => w.path === VIEW || w.path.includes('/liveEvents/'))
     expect(exposed.length).toBeGreaterThan(0)
     expect(JSON.stringify(exposed.map((w) => w.data))).not.toMatch(/48|expectedAnswer|"answer"/)
+  })
+})
+
+describe('processLiveEvent: the first event proves the bot is in the call', () => {
+  const session = (status) => ({ [SESSION]: { createdBy: 'd', bot: { id: 'bot-1', status, region: 'us-west-2' } } })
+
+  it('moves bot.status from requested to in_call once, in the same transaction that already reads the session (+1 write, +0 reads)', async () => {
+    const { firebase, updates } = fakeFirestore({ docs: session('requested') })
+    const store = createSessionStore(firebase)
+    const first = await store.processLiveEvent('s1', 'evt-1', join('a', 0))
+
+    expect(updates).toEqual([{ path: SESSION, update: { 'bot.status': 'in_call' } }])
+    expect(first.ops).toEqual({ reads: 2, writes: 4, attempts: 1 })
+  })
+
+  it('does not touch the session again once it is in the call, nor for other states', async () => {
+    for (const status of ['in_call', 'done', 'failed', undefined]) {
+      const { firebase, updates } = fakeFirestore({ docs: session(status) })
+      await createSessionStore(firebase).processLiveEvent('s1', 'evt-1', join('a', 0))
+      expect(updates).toEqual([])
+    }
+  })
+
+  it('a conflict retry does not apply the change twice', async () => {
+    const { firebase, updates } = fakeFirestore({ docs: session('requested'), abortFirst: 1 })
+    await createSessionStore(firebase).processLiveEvent('s1', 'evt-1', join('a', 0))
+    expect(updates).toHaveLength(1)
+  })
+})
+
+describe('ensureProblem: a room created by the matching algorithm gets its activity', () => {
+  const room = (extra = {}) => ({
+    createdBy: 'd',
+    matchingResultId: 'confirmed-abc',
+    groupId: 'confirmed-abc-g1',
+    currentProblem: null,
+    ...extra,
+  })
+  const GROUP = 'matchingResults/confirmed-abc/groups/confirmed-abc-g1'
+
+  it('picks the problem from the focus skill of the group, saves the statement in the session and the answer apart', async () => {
+    const { firebase, updates, committed } = fakeFirestore({ docs: { [SESSION]: room(), [GROUP]: { focusSkillIds: ['division'] } } })
+    const result = await createSessionStore(firebase).ensureProblem('s1')
+
+    expect(result).toEqual({ assigned: true, skillId: 'division' })
+    const problem = updates.find((w) => w.path === SESSION).update.currentProblem
+    expect(problem).toMatchObject({ skillId: 'division', activityId: 'auto-division', auto: true })
+    expect(problem.text).toMatch(/reparten/)
+    expect(problem).not.toHaveProperty('expectedAnswer')
+
+    const answer = committed.find((w) => w.path === 'learningSessions/s1/private/answer')
+    expect(answer.data).toMatchObject({ activityId: 'auto-division', expectedAnswer: expect.any(Number) })
+    expect(JSON.stringify(problem)).not.toContain(String(answer.data.expectedAnswer * 1000))
+  })
+
+  it('does not touch a room that already has a problem, and ignores a room that does not exist', async () => {
+    const withProblem = fakeFirestore({ docs: { [SESSION]: room({ currentProblem: { activityId: 'p-01', text: 'x' } }) } })
+    expect(await createSessionStore(withProblem.firebase).ensureProblem('s1')).toEqual({ assigned: false })
+    expect(withProblem.updates).toEqual([])
+    expect(withProblem.committed).toEqual([])
+
+    const none = fakeFirestore({ docs: {} })
+    expect(await createSessionStore(none.firebase).ensureProblem('s1')).toEqual({ assigned: false })
+  })
+
+  it('falls back to multiplication when the group has no focus skill (or the room is not from the matching flow)', async () => {
+    const lonely = fakeFirestore({ docs: { [SESSION]: { createdBy: 'd', currentProblem: null } } })
+    expect(await createSessionStore(lonely.firebase).ensureProblem('s1')).toEqual({ assigned: true, skillId: 'multiplication' })
+  })
+})
+
+describe('processLiveEvent: closeNow when the last person leaves a room where people talked', () => {
+  const leave = (key, t) => ({ type: 'leave', participantKey: key, studentId: null, t, tEnd: null, text: null, occurredAt: null })
+
+  async function run(events) {
+    const { firebase } = fakeFirestore()
+    const store = createSessionStore(firebase)
+    let last
+    for (const [i, event] of events.entries()) last = await store.processLiveEvent('s1', `e${i}`, event)
+    return last
+  }
+  const talk = [join('a', 0), join('b', 0), say('a', 5, 7, 'hay seis cajas con ocho lápices'), say('b', 9, 11, 'entonces es seis por ocho'), say('a', 13, 15, 'sí, eso creo yo también')]
+
+  it('is false while somebody is still in the room, and true when the last human leaves', async () => {
+    expect((await run([...talk, leave('a', 30)])).closeNow).toBe(false)
+    expect((await run([...talk, leave('a', 30), leave('b', 31)])).closeNow).toBe(true)
+  })
+
+  it('is false for a room where nobody talked, and for events that are not a leave', async () => {
+    expect((await run([join('a', 0), leave('a', 4)])).closeNow).toBe(false)
+    expect((await run(talk)).closeNow).toBe(false)
+  })
+
+  it('the tutor leaving does not count as a person leaving', async () => {
+    const withBot = [...talk, join('tutor koeduko', 1), leave('a', 30), leave('b', 31)]
+    expect((await run(withBot)).closeNow).toBe(true)
+    expect((await run([...talk, join('tutor koeduko', 1), leave('tutor koeduko', 40)])).closeNow).toBe(false)
+  })
+})
+
+describe('ensureContext: who guides and who learns, from the diagnostic', () => {
+  const CONTEXT = 'learningSessions/s1/private/context'
+  const assignment = (mastery) => ({ result: { skills: [{ skillId: 'multiplication', mastery }, { skillId: 'addition', mastery: 0.99 }] } })
+  const docs = (extra = {}) => ({
+    [SESSION]: {
+      assessmentId: 'ev1',
+      members: [{ studentId: 'u1', displayName: 'Ana Torres' }, { studentId: 'u2', displayName: 'Luis Pérez' }],
+      currentProblem: { skillId: 'multiplication' },
+    },
+    'assessmentModules/ev1/assignments/u1': assignment(0.9),
+    'assessmentModules/ev1/assignments/u2': assignment(0.4),
+    ...extra,
+  })
+
+  it('reads the mastery of each member in the skill of the session and saves the roles in private/context only', async () => {
+    const { firebase, committed } = fakeFirestore({ docs: docs() })
+    const result = await createSessionStore(firebase).ensureContext('s1')
+
+    expect(result).toEqual({ created: true })
+    expect(committed.map((w) => w.path)).toEqual([CONTEXT])
+    expect(committed[0].data).toMatchObject({
+      topic: 'multiplication',
+      createdFrom: 'assessment',
+      roles: { 'ana torres': { role: 'guia' }, 'luis perez': { role: 'aprendiz' } },
+    })
+  })
+
+  it('does nothing when the context already exists, the room has no evaluation, or someone has no result', async () => {
+    const exists = fakeFirestore({ docs: docs({ [CONTEXT]: { topic: 'x' } }) })
+    expect(await createSessionStore(exists.firebase).ensureContext('s1')).toEqual({ created: false })
+    expect(exists.committed).toEqual([])
+
+    const base = docs()
+    const noEvaluation = fakeFirestore({ docs: { ...base, [SESSION]: { ...base[SESSION], assessmentId: undefined } } })
+    expect(await createSessionStore(noEvaluation.firebase).ensureContext('s1')).toEqual({ created: false })
+
+    const missing = fakeFirestore({ docs: { ...base, 'assessmentModules/ev1/assignments/u2': undefined } })
+    delete missing.docs['assessmentModules/ev1/assignments/u2']
+    expect(await createSessionStore(missing.firebase).ensureContext('s1')).toEqual({ created: false })
+
+    const none = fakeFirestore({ docs: {} })
+    expect(await createSessionStore(none.firebase).ensureContext('s1')).toEqual({ created: false })
   })
 })

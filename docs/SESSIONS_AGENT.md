@@ -22,16 +22,39 @@ escucha ─> decide ─> actúa ─> cierra ─> recuerda ─> usa la memoria
 | Decisión | La toma | Por qué |
 | --- | --- | --- |
 | **Si el tutor interviene, a quién y por qué señal** | Reglas deterministas (`core/signals.js`) | Auditable, testeable y sin costo por evento. |
-| **Cuándo no volver a hablar** | Reglas (enfriamiento de 90 s por señal) | Un tutor que interrumpe todo el tiempo molesta más de lo que ayuda. |
+| **Cuándo no volver a hablar** | Reglas (enfriamiento de 60 s por señal) | Un tutor que interrumpe todo el tiempo molesta más de lo que ayuda. |
 | **Las palabras del mensaje** | Gemini (`gemini-3.6-flash`) | Es lo único para lo que se necesita un modelo de lenguaje. |
 | **Si el mensaje es aceptable** | Reglas (`core/interventionPolicy.js`) | Gemini no tiene la última palabra: si el texto rompe la política se usa un mensaje de respaldo. |
 | **El estado de cada capacidad en el reporte** | Reglas (`core/competencyEvidence.js`) | Gemini solo etiqueta frases dudosas y su etiqueta nunca basta para «con evidencia». |
 | **La calificación** | **El docente.** | El sistema no asigna notas (ni AD, A, B o C). |
 
+## 2.1 La cadena automática (de la sala al reporte)
+
+```
+Docente crea las salas (emparejamiento) ──► registra el enlace de Meet de cada sala   ← único paso manual del docente
+                                              │
+Alguien de la sala toca «Entrar» ─────────────┤  abre el Meet y pide el tutor (docente o integrante de ESA sala)
+                                              ▼
+ /api/start-session-bot ─► reserva el bot (transacción, no se duplica) ─► asigna el problema si la sala no tiene
+                           (según la habilidad en foco del grupo: core/problemBank.js) ─► crea el bot en Recall
+                                              ▼
+ Alguien admite al bot en Meet                                                         ← paso manual (ver límites)
+                                              ▼
+ Primer evento ─► bot.status = in_call ─► reglas / observador / aprendizaje ─► chat + voz
+                                              ▼
+ Se va la última persona (tras ≥ 3 frases) ─► cierre automático: reporte, memoria y perfil (aprende del resultado)
+```
+
+- El docente **monitorea** desde la sala (en vivo: quién habla, conversación, lo que dijo el tutor) y puede cerrar o
+  invitar a mano en cualquier momento: los botones siguen ahí como respaldo.
+- Asignar el problema solo ocurre si la sala no tiene uno; una sala con problema no se toca. Si falla, el bot entra igual.
+- El cierre automático es idempotente (cerrar dos veces no repite nada) y no intenta sacar al bot: él sale solo 2 s después
+  de que se va el último humano.
+
 ## 3. Las señales
 
 Se evalúan como mucho cada 5 s de sesión, sobre una ventana de 3 minutos. Si varias saltan a la vez gana la de
-mayor prioridad, y la misma señal no se repite antes de 90 s.
+mayor prioridad, y la misma señal no se repite antes de 60 s.
 
 | Prioridad | Señal | Se dispara cuando |
 | --- | --- | --- |
@@ -45,6 +68,45 @@ mayor prioridad, y la misma señal no se repite antes de 90 s.
 Las respuestas se leen frase por frase y entienden los números en palabras en español (hasta 1000). Una pregunta
 («¿cuánto son seis por ocho?») no cuenta como respuesta, y nombrar una operación («seis por ocho») tampoco: solo
 cuenta el resultado que se anuncia después («son cuarenta y ocho»).
+
+### 3.1 El observador de la conversación (cuando las reglas no dicen nada)
+
+Las señales por reglas dependen de un problema con respuesta numérica y de patrones concretos. Una sesión sin problema, o
+una conversación de otro tema, las dejaba mudas (se vio con dos compañeros reales: `currentProblem: null`, y el tutor
+nunca habló). Para cubrirlo, `core/conversationJudge.js` agrega una capa que **solo corre si las reglas no intervinieron**:
+
+- Cada ~20 s (y no antes de 35 s tras cualquier intervención), si hay al menos 8 palabras nuevas de personas, un modelo
+  lee la conversación reciente (12 frases), con el contexto de la clase y el problema si existe, y responde un JSON:
+  **hablar o callar**, tipo (`confusion`, `atasco`, `error-conceptual`, `fuera-de-tema`, `excluido`), destinatario y
+  mensaje. Callar es lo normal.
+- El modelo no ejecuta nada: el código valida el mensaje con la misma política (máx. 2 oraciones, una pregunta, nombra al
+  destinatario, nunca la respuesta). Con una sola persona le habla solo a ella.
+- No suma escrituras al estado (la marca `lastJudgeT` viaja en la que ya existe); si habla, 1 escritura más para que el
+  cooldown la recuerde. Sale por chat y voz como las demás (`signal: CONVERSATION`, `source: observer`).
+- Se apaga con `CONVERSATION_JUDGE_ENABLED=false`. Necesita `GEMINI_API_KEY`.
+
+Límite: depende de la calidad de la transcripción y de un modelo; puede callar cuando debería hablar o al revés. Los logs
+registran solo códigos (`speak`, `kind`, `why`), nunca lo que dijeron.
+
+### 3.2 El latido: el reloj de la sala sigue corriendo en silencio
+
+El motor solo despierta con eventos de Recall y el silencio no genera ninguno: si todos callan, nada lo evaluaba (ni
+`GROUP_SILENCE`, ni el observador). Cada evento real deja un **ancla** (tiempo de sesión + reloj real) y `POST /api/tick`
+calcula cuánto tiempo pasó desde ella (`core/heartbeat.js`) y reevalúa:
+
+- Lo llama **la pantalla de la sala** (cada ~20 s mientras el tutor está en la reunión y la pestaña es visible) o un **cron
+  externo** con la cabecera `x-tick-secret` (`TICK_SECRET`), por si nadie tiene la pantalla abierta.
+- Una evaluación por sala cada 15 s como máximo, vengan de cuántas pantallas vengan (varias pantallas no multiplican el
+  costo). No evalúa una sala cerrada, sin eventos, sin gente, o cuyo último evento tiene más de 10 minutos.
+- Con el latido se enciende `GROUP_SILENCE` (40 s sin que nadie hable, con ≥ 2 personas). Costo: 1 lectura si no toca; 2-3
+  lecturas y 2 escrituras si evalúa.
+- Límite: sin pantalla abierta ni cron, el silencio sigue sin disparar nada.
+
+### 3.3 Cuota de Gemini
+
+`GEMINI_FALLBACK_MODEL`: si el modelo principal responde 429/5xx, el reintento usa ese (otro modelo suele tener su propia
+cuota). `GEMINI_JUDGE_MODEL`: el observador puede usar un modelo más liviano, y tras un 429 se calla 30 s para no competir
+con las intervenciones por reglas. Sin esas variables el comportamiento es el de antes (un reintento con el mismo modelo).
 
 ## 4. El mensaje del tutor
 
@@ -122,7 +184,18 @@ aceptable para datos de menores. Hasta resolverlas, esto es un prototipo de demo
 
 ## 8. Límites conocidos
 
-- Solo 5 señales activas: cuando ninguna salta, el tutor calla. No es un tutor conversacional.
+- **Meet automático (opcional):** si el docente conecta su cuenta de Google (tarjeta «Cuenta de Google» en Salas), una sala
+  sin enlace recibe su reunión al tocar «Crear reunión y entrar»: el servidor crea el espacio con la API de Google Meet con
+  `accessType: OPEN` (entra quien tenga el enlace, **sin sala de espera**, así el bot no necesita admisión). Sin esa conexión
+  todo sigue como antes: el docente registra el enlace a mano y alguien admite al bot. El refresh token vive solo en el
+  servidor (`teacherIntegrations/{uid}`) y el flujo usa un `state` firmado con vencimiento (`core/googleOAuth.js`).
+  **Riesgo con menores:** con acceso `OPEN`, cualquiera que tenga el enlace puede entrar. El enlace solo lo ven los
+  integrantes de la sala; se puede cambiar a `TRUSTED` con `GOOGLE_MEET_ACCESS`.
+- Mientras la app de Google esté en modo «Pruebas», solo entran los usuarios de prueba y el permiso permanente puede
+  caducar a los 7 días (a verificar): hay que volver a conectar.
+- El cierre automático se dispara cuando se va la última persona; si alguien se desconecta un instante y vuelve, el
+  bot ya salió (se va 2 s después) y la sesión queda cerrada.
+- Las señales por reglas son 5; cuando ninguna salta, el observador de la conversación decide si hablar (§3.1).
 - La transcripción automática se equivoca con nombres y números; el motor intervino **una sola vez** en la única
   prueba real (ver `TESTING.md`), y esa conversación no era de matemática.
 - La asignación de cada participante a un uid de estudiante (`studentId`) sigue en `null`: por eso la memoria usa el

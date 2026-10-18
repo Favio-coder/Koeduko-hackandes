@@ -23,7 +23,7 @@ import { arrivalTime, inArrivalOrder, toRecallPayload } from '../src/sessions/co
 const DEFAULT_URL = 'https://koeduko.vercel.app/api/recall-webhook'
 // smoke-replay-*: sesiones desechables. accept-live-2..9: las de la prueba en vivo (accept-live-1 es la real, nunca). accept-mem-*: las de la prueba de memoria entre sesiones, que
 // ademas necesitan un documento de sesion (ver scripts/createAcceptanceSession.js). Nunca accept-001 ni una real.
-const SESSION_PATTERN = /^(smoke-replay-[a-z0-9-]{1,40}|accept-mem-[a-z0-9-]{1,40}|accept-live-[2-9])$/
+const SESSION_PATTERN = /^(smoke-replay-[a-z0-9-]{1,40}|accept-mem-[a-z0-9-]{1,40}|accept-live-[2-9]|accept-tick-[a-z0-9-]{1,30})$/
 const MAX_ATTEMPTS = 3
 const REQUEST_TIMEOUT_MS = 8000
 

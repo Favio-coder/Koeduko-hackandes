@@ -1,7 +1,10 @@
 import { canRequestBot } from '../core/botRequest.js'
+import { anchorOf, tickPlan } from '../core/heartbeat.js'
 import { activityIdOf, emptyState, evaluateDue, ingestEvent, problemFromSession } from '../core/liveEngine.js'
 import { viewOf } from '../core/liveView.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
+import { pickProblem } from '../core/problemBank.js'
+import { rolesOf } from '../core/roles.js'
 import { DEFAULT_CONFIG } from '../core/signals.js'
 import { memoryCacheKey } from '../core/studentKey.js'
 import { SessionBotError } from '../errors.js'
@@ -23,6 +26,11 @@ const profileDocId = memoryCacheKey
 
 /** Cuantas transcripciones recientes se le pasan al tutor como contexto. */
 const TRANSCRIPT_TAIL = 8
+/** Frases recientes que lee el observador de la conversacion (un poco mas que el resto: necesita ver el hilo). */
+const JUDGE_TAIL = 12
+const BOT_KEYS = new Set(DEFAULT_CONFIG.botKeys)
+/** Frases de personas que debe haber para cerrar sola una sala: una sala donde nadie hablo no genera reporte. */
+const AUTO_CLOSE_MIN_TRANSCRIPTS = 3
 
 /**
  * Acceso a Firestore para sesiones. Recibe db y FieldValue ya inicializados
@@ -55,7 +63,7 @@ export function createSessionStore({ db, FieldValue }) {
      *
      * @returns {Promise<{ evaluated: boolean, intervention: object|null, context: object|null, ops: { reads: number, writes: number, attempts: number } }>}
      */
-    async processLiveEvent(sessionId, eventId, event, { config = {} } = {}) {
+    async processLiveEvent(sessionId, eventId, event, { config = {}, nowMs = Date.now() } = {}) {
       const stateRef = db.doc(`learningSessions/${sessionId}/live/state`)
       const viewRef = db.doc(`learningSessions/${sessionId}/live/view`)
       const answerRef = db.doc(`learningSessions/${sessionId}/private/answer`)
@@ -72,12 +80,17 @@ export function createSessionStore({ db, FieldValue }) {
         const ingested = ingestEvent(before, event, { eventId, config })
 
         let state = ingested.state
+        // Cada evento real deja el ancla del reloj: el latido (processTick) la usa para hacer correr el tiempo en el silencio.
+        if (state !== before) state = { ...state, anchor: anchorOf(state, nowMs) }
         let intervention = null
         let context = null
+        let judge = null
+        let botEnteredCall = false
         if (ingested.due) {
           const sessionSnap = await tx.get(sessionRef(sessionId))
           ops.reads += 1
           const session = sessionSnap.exists ? sessionSnap.data() : null
+          botEnteredCall = session?.bot?.status === 'requested'
 
           // La respuesta esperada se lee UNA vez por problema y se cachea en el estado (solo servidor).
           const activityId = activityIdOf(session)
@@ -100,9 +113,24 @@ export function createSessionStore({ db, FieldValue }) {
               transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
               present: state.presence.map((p) => p.k),
             }
+          } else if (evaluated.judge) {
+            // Las reglas no dijeron nada: el observador lee la conversacion reciente (sin lecturas ni escrituras extra).
+            judge = {
+              problem,
+              t: state.lastT,
+              classContext: [session?.courseId, session?.assessmentTitle].filter((x) => typeof x === 'string' && x).join(' · ') || null,
+              transcriptTail: state.transcripts.slice(-JUDGE_TAIL).map(({ k, x }) => ({ k, x })),
+              present: state.presence.map((p) => p.k),
+            }
           }
         }
 
+        // Recall solo manda eventos cuando el bot ya entro y esta grabando: el primer evento prueba que esta en la llamada.
+        // Sin esto la pantalla dice «admitelo en Meet» para siempre. Una sola vez, dentro de la transaccion que ya leyo la sesion.
+        if (botEnteredCall) {
+          tx.update(sessionRef(sessionId), { 'bot.status': 'in_call' })
+          writes += 1
+        }
         if (state !== before) {
           tx.set(stateRef, state)
           writes += 1
@@ -116,8 +144,86 @@ export function createSessionStore({ db, FieldValue }) {
           writes += 1
         }
 
+        // Se fue la ultima persona de una sala en la que de verdad se hablo: el bot sale solo (2 s despues, por su propia
+        // configuracion) y no queda nadie que cierre. La sesion se cierra sola y genera el reporte y la memoria.
+        const humansLeft = state.presence.filter((p) => !BOT_KEYS.has(p.k))
+        const humanTalk = state.transcripts.filter((tr) => !BOT_KEYS.has(tr.k))
+        const closeNow = event.type === 'leave' && humansLeft.length === 0 && humanTalk.length >= AUTO_CLOSE_MIN_TRANSCRIPTS
+
         ops.writes = writes // solo cuentan las escrituras del intento que se confirmo
-        return { evaluated: ingested.due, intervention, context }
+        return { evaluated: ingested.due, intervention, context, judge, closeNow }
+      })
+
+      return { ...outcome, ops }
+    },
+
+    /**
+     * Latido: evalua la sala con el reloj corriendo aunque no hayan llegado eventos (el silencio no genera ninguno). Calcula el
+     * tiempo de sesion desde el ancla del ultimo evento real (core/heartbeat.js) y corre el mismo motor, con GROUP_SILENCE
+     * encendida (solo el latido puede detectarla). Como maximo una evaluacion cada TICK_MIN_MS por sala, venga de cuantas
+     * pantallas venga. Una sala cerrada, sin eventos o inactiva hace mucho no evalua nada.
+     *
+     * Costo: 1 lectura si no toca (estado), y si toca 2 a 3 lecturas (estado, sala, y la respuesta una sola vez) y 2 escrituras
+     * (estado y vista).
+     *
+     * @returns {Promise<{ ticked: boolean, reason?: string, intervention?: object|null, context?: object|null, judge?: object|null, ops: object }>}
+     */
+    async processTick(sessionId, { nowMs = Date.now(), config = {} } = {}) {
+      const stateRef = db.doc(`learningSessions/${sessionId}/live/state`)
+      const viewRef = db.doc(`learningSessions/${sessionId}/live/view`)
+      const answerRef = db.doc(`learningSessions/${sessionId}/private/answer`)
+      const ops = { reads: 0, writes: 0, attempts: 0 }
+
+      const outcome = await db.runTransaction(async (tx) => {
+        ops.attempts += 1
+        const stateSnap = await tx.get(stateRef)
+        ops.reads += 1
+        if (!stateSnap.exists) return { ticked: false, reason: 'no-state' }
+        const before = stateSnap.data()
+        const plan = tickPlan(before, nowMs)
+        if (!plan.run) return { ticked: false, reason: plan.reason }
+
+        const sessionSnap = await tx.get(sessionRef(sessionId))
+        ops.reads += 1
+        const session = sessionSnap.exists ? sessionSnap.data() : null
+        if (!session || session.status === 'completed') return { ticked: false, reason: 'closed' }
+
+        let state = { ...before, lastT: plan.t, lastTickWallMs: nowMs }
+        const activityId = activityIdOf(session)
+        if (activityId !== null && state.answer?.id !== activityId) {
+          const answerSnap = await tx.get(answerRef)
+          ops.reads += 1
+          const stored = answerSnap.exists ? answerSnap.data()?.expectedAnswer : undefined
+          const value = Number(stored ?? session.currentProblem.expectedAnswer)
+          state = { ...state, answer: { id: activityId, v: Number.isFinite(value) ? value : null } }
+        }
+        const problem = problemFromSession(session, state.answer?.v ?? undefined)
+        const evaluated = evaluateDue(state, { problem, config: { ...config, disabledSignals: [] } })
+        state = evaluated.state
+
+        let context = null
+        let judge = null
+        if (evaluated.intervention) {
+          context = {
+            problem,
+            memory: state.memory ?? {},
+            transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
+            present: state.presence.map((p) => p.k),
+          }
+        } else if (evaluated.judge) {
+          judge = {
+            problem,
+            t: state.lastT,
+            classContext: [session?.courseId, session?.assessmentTitle].filter((x) => typeof x === 'string' && x).join(' · ') || null,
+            transcriptTail: state.transcripts.slice(-JUDGE_TAIL).map(({ k, x }) => ({ k, x })),
+            present: state.presence.map((p) => p.k),
+          }
+        }
+
+        tx.set(stateRef, state)
+        tx.set(viewRef, viewOf(state, { ...DEFAULT_CONFIG, ...config }))
+        ops.writes = 2
+        return { ticked: true, intervention: evaluated.intervention, context, judge }
       })
 
       return { ...outcome, ops }
@@ -139,6 +245,14 @@ export function createSessionStore({ db, FieldValue }) {
         if (error?.code === ALREADY_EXISTS) return { created: false }
         throw error
       }
+    },
+
+    /**
+     * Anota en el historial del estado una intervencion que NO salio de las reglas (la del observador), para que el
+     * cooldown la recuerde. Usa arrayUnion: no pisa el resto del estado (1 escritura, solo cuando el tutor habla).
+     */
+    async recordIntervention(sessionId, { type, k = null, t }) {
+      await db.doc(`learningSessions/${sessionId}/live/state`).update({ interventions: FieldValue.arrayUnion({ type, k, t }) })
     },
 
     /** Marca por donde se entrego una intervencion ya creada, p. ej. ['app', 'meet_chat'] (1 escritura). */
@@ -184,6 +298,103 @@ export function createSessionStore({ db, FieldValue }) {
         tx.update(ref, { bot: { id: null, status: 'requested', region, requestedAtMs: nowMs } })
         return { meetingUrl: session.meetingUrl.trim() }
       })
+    },
+
+    /**
+     * Si la sala no tiene problema (las crea el algoritmo de emparejamiento sin actividad), le asigna uno segun la
+     * habilidad en foco de su grupo (matchingResults/{id}/groups/{groupId}.focusSkillIds). El enunciado va en la sesion
+     * y la respuesta aparte, en private/answer. Una sala que ya tiene problema no se toca. Todo en una transaccion.
+     *
+     * @returns {Promise<{ assigned: boolean, skillId?: string }>}
+     */
+    async ensureProblem(sessionId) {
+      return db.runTransaction(async (tx) => {
+        const ref = sessionRef(sessionId)
+        const snap = await tx.get(ref)
+        if (!snap.exists) return { assigned: false }
+        const session = snap.data()
+        if (session.currentProblem) return { assigned: false }
+
+        let skillIds = null
+        if (session.matchingResultId && session.groupId) {
+          const groupSnap = await tx.get(db.doc(`matchingResults/${session.matchingResultId}/groups/${session.groupId}`))
+          skillIds = groupSnap.exists ? groupSnap.data().focusSkillIds : null
+        }
+        const problem = pickProblem({ skillIds, seed: sessionId })
+        tx.update(ref, { currentProblem: { activityId: problem.activityId, skillId: problem.skillId, text: problem.text, auto: true } })
+        tx.set(db.doc(`learningSessions/${sessionId}/private/answer`), { activityId: problem.activityId, expectedAnswer: problem.expectedAnswer })
+        return { assigned: true, skillId: problem.skillId }
+      })
+    },
+
+    /**
+     * Calcula quien guia y quien aprende en la sala segun el diagnostico (dominio de cada integrante en la habilidad de la
+     * sesion) y lo guarda en `private/context`: solo el servidor lo lee, porque es una pista para el tutor y no una etiqueta
+     * que un nino deba ver. Idempotente: si ya existe no hace nada. Sin evaluacion o sin dominio de alguien, no guarda nada.
+     *
+     * @returns {Promise<{ created: boolean }>}
+     */
+    async ensureContext(sessionId) {
+      const ref = db.doc(`learningSessions/${sessionId}/private/context`)
+      return db.runTransaction(async (tx) => {
+        const [contextSnap, sessionSnap] = await Promise.all([tx.get(ref), tx.get(sessionRef(sessionId))])
+        if (contextSnap.exists || !sessionSnap.exists) return { created: false }
+
+        const session = sessionSnap.data()
+        const members = Array.isArray(session.members) ? session.members.filter((m) => typeof m?.studentId === 'string') : []
+        const skillId = session.currentProblem?.skillId ?? null
+        if (!session.assessmentId || !skillId || members.length < 2) return { created: false }
+
+        const snaps = await Promise.all(members.map((m) => tx.get(db.doc(`assessmentModules/${session.assessmentId}/assignments/${m.studentId}`))))
+        const mastery = {}
+        snaps.forEach((snap, i) => {
+          const skills = snap.exists ? snap.data()?.result?.skills : null
+          const found = Array.isArray(skills) ? skills.find((skill) => skill?.skillId === skillId) : null
+          mastery[members[i].studentId] = found?.mastery
+        })
+
+        const context = rolesOf({ members, mastery, skillId })
+        if (!context) return { created: false }
+        tx.set(ref, { ...context, createdFrom: 'assessment' })
+        return { created: true }
+      })
+    },
+
+    /**
+     * Conexion de Google del docente (refresh token), o null. Vive en `teacherIntegrations/{uid}`: sin reglas para clientes,
+     * asi que solo el servidor la lee y la escribe. El token nunca llega al navegador.
+     */
+    async getGoogleConnection(uid) {
+      const snap = await db.doc(`teacherIntegrations/${uid}`).get()
+      return snap.exists ? (snap.data().google ?? null) : null
+    },
+
+    /** Guarda (o reemplaza) la conexion de Google del docente (1 escritura). */
+    async saveGoogleConnection(uid, { refreshToken, scope }) {
+      await db.doc(`teacherIntegrations/${uid}`).set({ google: { refreshToken, scope, connectedAt: FieldValue.serverTimestamp() } }, { merge: true })
+    },
+
+    /**
+     * Guarda el enlace de Meet creado por el servidor, SOLO si la sala sigue sin enlace (dos personas pueden entrar a la vez:
+     * gana la primera y la otra recibe el enlace ya guardado). Una transaccion, 1 escritura.
+     *
+     * @returns {Promise<{ saved: boolean, meetingUrl: string|null }>}
+     */
+    async saveMeeting(sessionId, meetingUrl) {
+      return db.runTransaction(async (tx) => {
+        const snap = await tx.get(sessionRef(sessionId))
+        if (!snap.exists) return { saved: false, meetingUrl: null }
+        const current = snap.data().meetingUrl
+        if (isValidMeetUrl(current)) return { saved: false, meetingUrl: current }
+        tx.update(sessionRef(sessionId), { meetingUrl, meetingProvider: 'google-meet', meetingCreatedBy: 'server' })
+        return { saved: true, meetingUrl }
+      })
+    },
+
+    /** Contexto de la sala (roles segun el diagnostico), o null (1 lectura). */
+    async getContext(sessionId) {
+      const snap = await db.doc(`learningSessions/${sessionId}/private/context`).get()
+      return snap.exists ? snap.data() : null
     },
 
     /** La sesion tal como esta guardada (1 lectura), o null si no existe. */

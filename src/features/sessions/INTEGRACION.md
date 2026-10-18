@@ -8,7 +8,7 @@
 6. Ver salas conserva curso/evaluación en la URL. Sus salas en Estudiantes filtra también por alumno.
 7. Salas y Principal del estudiante leen las learningSessions reales. El alumno consulta por studentIds array-contains su UID; el docente por createdBy.
 8. Ver detalle abre la sesión privada existente, que mantiene sus suscripciones, tutor, invitación del bot y cierre.
-9. El docente dueño registra un enlace válido de Google Meet antes de iniciar la sala. No se genera un Meet ficticio ni se inicia un bot automáticamente.
+9. El docente dueño registra un enlace válido de Google Meet antes de iniciar la sala. No se genera un Meet ficticio. El tutor entra cuando alguien de la sala toca **Entrar** (docente o integrante), el servidor le asigna un problema según la habilidad en foco del grupo si la sala no tiene uno, y al irse la última persona la sesión se cierra sola (ver docs/SESSIONS_AGENT.md §2.1).
 
 ## Persistencia
 
