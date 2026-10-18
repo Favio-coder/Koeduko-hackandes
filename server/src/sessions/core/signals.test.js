@@ -216,6 +216,28 @@ describe('WRONG_ANSWER and CORRECT_ANSWER', () => {
       ['WRONG_ANSWER', 'CORRECT_ANSWER'].includes(s.type),
     )
 
+  describe('a number cut in two by the transcription ("cuarenta y" | "dos")', () => {
+    const run = (events, now) => detectSignals([...room, ...events], now, { problem }).filter((s) => ['WRONG_ANSWER', 'CORRECT_ANSWER'].includes(s.type))
+
+    it('waits for the rest instead of reading "cuarenta y" as 40', () => {
+      expect(run([say('a', 10, 12, 'veo que son cuarenta y')], 14)).toEqual([])
+    })
+
+    it('reads both fragments together once the rest arrives (42 is wrong, 48 is right)', () => {
+      const wrong = run([say('a', 10, 12, 'veo que son cuarenta y'), say('a', 13, 15, 'dos, algo así, más o menos')], 16)
+      expect(wrong).toHaveLength(1)
+      expect(wrong[0]).toMatchObject({ type: 'WRONG_ANSWER', evidence: { numbers: [42] } })
+
+      const right = run([say('a', 10, 12, 'creo que son cuarenta y'), say('a', 13, 14, 'ocho')], 16)
+      expect(right[0]).toMatchObject({ type: 'CORRECT_ANSWER' })
+    })
+
+    it('does not wait forever: a phrase left hanging is read after the grace period', () => {
+      const [signal] = run([say('a', 10, 12, 'veo que son cuarenta y')], 20)
+      expect(signal).toMatchObject({ type: 'WRONG_ANSWER', evidence: { numbers: [40] } })
+    })
+  })
+
   it('marks a wrong number in an answer-like phrase', () => {
     const [signal] = answerOf('creo que son 46')
     expect(signal).toMatchObject({
