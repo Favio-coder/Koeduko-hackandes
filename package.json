@@ -10,11 +10,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:env": "node server/scripts/checkEnv.js --target all",
+    "env:example": "npm --prefix server run env:example",
     "test:assessments:integration": "npx --yes firebase-tools@13.35.1 emulators:exec --project demo-koeduko-assessments --config firebase.assessments.json --only firestore,auth \"node --test server/assessments/integration.test.js\""
   },
   "dependencies": {
     "firebase": "^13.0.0",
     "firebase-admin": "^13.10.0",
+    "openai": "^7.38.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",
