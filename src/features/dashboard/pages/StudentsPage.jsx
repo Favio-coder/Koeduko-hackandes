@@ -198,7 +198,7 @@ export default function StudentsPage() {
                   )}
 
                   <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[#E6EAE3] pt-3">
-                    <Button to="/sessions" variant="ghost" size="sm" icon="video">
+                    <Button to={'/sessions?' + new URLSearchParams({ courseId: course.id, studentId: student.id })} variant="ghost" size="sm" icon="video">
                       Sus salas
                     </Button>
                     {/* <Button variant="secondary" size="sm" icon="edit" className="ml-auto">

@@ -1,21 +1,10 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import Icon from '@/components/ui/Icon'
 import useToast from '@/components/ui/useToast'
 import { SESSION_STATUS } from '@/shared/constants/contracts'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSessions } from '../hooks/useSessions'
-
-/**
- * PUNTO DE EXTENSION - DESARROLLADOR 3 (feature/sessions-ai)
- * Debe crear sesiones en `learningSessions` y asociarlas a un pairId.
- *
- * NOTA UI: este archivo solo cambia la presentación. Se conserva la misma
- * fuente de datos (`useSessions`), los mismos estados de carga/error/vacío,
- * el mismo enlace de detalle y el mismo botón de creación.
- * Cuando DEV 3 agregue `courseName`, `provider` y `scheduledAt` reales, las
- * tarjetas ya tienen los espacios reservados (ver `sessionMeta`).
- */
 
 /** Etiqueta y tono del badge según el estado del contrato. */
 const STATUS_META = {
@@ -48,13 +37,13 @@ const dateFormatter = new Intl.DateTimeFormat('es-CO', {
 
 export default function SessionsPage() {
   const { isTeacher } = useAuth()
-  const { sessions, loading, error, createSession } = useSessions()
+  const { sessions: allSessions, loading, error, reload } = useSessions()
+  const [params] = useSearchParams()
+  const sessions = allSessions.filter((session) =>
+    (!params.get('courseId') || session.courseId === params.get('courseId')) &&
+    (!params.get('assessmentId') || session.assessmentId === params.get('assessmentId')) &&
+    (!params.get('studentId') || session.studentIds?.includes(params.get('studentId'))))
   const toast = useToast()
-
-  const handleCreate = async () => {
-    const created = await createSession()
-    toast.success(`Sala creada: ${created?.title ?? 'nueva sesión'}`)
-  }
 
   const handleCopy = async (url) => {
     try {
@@ -77,42 +66,27 @@ export default function SessionsPage() {
             Salas de reuniones
           </h2>
           <p className="mt-1.5 text-sm text-[#5A6B6A]">
-            Sesiones por pareja con enlace de videollamada y seguimiento del estado.
+            Salas privadas de tus grupos con enlace de videollamada y seguimiento del estado.
           </p>
         </div>
 
         {isTeacher && (
-          <Button icon="plus" onClick={handleCreate} className="w-full shrink-0 sm:w-auto">
-            Nueva sala
-          </Button>
+          <Button to="/matching/results" icon="users" className="w-full shrink-0 sm:w-auto">Crear salas desde resultados</Button>
         )}
       </header>
 
-      {error && <ErrorState error={error} onRetry={undefined} compact />}
+      {error && <ErrorState error={error} onRetry={reload} compact />}
       {loading && <LoadingState label="Cargando salas..." compact />}
 
       {/* Contenido */}
       {!loading && (
         <>
-          {isTeacher && (
-            <Card
-              variant="accent"
-              title="Crear sala para una pareja"
-              description="Se asocia a una pareja generada por el módulo de emparejamiento."
-              className="border-[#B7E8B5]"
-            >
-              <Button variant="subtle" icon="video" onClick={handleCreate}>
-                Crear sesión de demostración
-              </Button>
-            </Card>
-          )}
-
           {sessions.length === 0 ? (
             <EmptyState
               icon="video"
               title="Sin salas por ahora"
-              description="Crea la primera sala de aprendizaje para conectar a una pareja."
-              action={isTeacher ? <Button icon="plus" onClick={handleCreate}>Nueva sala</Button> : null}
+              description="Las salas aparecerán cuando el docente confirme los grupos en Resultados."
+              action={isTeacher ? <Button to="/matching/results">Ir a resultados</Button> : null}
             />
           ) : (
             <Card
@@ -152,7 +126,7 @@ export default function SessionsPage() {
                           <dt className="sr-only">Fecha</dt>
                           <dd className="min-w-0 truncate">
                             {session.scheduledAt
-                              ? dateFormatter.format(new Date(session.scheduledAt))
+                              ? dateFormatter.format(session.scheduledAt?.toDate?.() ?? new Date(session.scheduledAt))
                               : 'Fecha por definir'}
                           </dd>
                         </div>
@@ -165,9 +139,9 @@ export default function SessionsPage() {
 
                         <div className="flex items-center gap-2">
                           <Icon name="users" className="h-4 w-4 shrink-0 text-[#7D8C8A]" />
-                          <dt className="sr-only">Pareja</dt>
+                          <dt className="sr-only">Integrantes</dt>
                           {/* URL larga: se recorta en lugar de desbordar */}
-                          <dd className="min-w-0 truncate">{session.pairId}</dd>
+                          <dd className="min-w-0 truncate">{session.members?.map((member) => member.displayName).join(' · ') || session.groupId || session.pairId}</dd>
                         </div>
                       </dl>
 

@@ -11,6 +11,7 @@ import InterventionsCard from '../components/InterventionsCard'
 import InviteTutor from '../components/InviteTutor'
 import TalkShareCard from '../components/TalkShareCard'
 import TranscriptCard from '../components/TranscriptCard'
+import MeetingLinkForm from '../components/MeetingLinkForm'
 import { useLiveSession } from '../hooks/useLiveSession'
 import { useNow } from '../hooks/useNow'
 import { useSessionSummary } from '../hooks/useSessionSummary'
@@ -36,7 +37,7 @@ const BACK_LINK_CLASS =
 export default function SessionDetailPage({ sessionId: resolvedId }) {
   const params = useParams()
   const sessionId = resolvedId ?? params.sessionId
-  const { isTeacher } = useAuth()
+  const { isTeacher, user } = useAuth()
   const { loading, error, session, view, interventions, retry } = useLiveSession(sessionId)
   const nowMs = useNow()
   const toast = useToast()
@@ -89,6 +90,12 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
         </div>
       </header>
 
+      {!error && session?.members?.length > 0 && <Card title="Integrantes de la sala">
+        <ul>{session.members.map((member) => <li key={member.studentId}>{member.displayName}</li>)}</ul>
+        <p className="mt-2 text-xs text-[#5A6B6A]">{session.courseName} · {session.assessmentTitle}</p>
+      </Card>}
+      {!error && isTeacher && session?.createdBy === user?.uid && session?.status === SESSION_STATUS.SCHEDULED && !session?.bot?.id && !['requested', 'joining', 'in_call'].includes(session?.bot?.status) &&
+        <MeetingLinkForm key={sessionId} session={{ ...session, id: sessionId }} />}
       {isTeacher && !isClosed && <InviteTutor sessionId={sessionId} botStatus={botStatus} />}
       {isTeacher && !isClosed && <CloseSession sessionId={sessionId} onClosed={setClosed} />}
       {report && <CompetencyReport report={report} steps={reportSteps} />}

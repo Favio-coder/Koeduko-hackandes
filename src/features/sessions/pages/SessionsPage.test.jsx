@@ -3,22 +3,13 @@
  *
  * Objetivo: demostrar que NO se rompió funcionalidad — se conservan la fuente de
  * datos (`useSessions`), los estados y los botones Nueva sala · Entrar · Copiar.
- * El hook es un stub en memoria, así que no se toca Firebase.
+ * El hook real usa Firestore; aquí se sustituye para probar la vista sin red.
  */
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SessionsPage from '@/features/sessions/pages/SessionsPage'
 import { ToastProvider } from '@/components/ui/Toast'
-
-const createSession = vi.fn(async () => ({
-  id: 'demo-session-2',
-  title: 'Pareja Mia Quispe - Diego Huaman',
-  pairId: 'pair-demo-2',
-  meetingUrl: null,
-  status: 'scheduled',
-  scheduledAt: null,
-}))
 
 let isTeacher = true
 let emptyState = false
@@ -44,13 +35,12 @@ vi.mock('@/features/sessions/hooks/useSessions', () => ({
     loading: false,
     error: null,
     reload: vi.fn(),
-    createSession,
   }),
 }))
 
-const renderPage = () =>
+const renderPage = (path = '/sessions') =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <ToastProvider>
         <SessionsPage />
       </ToastProvider>
@@ -61,7 +51,6 @@ describe('SessionsPage (Salas)', () => {
   beforeEach(() => {
     isTeacher = true
     emptyState = false
-    createSession.mockClear()
   })
 
   it('muestra la lista de salas con sus datos', () => {
@@ -85,22 +74,22 @@ describe('SessionsPage (Salas)', () => {
     expect(screen.getByRole('button', { name: 'Copiar' })).toBeDisabled()
   })
 
-  it('el docente ve Nueva sala y Crear sesión de demostración', () => {
+  it('el docente crea salas desde los grupos confirmados y no desde una demo', () => {
     renderPage()
-    expect(screen.getByRole('button', { name: /Nueva sala/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Crear sesión de demostración/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Crear salas desde resultados' })).toHaveAttribute('href', '/matching/results')
+    expect(screen.queryByText('Crear sesión de demostración')).not.toBeInTheDocument()
   })
 
   it('el estudiante no ve las acciones de creación', () => {
     isTeacher = false
     renderPage()
-    expect(screen.queryByRole('button', { name: /Nueva sala/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Crear salas desde resultados' })).toBeNull()
   })
 
-  it('Nueva sala sigue invocando createSession', () => {
-    renderPage()
-    fireEvent.click(screen.getByRole('button', { name: /Nueva sala/ }))
-    expect(createSession).toHaveBeenCalled()
+  it('filtra las salas por el curso y evaluación recibidos desde Resultados', () => {
+    renderPage('/sessions?courseId=other&assessmentId=other')
+    expect(screen.getByText('Sin salas por ahora')).toBeInTheDocument()
+    expect(screen.queryByText('Pareja Ana Torres - Luis Rojas')).not.toBeInTheDocument()
   })
 
   it('muestra el estado vacío cuando no hay salas', () => {
