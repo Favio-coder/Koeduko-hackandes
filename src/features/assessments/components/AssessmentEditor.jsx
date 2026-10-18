@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Button, Card } from "@/components/ui";
+import { Alert, Badge, Button, Card, LoadingState } from "@/components/ui";
 import { Checkbox, Input, Select, Textarea } from "@/components/ui/Field";
 import Modal from "@/components/ui/Modal";
 import {
@@ -18,6 +18,7 @@ import {
 import { localDate, newQuestion, typeOptions } from "../utils/forms";
 import QuestionEditor from "./QuestionEditor";
 import QuestionCard from "./QuestionCard";
+import IntegerInput from "./IntegerInput";
 
 const sections = [
   ["general", "Información general"],
@@ -48,11 +49,12 @@ function toIsoDate(value) {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
-export default function AssessmentEditor({ initial, courses, onDone }) {
+export default function AssessmentEditor({ initial, courses, onDone, exitRef }) {
   const [form, setForm] = useState(() => {
     const course = courses.find((item) => item.id === initial.courseId);
     return {
       ...initial,
+      academicWeightPercent: null,
       description: initial.description || "",
       areaId: initial.areaId || course?.areas?.[0]?.id || "",
       durationMinutes: initial.durationMinutes ?? 30,
@@ -63,7 +65,9 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
   const [baseline, setBaseline] = useState(() => JSON.stringify(form));
   const [fieldErrors, setFieldErrors] = useState({});
   const [preview, setPreview] = useState(false);
+  const [step, setStep] = useState(0);
   const [savedAt, setSavedAt] = useState("");
+  const [pendingAction, setPendingAction] = useState(null);
   const { busy, error, run } = useOperation();
   const course = courses.find((item) => item.id === form.courseId);
   const questions = form.questions;
@@ -102,6 +106,9 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
 
   const focusFirstError = (errors) => {
     const firstField = Object.keys(errors).find((key) => key !== "questionFields");
+    const general = ["title", "courseId", "areaId", "competencyId", "description", "type"];
+    setStep(firstField === "questions" || !firstField ? 2 : general.includes(firstField) ? 0 : 1);
+    requestAnimationFrame(() => {
     if (firstField) {
       document.getElementById(`assessment-${firstField}`)?.focus();
       if (firstField === "questions") {
@@ -115,15 +122,22 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
         (question) => question.questionId === firstQuestion,
       );
       document
-        .querySelector(`#question-${index + 1} textarea`)
-        ?.focus();
+          .querySelector(`#question-${index + 1} textarea`)
+          ?.focus();
     }
+    });
   };
 
-  const validate = (publishing) => {
+  const validate = async (publishing) => {
     const errors = validateAssessmentForm(form, courses, { publishing });
     setFieldErrors(errors);
     if (Object.keys(errors).length) {
+      const messages = Object.entries(errors).flatMap(([key, value]) =>
+        key === "questionFields"
+          ? Object.entries(value).flatMap(([id, fields]) => Object.values(fields).map(message =>
+            `Pregunta ${questions.findIndex(q => q.questionId === id) + 1}: ${message}`))
+          : [value]);
+      await showWarning(messages.map(message => `• ${message}`).join("\n"), "Revisa antes de continuar");
       focusFirstError(errors);
       return false;
     }
@@ -131,13 +145,7 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
   };
 
   const save = async (publishing) => {
-    if (!validate(publishing)) {
-      if (publishing) {
-        await showWarning(
-          "Completa los campos marcados y corrige las preguntas incompletas antes de publicar.",
-          "Hay información pendiente",
-        );
-      }
+    if (!(await validate(publishing))) {
       return;
     }
     run(async () => {
@@ -153,7 +161,10 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
             confirmButtonText: "Continuar con la revisión",
             cancelButtonText: "Volver a editar",
           });
-          if (!continueWithSimilar) return;
+          if (!continueWithSimilar) {
+            setPendingAction(null);
+            return;
+          }
         }
         if (publishing) {
           const confirmed = await showConfirmation({
@@ -163,28 +174,35 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
             confirmButtonText: "Publicar evaluación",
             cancelButtonText: "Seguir editando",
           });
-          if (!confirmed) return;
+          if (!confirmed) {
+            setPendingAction(null);
+            return;
+          }
         }
 
+        setPendingAction(publishing ? "publish" : "save");
         const result = await assessmentRequest(
           publishing ? "publish" : "save",
-          form,
+          { ...form, academicWeightPercent: null },
         );
+        setPendingAction(null);
         if (publishing) {
           await showSuccess("La evaluación se publicó correctamente.");
           onDone();
           return;
         }
 
-        const updated = await assessmentRequest("detail", {
-          assessmentId: result.id,
-        });
+        /* El servidor devuelve la revisión: no hace falta volver a pedir
+           `detail` y el borrador se refresca en un solo viaje. */
         const nextForm = {
-          ...updated,
-          description: updated.description || "",
-          areaId: updated.areaId || course?.areas?.[0]?.id || "",
-          questions: updated.questions || [],
-          studentIds: updated.studentIds || [],
+          ...form,
+          id: result.id,
+          revision: result.revision,
+          updatedAt: result.updatedAt,
+          status: "draft",
+          description: form.description || "",
+          questions: form.questions || [],
+          studentIds: form.studentIds || [],
         };
         setForm(nextForm);
         setBaseline(JSON.stringify(nextForm));
@@ -192,6 +210,7 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
         setFieldErrors({});
         await showSuccess("El borrador se guardó correctamente.");
       } catch (saveError) {
+        setPendingAction(null);
         const field = serverErrorField(saveError.message);
         if (field) {
           setFieldErrors((old) => ({ ...old, [field]: saveError.message }));
@@ -200,6 +219,23 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
         throw saveError;
       }
     });
+  };
+
+  const nextStep = async () => {
+    const errors = validateAssessmentForm(form, courses);
+    const fields = step === 0
+      ? ["title", "courseId", "areaId", "competencyId", "description", "type"]
+      : step === 1
+        ? ["scale", "maxScore", "durationMinutes", "attemptLimit", "startsAt", "endsAt", "feedbackMode", "studentIds"]
+        : [];
+    const currentErrors = Object.fromEntries(Object.entries(errors).filter(([key]) => fields.includes(key)));
+    if (Object.keys(currentErrors).length) {
+      setFieldErrors(currentErrors);
+      await showWarning(Object.values(currentErrors).map(message => `• ${message}`).join("\n"), "Completa este paso");
+      focusFirstError(currentErrors);
+      return;
+    }
+    setStep(step + 1);
   };
 
   const leaveEditor = async () => {
@@ -215,6 +251,16 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
     }
     onDone();
   };
+
+  /* El menú lateral puede pedir la salida (por ejemplo al volver a pulsar
+     «Curso»): se registra aquí la misma ruta que usa el botón «Volver». */
+  useEffect(() => {
+    if (!exitRef) return undefined;
+    exitRef.current = () => leaveEditor();
+    return () => {
+      exitRef.current = null;
+    };
+  });
 
   const changeCourse = async (courseId) => {
     const nextCourse = courses.find((item) => item.id === courseId);
@@ -324,18 +370,22 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
         className="grid grid-cols-2 gap-2 rounded-2xl border border-[#E6EAE3] bg-white p-2 sm:grid-cols-4"
       >
         {sections.map(([id, label], index) => (
-          <a
+          <button
+            type="button"
             key={id}
-            href={`#${id}`}
-            className="rounded-xl px-3 py-3 text-center text-sm font-semibold text-[#304744] transition-colors hover:bg-[#E9F8EA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4CDB59]"
+            disabled={busy}
+            aria-current={step === index ? "step" : undefined}
+            onClick={() => setStep(index)}
+            className={`rounded-xl px-3 py-3 text-center text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4CDB59] ${step === index ? "bg-[#304744] text-white shadow-sm" : "text-[#304744] hover:bg-[#E9F8EA]"}`}
           >
             <span className="mr-1 text-[#2A7A35]">{index + 1}.</span>
             {label}
-          </a>
+          </button>
         ))}
       </nav>
 
       <fieldset disabled={busy} className="min-w-0 space-y-6">
+        <div hidden={step !== 0}>
         <Card
           id="general"
           title="A. Información general"
@@ -346,6 +396,7 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
             <Input
               id="assessment-title"
               label="Nombre de la evaluación"
+              placeholder="Ej. Matemática · Operaciones básicas"
               maxLength={200}
               value={form.title}
               error={formErrors.title}
@@ -430,7 +481,9 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
             />
           </div>
         </Card>
+        </div>
 
+        <div hidden={step !== 1}>
         <Card
           id="settings"
           title="B. Configuración"
@@ -443,51 +496,35 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
               label="Escala de presentación"
               value={form.scale}
               error={formErrors.scale}
-              onChange={(event) => setNumber("scale", event.target.value)}
+              onChange={(event) => {
+                setNumber("scale", event.target.value);
+                if (Number(form.maxScore) > Number(event.target.value)) {
+                  setFieldErrors(old => ({ ...old, maxScore: "El puntaje supera la nueva escala. Ajusta el total y los puntos de las preguntas." }));
+                }
+              }}
               options={[
                 { value: 20, label: "0–20" },
                 { value: 100, label: "0–100" },
               ]}
             />
-            <Input
+            <IntegerInput
               id="assessment-maxScore"
               label="Puntaje máximo total"
-              type="number"
-              min={1}
-              max={60000}
-              step={1}
+              max={form.scale}
               value={form.maxScore}
               error={formErrors.maxScore}
-              onChange={(event) => setNumber("maxScore", event.target.value)}
-              hint={`Suma actual de preguntas: ${points} puntos.`}
+              onValueChange={(value) => set("maxScore", value)}
+              hint={`De 1 a ${form.scale} puntos. Las preguntas suman ${points}.`}
               required
             />
-            <Input
-              id="assessment-academicWeightPercent"
-              label="Peso académico del promedio (%)"
-              type="number"
-              min={0.01}
-              max={100}
-              step={0.01}
-              value={form.academicWeightPercent ?? ""}
-              error={formErrors.academicWeightPercent}
-              onChange={(event) =>
-                setNumber("academicWeightPercent", event.target.value)
-              }
-              hint="Opcional. Si asignas pesos, todas las evaluaciones calificadas de esa área deben tener uno."
-            />
-            <Input
+            <div>
+            <IntegerInput
               id="assessment-durationMinutes"
               label="Duración (minutos)"
-              type="number"
-              min={1}
               max={1440}
-              step={1}
               value={form.durationMinutes}
               error={formErrors.durationMinutes}
-              onChange={(event) =>
-                setNumber("durationMinutes", event.target.value)
-              }
+              onValueChange={(value) => set("durationMinutes", value)}
               hint={
                 form.id && form.durationMinutes === 0
                   ? "Evaluación heredada sin límite; indica una duración positiva para cambiarla."
@@ -495,6 +532,13 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
               }
               required
             />
+            <div className="mt-2 flex flex-wrap gap-2" aria-label="Duraciones sugeridas">
+              {[15, 30, 45, 60, 90].map(minutes => <button key={minutes} type="button"
+                aria-pressed={form.durationMinutes === minutes}
+                className={`min-h-10 rounded-lg border px-3 text-sm ${form.durationMinutes === minutes ? "border-[#2A7A35] bg-[#E9F8EA]" : "border-[#E6EAE3] bg-white"}`}
+                onClick={() => set("durationMinutes", minutes)}>{minutes} min</button>)}
+            </div>
+            </div>
             <Input
               id="assessment-startsAt"
               label="Fecha y hora de inicio"
@@ -517,18 +561,13 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
               }
               required
             />
-            <Input
+            <IntegerInput
               id="assessment-attemptLimit"
               label="Intentos permitidos"
-              type="number"
-              min={1}
               max={10}
-              step={1}
               value={form.attemptLimit}
               error={formErrors.attemptLimit}
-              onChange={(event) =>
-                setNumber("attemptLimit", event.target.value)
-              }
+              onValueChange={(value) => set("attemptLimit", value)}
               hint="Se utiliza el último intento enviado."
               required
             />
@@ -611,8 +650,9 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
             )}
           </div>
         </Card>
+        </div>
 
-        <section id="questions" className="scroll-mt-6 space-y-4">
+        <section hidden={step !== 2} id="questions" className="scroll-mt-6 space-y-4">
           <div className="flex flex-col gap-3 rounded-2xl border border-[#E6EAE3] bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-bold text-[#304744]">
@@ -649,6 +689,7 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
               index={index}
               count={questions.length}
               skills={course.skills}
+              maxPoints={Number(form.maxScore) || form.scale}
               errors={questionErrors[question.questionId]}
               onChange={(updated) =>
                 set(
@@ -682,6 +723,7 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
           )}
         </section>
 
+        <div hidden={step !== 3}>
         <Card
           id="review"
           title="D. Revisión y publicación"
@@ -756,12 +798,12 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
           )}
 
           <div className="mt-6 flex flex-col-reverse gap-3 border-t border-[#E6EAE3] pt-5 sm:flex-row sm:justify-between">
-            <Button variant="secondary" onClick={() => setPreview(true)}>
+            <Button variant="blueSoft" icon="clipboard" onClick={() => setPreview(true)}>
               Vista previa de preguntas
             </Button>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
-                variant="secondary"
+                variant="blue"
                 loading={busy}
                 onClick={() => save(false)}
               >
@@ -781,7 +823,22 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
             </p>
           )}
         </Card>
+        </div>
       </fieldset>
+
+      <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E6EAE3] bg-white p-3 shadow-lg sm:p-4">
+        <Button variant="secondary" disabled={busy || step === 0} onClick={() => setStep(step - 1)}>Anterior</Button>
+        <p role="status" className="text-sm text-[#5A6B6A]">Paso {step + 1} de 4</p>
+        {step < 3 && <Button variant="blue" disabled={busy} onClick={nextStep}>Siguiente</Button>}
+        {step < 3 && <Button variant="blueSoft" loading={busy} onClick={() => save(false)}>Guardar borrador</Button>}
+      </div>
+
+      {/* Koala de marca mientras el servidor guarda o publica. */}
+      {pendingAction && (
+        <LoadingState
+          label={pendingAction === "publish" ? "Publicando evaluación…" : "Guardando borrador…"}
+        />
+      )}
 
       <details className="rounded-xl border border-[#E6EAE3] bg-white p-4 text-sm">
         <summary className="cursor-pointer font-semibold text-[#304744]">

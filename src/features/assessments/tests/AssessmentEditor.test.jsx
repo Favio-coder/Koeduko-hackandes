@@ -101,11 +101,70 @@ describe("AssessmentEditor", () => {
     renderEditor();
 
     expect(screen.getByRole("heading", { name: "A. Información general" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "B. Configuración" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "C. Preguntas" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "D. Revisión y publicación" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /Área/ })).toHaveValue("math");
+    fireEvent.click(screen.getByRole("button", { name: /2\.Configuración|2\. Configuración/ }));
+    expect(screen.getByRole("heading", { name: "B. Configuración" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /3\./ }));
+    expect(screen.getByRole("heading", { name: "C. Preguntas" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /4\./ }));
+    expect(screen.getByRole("heading", { name: "D. Revisión y publicación" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Ponderación prevista (%)")).not.toBeInTheDocument();
+  });
+
+  it("uses bounded text inputs and duration presets without academic weight", () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: /2\./ }));
+    const score = screen.getByLabelText(/Puntaje máximo total/);
+    expect(score).toHaveAttribute("type", "text");
+    fireEvent.change(score, { target: { value: "20" } });
+    expect(score).toHaveValue("20");
+    for (const value of ["21", "-1", "2e1", "2.5", "abc"]) {
+      fireEvent.change(score, { target: { value } });
+      expect(score).toHaveValue("20");
+    }
+    fireEvent.change(score, { target: { value: "" } });
+    expect(score).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: "45 min" }));
+    expect(screen.getByLabelText(/Duración \(minutos\)/)).toHaveValue("45");
+    expect(screen.queryByLabelText(/Peso académico/)).not.toBeInTheDocument();
+  });
+
+  it("explains missing fields with SweetAlert before advancing", async () => {
+    renderEditor(initial({ title: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+    await waitFor(() => expect(showWarning).toHaveBeenCalledWith(
+      expect.stringContaining("Escribe un nombre"), "Completa este paso"));
+    expect(screen.getByRole("heading", { name: "A. Información general" })).toBeVisible();
+    expect(assessmentRequest).not.toHaveBeenCalled();
+  });
+
+  it("muestra el koala mientras guarda y refresca con la revisión del servidor", async () => {
+    let release;
+    vi.mocked(assessmentRequest).mockImplementationOnce(
+      () => new Promise((resolve) => { release = () => resolve({ id: "draft-1", revision: 7, updatedAt: "2026-01-01T00:00:00.000Z" }); }),
+    );
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar borrador" }));
+
+    const koala = await screen.findByRole("status", {
+      name: "",
+      hidden: false,
+    }).catch(() => null);
+    const saving = await screen.findByText(/Guardando borrador/, {}, { timeout: 2000 });
+    expect(saving).toBeInTheDocument();
+    expect(koala).not.toBeNull();
+    release();
+    await waitFor(() => expect(screen.queryByText(/Guardando borrador/)).not.toBeInTheDocument());
+    expect(assessmentRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("registra la salida que pide el menú para volver al listado del curso", async () => {
+    const exitRef = { current: null };
+    render(
+      <AssessmentEditor initial={initial()} courses={courses} onDone={vi.fn()} exitRef={exitRef} />,
+    );
+    await waitFor(() => expect(typeof exitRef.current).toBe("function"));
+    expect(exitRef.current).toBeInstanceOf(Function);
   });
 
   it("saves a draft with its authorized area and keeps the teacher in the editor", async () => {
@@ -126,6 +185,7 @@ describe("AssessmentEditor", () => {
 
   it("shows field-level feedback and prevents publishing incomplete questions", async () => {
     renderEditor(initial({ questions: [validQuestion], maxScore: 2 }));
+    fireEvent.click(screen.getByRole("button", { name: /4\./ }));
     fireEvent.click(screen.getByRole("button", { name: "Publicar evaluación" }));
 
     expect(await screen.findByText(/debe coincidir con la suma/)).toBeInTheDocument();
@@ -139,6 +199,7 @@ describe("AssessmentEditor", () => {
   it("confirms publication, keeps correct answers in the server request, and reports success", async () => {
     const onDone = vi.fn();
     renderEditor(initial({ questions: [validQuestion] }), onDone);
+    fireEvent.click(screen.getByRole("button", { name: /4\./ }));
     fireEvent.click(screen.getByRole("button", { name: "Publicar evaluación" }));
 
     await waitFor(() => {
@@ -180,6 +241,7 @@ describe("AssessmentEditor", () => {
   it("confirms destructive question removal and warns before leaving dirty changes", async () => {
     const onDone = vi.fn();
     renderEditor(initial({ questions: [validQuestion] }), onDone);
+    fireEvent.click(screen.getByRole("button", { name: /3\./ }));
     fireEvent.click(screen.getByRole("button", { name: "Eliminar pregunta" }));
 
     await waitFor(() => expect(confirmDestructive).toHaveBeenCalled());

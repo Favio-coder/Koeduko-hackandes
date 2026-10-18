@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { assessmentRequest } from "../services/assessmentService";
+import { assessmentRequest, loadBootstrap } from "../services/assessmentService";
 import AssessmentsPage from "../pages/AssessmentsPage";
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -9,7 +10,15 @@ vi.mock("@/contexts/AuthContext", () => ({
 
 vi.mock("../services/assessmentService", () => ({
   assessmentRequest: vi.fn(),
+  loadBootstrap: vi.fn(),
 }));
+
+const renderPage = () =>
+  render(
+    <MemoryRouter>
+      <AssessmentsPage />
+    </MemoryRouter>,
+  );
 
 const course = {
   id: "course-1",
@@ -30,6 +39,10 @@ const assessment = {
 describe("AssessmentsPage estudiante", () => {
   beforeEach(() => {
     vi.mocked(assessmentRequest).mockReset();
+    vi.mocked(loadBootstrap).mockReset();
+    vi.mocked(loadBootstrap).mockImplementation(() =>
+      assessmentRequest("bootstrap"),
+    );
     vi.mocked(assessmentRequest).mockImplementation(async (action) => {
       if (action === "bootstrap") {
         return { courses: [course], assessments: [assessment] };
@@ -88,7 +101,7 @@ describe("AssessmentsPage estudiante", () => {
   });
 
   it("muestra las evaluaciones asignadas y permite abrir la disponible", async () => {
-    render(<AssessmentsPage />);
+    renderPage();
 
     expect(
       await screen.findByRole("heading", { name: assessment.title }),
@@ -125,7 +138,7 @@ describe("AssessmentsPage estudiante", () => {
       }
       throw new Error(`Unexpected action: ${action}`);
     });
-    render(<AssessmentsPage />);
+    renderPage();
 
     await screen.findByRole("heading", { name: assessment.title });
     fireEvent.click(screen.getByRole("button", { name: "Abrir evaluación" }));
@@ -141,7 +154,7 @@ describe("AssessmentsPage estudiante", () => {
   });
 
   it("permite al estudiante consultar su historial y promedio del área", async () => {
-    render(<AssessmentsPage />);
+    renderPage();
     await screen.findByRole("heading", { name: assessment.title });
     fireEvent.click(screen.getByRole("button", { name: "Mis calificaciones" }));
 

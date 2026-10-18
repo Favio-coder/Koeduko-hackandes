@@ -1,11 +1,13 @@
 import { Button, Card } from "@/components/ui";
 import { Input, Select, Textarea } from "@/components/ui/Field";
+import IntegerInput from "./IntegerInput";
 
 export default function QuestionEditor({
   question: q,
   index,
   count,
   skills,
+  maxPoints = 20,
   errors = {},
   onChange,
   onMove,
@@ -64,17 +66,13 @@ export default function QuestionEditor({
               label: skill.label,
             }))}
           />
-          <Input
+          <IntegerInput
             label="Puntaje de la pregunta"
-            type="number"
-            min={1}
-            max={1000}
-            step={1}
+            max={maxPoints}
             value={q.maxScore}
             error={errors.maxScore}
-            onChange={(e) =>
-              set("maxScore", e.target.value === "" ? "" : Number(e.target.value))
-            }
+            onValueChange={(value) => set("maxScore", value)}
+            hint={`De 1 a ${maxPoints} puntos.`}
           />
         </div>
         <fieldset
@@ -186,7 +184,7 @@ export default function QuestionEditor({
           >
             Bajar pregunta
           </Button>
-          <Button variant="dangerSoft" onClick={onRemove}>
+          <Button variant="danger" onClick={onRemove}>
             Eliminar pregunta
           </Button>
         </div>
