@@ -28,6 +28,15 @@ import Tooltip from '@/components/ui/Tooltip'
 import { ToastProvider } from '@/components/ui/Toast'
 import useToast from '@/components/ui/useToast'
 import {
+  bulletList,
+  confirmDestructive,
+  showConfirmation,
+  showError,
+  showInfo,
+  showSuccess,
+  showWarning,
+} from '@/shared/lib/alerts'
+import {
   paletteSamples,
   students,
   sessions,
@@ -93,6 +102,88 @@ function ToastButtons() {
         Uso: <code className="font-mono">const toast = useToast()</code> →{' '}
         <code className="font-mono">toast.success(&quot;…&quot;)</code>. Requiere{' '}
         <code className="font-mono">&lt;ToastProvider&gt;</code> en el árbol.
+      </p>
+    </Card>
+  )
+}
+
+/** Disparadores de los diálogos SweetAlert2 (`shared/lib/alerts`). */
+function AlertButtons() {
+  return (
+    <Card
+      title="Diálogos bloqueantes"
+      description="SweetAlert2 con el tema de KoEduko: tonos, listas y botones del sistema visual."
+    >
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          onClick={() =>
+            showConfirmation({
+              title: 'Publicar evaluación',
+              html: bulletList([
+                'Se asignará a 24 estudiantes',
+                'Después de publicar ya no podrás editarla',
+              ]),
+              confirmButtonText: 'Publicar evaluación',
+              cancelButtonText: 'Seguir editando',
+            })
+          }
+        >
+          Confirmación
+        </Button>
+        <Button
+          variant="danger"
+          size="sm"
+          onClick={() =>
+            confirmDestructive({
+              title: 'Eliminar pregunta',
+              text: 'La pregunta se quitará del borrador. Guarda para conservar el cambio.',
+              confirmButtonText: 'Eliminar pregunta',
+            })
+          }
+        >
+          Destructiva
+        </Button>
+        <Button
+          variant="subtle"
+          size="sm"
+          onClick={() => showSuccess('El borrador se guardó correctamente.')}
+        >
+          Éxito
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            showWarning(
+              { html: bulletList(['Falta el título', 'Falta el área', 'Falta la dificultad']) },
+              'Completa este paso',
+            )
+          }
+        >
+          Advertencia con lista
+        </Button>
+        <Button
+          variant="dangerSoft"
+          size="sm"
+          onClick={() => showError('El área no está autorizada para este curso.', 'No se pudo guardar')}
+        >
+          Error
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => showInfo('Los cambios se guardan automáticamente cada 30 segundos.')}
+        >
+          Información
+        </Button>
+      </div>
+      <p className="mt-3 text-xs text-[#7D8C8A]">
+        Uso: <code className="font-mono">@/shared/lib/alerts</code> →{' '}
+        <code className="font-mono">showConfirmation()</code>,{' '}
+        <code className="font-mono">confirmDestructive()</code>. El botón principal es rojo en las
+        acciones destructivas y verde de marca en el resto;{' '}
+        <code className="font-mono">bulletList()</code> arma listas con viñeta.
       </p>
     </Card>
   )
@@ -666,6 +757,7 @@ function Content() {
             </div>
 
             <ToastButtons />
+            <AlertButtons />
           </Section>
 
           {/* ---------------------------------------------------------- */}
