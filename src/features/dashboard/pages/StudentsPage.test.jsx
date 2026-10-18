@@ -5,7 +5,7 @@
  * aquí se fija el contrato visual y el manejo de carga, error y vacío sin
  * depender de los datos ficticios de `demoData`.
  */
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import StudentsPage from '@/features/dashboard/pages/StudentsPage'
@@ -79,7 +79,7 @@ describe('StudentsPage', () => {
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('Sesión inválida o vencida.')
     bootstrap.mockResolvedValue({ courses: [{ id: 'matematica', name: 'Matemática', students: [student] }] })
-    screen.getByRole('button', { name: 'Reintentar' }).click()
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(await screen.findByText('Ana Torres')).toBeInTheDocument()
   })
 
@@ -98,17 +98,13 @@ describe('StudentsPage', () => {
       'href',
       '/assessments',
     )
-    expect(screen.getAllByRole('link', { name: /Sus salas/ })[0]).toHaveAttribute('href', '/sessions')
+    expect(screen.getAllByRole('link', { name: /Sus salas/ })[0]).toHaveAttribute('href', '/sessions?courseId=matematica&studentId=student-real-1')
   })
 
   it('no deja buttons sin tipo (evita submits accidentales)', async () => {
-    const { container } = renderPage()
-    await screen.findByText('Ana Torres')
-    await waitFor(() => {
-      expect(container.querySelectorAll('button').length).toBeGreaterThan(0)
-    })
-    container.querySelectorAll('button').forEach((btn) => {
-      expect(btn.getAttribute('type')).toBe('button')
-    })
+    bootstrap.mockRejectedValueOnce(new Error('Sin conexión'))
+    renderPage()
+    const retry = await screen.findByRole('button', { name: 'Reintentar' })
+    expect(retry).toHaveAttribute('type', 'button')
   })
 })

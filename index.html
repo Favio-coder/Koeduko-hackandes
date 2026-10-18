@@ -1,10 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>koeduko</title>
+    <meta name="description" content="KoEduko: evaluación y acompañamiento de aprendizaje entre pares." />
+    <title>KoEduko</title>
+    <style>
+      /* Evita el primer pintado sin estilos mientras descarga la hoja principal. */
+      html { background: #f8faf6; }
+      #root:empty::after {
+        content: 'Cargando KoEduko…';
+        display: flex;
+        min-height: 100dvh;
+        align-items: center;
+        justify-content: center;
+        color: #304744;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

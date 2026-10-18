@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { prepareDemoProfiles } from '../data/prepareDemoProfiles'
 import { normalizeAssessmentResults } from '../services/normalizeAssessmentResults'
 import { saveMatchingResult } from '../services/matchingResultStorage'
 
 const NO_RESTRICTIONS = Object.freeze([])
+const NO_STUDENTS = Object.freeze([])
 
 /** Recibe datos automáticamente, pero solo agrupa tras una acción explícita. */
-export function useMatchingPreview(input, { assessmentId, forbiddenPairs = NO_RESTRICTIONS } = {}) {
+export function useMatchingPreview(input, { assessmentId, forbiddenPairs = NO_RESTRICTIONS, storageScope } = {}) {
   const received = useMemo(() => {
     try {
-      const source = input === undefined ? prepareDemoProfiles() : input
+      const source = input === undefined ? NO_STUDENTS : input
       const profiles = Array.isArray(source) ? source : normalizeAssessmentResults(source).profiles
       const ids = new Set()
       for (const profile of profiles) {
@@ -22,7 +22,7 @@ export function useMatchingPreview(input, { assessmentId, forbiddenPairs = NO_RE
       return { source: null, profiles: [], error: error.message }
     }
   }, [input])
-  const request = useMemo(() => ({ received, assessmentId, forbiddenPairs }), [received, assessmentId, forbiddenPairs])
+  const request = useMemo(() => ({ received, assessmentId, forbiddenPairs, storageScope }), [received, assessmentId, forbiddenPairs, storageScope])
   const [state, setState] = useState(null)
   const activeWorker = useRef(null)
   const cancel = useCallback(() => {
@@ -44,7 +44,7 @@ export function useMatchingPreview(input, { assessmentId, forbiddenPairs = NO_RE
         cancel()
         let storageWarning = null
         if (result?.status === 'optimal') {
-          try { saveMatchingResult(result) }
+          try { saveMatchingResult(result, undefined, storageScope) }
           catch { storageWarning = 'Los grupos están listos, pero no se conservarán al recargar esta pestaña.' }
         }
         setState({ request, loading: false, result, error, storageWarning })
@@ -70,7 +70,7 @@ export function useMatchingPreview(input, { assessmentId, forbiddenPairs = NO_RE
   const current = state?.request === request
   return {
     students: received.profiles,
-    usingDemo: input === undefined,
+    usingDemo: received.profiles.some((student) => student.simulated === true),
     result: current ? state.result : null,
     loading: current ? state.loading : false,
     error: received.error ?? (current ? state.error : null),

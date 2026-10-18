@@ -23,17 +23,28 @@ export function validateSavedMatching(result) {
   return result
 }
 
-export function saveMatchingResult(result, storage = globalThis.sessionStorage) {
-  validateSavedMatching(result)
-  storage.setItem(MATCHING_RESULT_KEY, JSON.stringify({ modelVersion: MODEL_VERSION, result }))
+export function matchesMatchingScope(result, scope) {
+  return !scope || (Boolean(scope.ownerId) && !result.source?.containsSimulatedData &&
+    (!scope.courseId || result.courseId === scope.courseId) &&
+    (!scope.assessmentId || result.assessmentId === scope.assessmentId))
 }
 
-export function readMatchingResult(storage) {
+const storageKey = (scope) => scope ? MATCHING_RESULT_KEY + ':' + encodeURIComponent(scope.ownerId) : MATCHING_RESULT_KEY
+
+export function saveMatchingResult(result, storage = globalThis.sessionStorage, scope) {
+  validateSavedMatching(result)
+  if (!matchesMatchingScope(result, scope)) throw new Error('El resultado no corresponde al contexto seleccionado.')
+  storage.setItem(storageKey(scope), JSON.stringify({ modelVersion: MODEL_VERSION, ownerId: scope?.ownerId, result }))
+}
+
+export function readMatchingResult(storage, scope) {
   try {
-    const raw = (storage ?? globalThis.sessionStorage).getItem(MATCHING_RESULT_KEY)
+    if (scope && !scope.ownerId) return { result: null, error: null }
+    const raw = (storage ?? globalThis.sessionStorage).getItem(storageKey(scope))
     if (!raw) return { result: null, error: null }
     const snapshot = JSON.parse(raw)
     if (snapshot.modelVersion !== MODEL_VERSION) throw new Error('El modelo de agrupamiento cambió.')
+    if (scope && (snapshot.ownerId !== scope.ownerId || !matchesMatchingScope(snapshot.result, scope))) return { result: null, error: null }
     return { result: validateSavedMatching(snapshot.result), error: null }
   } catch {
     return { result: null, error: 'El último agrupamiento no está disponible. Vuelve a Estudiantes y pulsa Agrupar.' }

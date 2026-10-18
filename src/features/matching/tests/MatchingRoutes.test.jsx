@@ -3,9 +3,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import AppRouter from '@/app/router'
 import { MatchingWorker } from './helpers/MatchingWorker'
+import { classroomFixture } from './helpers/classroomFixture'
 
 const { session } = vi.hoisted(() => ({ session: {} }))
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => session }))
+vi.mock('@/features/sessions/hooks/useSessions', () => ({ useSessions: () => ({ sessions: [], loading: false, error: null }) }))
+const { bootstrap, fetchProfile } = vi.hoisted(() => ({ bootstrap: vi.fn(), fetchProfile: vi.fn() }))
+vi.mock('@/features/assessments/services/assessmentService', () => ({ loadBootstrap: bootstrap }))
+vi.mock('../services/assessmentProfileService', () => ({ fetchMatchingProfile: fetchProfile }))
 
 function LocationProbe() {
   const location = useLocation()
@@ -15,7 +20,11 @@ const renderApp = (path) => render(<MemoryRouter initialEntries={[path]}><AppRou
 
 beforeEach(() => {
   sessionStorage.clear()
-  Object.assign(session, { isAuthenticated: true, loading: false, role: 'teacher', isTeacher: true, profile: { displayName: 'Docente de prueba' } })
+  Object.assign(session, { user: { uid: 'teacher-1' }, isAuthenticated: true, loading: false, role: 'teacher', isTeacher: true, profile: { displayName: 'Docente de prueba' } })
+  const { catalog, profile } = classroomFixture(5)
+  bootstrap.mockResolvedValue(catalog)
+  fetchProfile.mockResolvedValue(profile)
+  window.scrollTo = vi.fn()
   vi.stubGlobal('Worker', MatchingWorker)
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
@@ -24,7 +33,7 @@ describe('matching en el router y layout reales', () => {
   it('separa estudiantes de resultados y conserva el último cálculo al volver o recargar la ruta', async () => {
     const worker = vi.fn(function () { return new MatchingWorker() })
     vi.stubGlobal('Worker', worker)
-    const view = renderApp('/matching')
+    const view = renderApp('/matching?courseId=course-5a&assessmentId=assessment-final')
     expect(await screen.findByRole('heading', { name: 'Estudiantes' })).toBeInTheDocument()
     expect(worker).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Agrupar' }))
@@ -45,7 +54,7 @@ describe('matching en el router y layout reales', () => {
     await screen.findByRole('heading', { name: 'Resultados de emparejamiento' })
     expect(screen.getAllByRole('list', { name: /Integrantes del grupo/ })).toHaveLength(2)
     fireEvent.click(screen.getByRole('link', { name: 'Volver a estudiantes' }))
-    expect(screen.getByRole('button', { name: 'Agrupar' })).toBeEnabled()
+    expect(await screen.findByRole('button', { name: 'Agrupar' })).toBeEnabled()
     expect(screen.queryByRole('heading', { name: 'Propuesta de grupos' })).not.toBeInTheDocument()
     expect(worker).toHaveBeenCalledTimes(1)
   })
