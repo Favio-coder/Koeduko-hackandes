@@ -85,10 +85,15 @@ export default function AssessmentEditor({ initial, courses, onDone }) {
               }
               options={typeOptions}
             />
-            <Input
-              label="Identificador de competencia"
+            <Select
+              label="Competencia"
               value={form.competencyId}
               onChange={(e) => set("competencyId", e.target.value)}
+              options={course.competencies.map((competency) => ({
+                value: competency.id,
+                label: competency.label,
+              }))}
+              hint="Solo puedes evaluar competencias habilitadas para el curso."
             />
             <Select
               label="Escala de la nota"

@@ -2,6 +2,8 @@ import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { initializeApp, deleteApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
+import assessmentsHandler from '../../api/assessments.js'
+import matchingProfileHandler from '../../api/assessments/matching-profile.js'
 import { createAssessmentService } from './service.js'
 
 // Fail closed: these tests must NEVER reach a real Firebase project.
@@ -50,6 +52,192 @@ test('creación, edición con revisión, publicación, permisos y asignación', 
   assert.equal(studentView.questions, undefined)
 })
 
+test('el endpoint HTTP verifica ID tokens, rol docente y JSON de entrada', async () => {
+  const makeResponse = () => ({
+    headers: {},
+    setHeader(name, value) { this.headers[name] = value; return this },
+    status(code) { this.statusCode = code; return this },
+    json(body) { this.body = body; return this },
+  })
+  const invoke = async ({ method = 'POST', authorization, body }) => {
+    const response = makeResponse()
+    await assessmentsHandler({ method, headers: { authorization }, body }, response)
+    return response
+  }
+
+  const bootstrap = await invoke({
+    authorization: `Bearer ${token}`,
+    body: { action: 'bootstrap' },
+  })
+  assert.equal(bootstrap.statusCode, 200)
+  assert.equal(bootstrap.body.courses[0].competencies[0].id, 'resuelve-problemas-cantidad')
+
+  const teacherAuth = await signup()
+  const endpointCourseId = 'endpoint-course'
+  await db.doc(`users/${teacherAuth.localId}`).set({
+    role: 'teacher',
+    classroomId: null,
+    displayName: 'Docente API',
+  })
+  await db.doc(`assessmentCourseAccess/${endpointCourseId}`).set({
+    name: 'Curso endpoint',
+    teacherId: teacherAuth.localId,
+    studentIds: [student1, student2],
+  })
+  const apiPayload = { ...definition(), courseId: endpointCourseId }
+  const draft = await invoke({
+    authorization: `Bearer ${teacherAuth.idToken}`,
+    body: { action: 'save', payload: apiPayload },
+  })
+  assert.equal(draft.statusCode, 200)
+  const draftDetail = await invoke({
+    authorization: `Bearer ${teacherAuth.idToken}`,
+    body: { action: 'detail', payload: { assessmentId: draft.body.id } },
+  })
+  assert.equal(draftDetail.statusCode, 200)
+  assert.equal(draftDetail.body.status, 'draft')
+  const published = await invoke({
+    authorization: `Bearer ${teacherAuth.idToken}`,
+    body: {
+      action: 'publish',
+      payload: {
+        ...apiPayload,
+        id: draft.body.id,
+        revision: draftDetail.body.revision,
+      },
+    },
+  })
+  assert.equal(published.statusCode, 200)
+  const storedAssessment = await db
+    .doc(`assessmentModules/${draft.body.id}`)
+    .get()
+  assert.equal(storedAssessment.data().status, 'published')
+  assert.equal(
+    (await db
+      .doc(`assessmentModules/${draft.body.id}/assignments/${student1}`)
+      .get()).exists,
+    true,
+  )
+
+  const firstStart = await invoke({
+    authorization: `Bearer ${token}`,
+    body: {
+      action: 'start',
+      payload: { assessmentId: draft.body.id },
+    },
+  })
+  assert.equal(firstStart.statusCode, 200)
+  assert.equal(
+    firstStart.body.assessment.questions.some(
+      (question) => 'correctAnswer' in question || 'explanation' in question,
+    ),
+    false,
+  )
+  const answerSave = await invoke({
+    authorization: `Bearer ${token}`,
+    body: {
+      action: 'saveAnswers',
+      payload: {
+        assessmentId: draft.body.id,
+        attemptId: firstStart.body.attempt.id,
+        revision: 0,
+        answers: { q1: 1 },
+      },
+    },
+  })
+  assert.equal(answerSave.statusCode, 200)
+  const resumed = await invoke({
+    authorization: `Bearer ${token}`,
+    body: {
+      action: 'start',
+      payload: { assessmentId: draft.body.id },
+    },
+  })
+  assert.equal(resumed.body.attempt.id, firstStart.body.attempt.id)
+  assert.deepEqual(resumed.body.attempt.answers, { q1: 1 })
+  const finalSubmission = await invoke({
+    authorization: `Bearer ${token}`,
+    body: {
+      action: 'submit',
+      payload: {
+        assessmentId: draft.body.id,
+        attemptId: firstStart.body.attempt.id,
+        revision: answerSave.body.revision,
+        answers: allCorrect,
+      },
+    },
+  })
+  assert.equal(finalSubmission.statusCode, 200)
+  const repeatedSubmission = await invoke({
+    authorization: `Bearer ${token}`,
+    body: {
+      action: 'submit',
+      payload: {
+        assessmentId: draft.body.id,
+        attemptId: firstStart.body.attempt.id,
+        revision: answerSave.body.revision,
+        answers: { q1: 1, q2: 1, q3: 1 },
+      },
+    },
+  })
+  assert.deepEqual(repeatedSubmission.body, finalSubmission.body)
+  const noMoreAttempts = await invoke({
+    authorization: `Bearer ${token}`,
+    body: {
+      action: 'start',
+      payload: { assessmentId: draft.body.id },
+    },
+  })
+  assert.equal(noMoreAttempts.statusCode, 409)
+  const unassignedAuth = await signup()
+  await db.doc(`users/${unassignedAuth.localId}`).set({
+    role: 'student',
+    classroomId: 'other-course',
+    displayName: 'Estudiante sin asignación',
+  })
+  const unassignedStart = await invoke({
+    authorization: `Bearer ${unassignedAuth.idToken}`,
+    body: {
+      action: 'start',
+      payload: { assessmentId: draft.body.id },
+    },
+  })
+  assert.equal(unassignedStart.statusCode, 403)
+  const storedAttempt = await db
+    .doc(
+      `assessmentModules/${draft.body.id}/assignments/${student1}/attempts/${firstStart.body.attempt.id}`,
+    )
+    .get()
+  assert.equal(storedAttempt.data().status, 'graded')
+  assert.deepEqual(storedAttempt.data().answers, allCorrect)
+
+  const forbidden = await invoke({
+    authorization: `Bearer ${token}`,
+    body: { action: 'save', payload: { courseId } },
+  })
+  assert.equal(forbidden.statusCode, 403)
+
+  const invalidToken = await invoke({
+    authorization: 'Bearer invalid-token',
+    body: { action: 'bootstrap' },
+  })
+  assert.equal(invalidToken.statusCode, 401)
+
+  const malformedJson = await invoke({
+    authorization: `Bearer ${token}`,
+    body: '{"action":',
+  })
+  assert.equal(malformedJson.statusCode, 400)
+
+  const wrongMethod = await invoke({
+    method: 'GET',
+    authorization: `Bearer ${token}`,
+    body: {},
+  })
+  assert.equal(wrongMethod.statusCode, 405)
+  assert.equal(wrongMethod.headers.Allow, 'POST')
+})
+
 test('dos estudiantes, persistencia real, envíos concurrentes idempotentes y contrato oficial', async () => {
   const { id } = await execute(teacher, 'publish', definition())
   const start = await execute(student1, 'start', { assessmentId: id })
@@ -92,6 +280,134 @@ test('dos estudiantes, persistencia real, envíos concurrentes idempotentes y co
   const stored = (await db.doc(`assessmentModules/${id}/assignments/${student1}/attempts/${start.attempt.id}`).get()).data()
   assert.equal(stored.status, 'graded')
   assert.deepEqual(stored.answers, allCorrect)
+})
+
+test('endpoint matching-profile autoriza, rechaza incompletos y devuelve StudentKnowledgeProfile v1.0 exacto', async () => {
+  const teacherAuth = await signup()
+  const matchingCourseId = 'matching-profile-course'
+  const teacherDb = db.doc(`users/${teacherAuth.localId}`)
+  await teacherDb.set({ role: 'teacher', classroomId: null, displayName: 'Docente' })
+  await db.doc(`assessmentCourseAccess/${matchingCourseId}`).set({
+    name: 'Curso de matching',
+    teacherId: teacherAuth.localId,
+    studentIds: [student1, student2],
+  })
+  const teacherExecute = createAssessmentService(db)
+  const payload = {
+    ...definition(),
+    courseId: matchingCourseId,
+    scale: 100,
+  }
+  const { id } = await teacherExecute(teacherAuth.localId, 'publish', payload)
+  const firstStart = await execute(student1, 'start', { assessmentId: id })
+  const firstResult = await execute(student1, 'submit', {
+    assessmentId: id,
+    attemptId: firstStart.attempt.id,
+    revision: 0,
+    answers: { q1: 1, q2: 0, q3: 0 },
+  })
+  assert.equal(firstResult.result.overallScore, 5)
+  assert.equal(firstResult.result.maxScore, 10)
+  assert.equal(firstResult.scaledScore, 50)
+  const assignment = (
+    await db.doc(`assessmentModules/${id}/assignments/${student1}`).get()
+  ).data()
+  assert.equal(assignment.scaledScore, 50)
+  assert.deepEqual(assignment.result.skills, [
+    { skillId: 'addition', score: 0, maxScore: 5, evidenceCount: 1, mastery: 0 },
+    { skillId: 'subtraction', score: 3, maxScore: 3, evidenceCount: 1, mastery: 1 },
+    { skillId: 'fraction', score: 2, maxScore: 2, evidenceCount: 1, mastery: 1 },
+  ])
+
+  const responseFor = () => ({
+    statusCode: 200,
+    headers: {},
+    setHeader(name, value) { this.headers[name] = value; return this },
+    status(code) { this.statusCode = code; return this },
+    json(body) { this.body = body; return this },
+  })
+  const invoke = async ({ authorization, query = {}, method = 'GET' }) => {
+    const response = responseFor()
+    await matchingProfileHandler(
+      { method, headers: { authorization }, query },
+      response,
+    )
+    return response
+  }
+  const incomplete = await invoke({
+    authorization: `Bearer ${teacherAuth.idToken}`,
+    query: { courseId: matchingCourseId, assessmentId: id },
+  })
+  assert.equal(incomplete.statusCode, 409)
+
+  const secondStart = await execute(student2, 'start', { assessmentId: id })
+  await execute(student2, 'submit', {
+    assessmentId: id,
+    attemptId: secondStart.attempt.id,
+    revision: 0,
+    answers: allCorrect,
+  })
+  await teacherExecute(teacherAuth.localId, 'close', { assessmentId: id })
+  await teacherExecute(teacherAuth.localId, 'finalize', { assessmentId: id })
+
+  const contractResponse = await invoke({
+    authorization: `Bearer ${teacherAuth.idToken}`,
+    query: { courseId: matchingCourseId, assessmentId: id },
+  })
+  assert.equal(contractResponse.statusCode, 200)
+  const contract = JSON.parse(JSON.stringify(contractResponse.body))
+  assert.deepEqual(Object.keys(contract), [
+    'schemaVersion',
+    'courseId',
+    'assessmentId',
+    'competencyId',
+    'generatedAt',
+    'status',
+    'students',
+  ])
+  assert.equal(contract.schemaVersion, '1.0')
+  assert.equal(contract.status, 'finalized')
+  assert.equal(contract.courseId, matchingCourseId)
+  assert.equal(contract.assessmentId, id)
+  assert.equal(Number.isNaN(Date.parse(contract.generatedAt)), false)
+  assert.deepEqual(Object.keys(contract.students[0]), [
+    'studentId',
+    'overallScore',
+    'maxScore',
+    'skills',
+  ])
+  assert.deepEqual(Object.keys(contract.students[0].skills[0]), [
+    'skillId',
+    'score',
+    'maxScore',
+    'mastery',
+    'evidenceCount',
+  ])
+  assert.equal(contract.students[0].overallScore, 5)
+  assert.equal(contract.students[0].maxScore, 10)
+
+  const unauthorized = await invoke({
+    authorization: `Bearer ${token}`,
+    query: { courseId: matchingCourseId, assessmentId: id },
+  })
+  assert.equal(unauthorized.statusCode, 403)
+  const invalidToken = await invoke({
+    authorization: 'Bearer invalid',
+    query: { courseId: matchingCourseId, assessmentId: id },
+  })
+  assert.equal(invalidToken.statusCode, 401)
+  const missingParameters = await invoke({
+    authorization: `Bearer ${teacherAuth.idToken}`,
+    query: { courseId: matchingCourseId },
+  })
+  assert.equal(missingParameters.statusCode, 400)
+  const wrongMethod = await invoke({
+    method: 'POST',
+    authorization: `Bearer ${teacherAuth.idToken}`,
+    query: { courseId: matchingCourseId, assessmentId: id },
+  })
+  assert.equal(wrongMethod.statusCode, 405)
+  assert.equal(wrongMethod.headers.Allow, 'GET')
 })
 
 test('cierre con pendientes nunca finaliza y conserva respuestas sin fabricar notas', async () => {

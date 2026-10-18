@@ -13,8 +13,19 @@ export async function assessmentRequest(action, payload = {}) {
   return data
 }
 
-// Stable integration surface: no React or form state dependencies.
-export const getMatchingContract = (assessmentId, courseId) => assessmentRequest('export', { assessmentId, courseId })
+export async function getMatchingContract(assessmentId, courseId) {
+  const user = auth.currentUser
+  if (!user) throw new Error('Inicia sesión para continuar.')
+  const query = new URLSearchParams({ assessmentId, courseId })
+  const response = await fetch(`/api/assessments/matching-profile?${query}`, {
+    headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+  })
+  const data = await response.json().catch(() => {
+    throw new Error('API no disponible. Usa el despliegue Vercel o vercel dev.')
+  })
+  if (!response.ok) throw new Error(data.error || 'No se pudo exportar el perfil.')
+  return data
+}
 
 export function downloadContract(contract) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(contract, null, 2)], { type: 'application/json' }))

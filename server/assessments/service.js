@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   assertAvailable,
   buildMatchingContract,
+  courseCompetencies,
   defaultSkills,
   feedbackFor,
   grade,
@@ -28,7 +29,14 @@ export function createAssessmentService(db) {
       "No tienes acceso a este curso.",
       403,
     );
-    return { ...course, id: courseId, skills: course.skills || defaultSkills };
+    const competencies = courseCompetencies(course);
+    return {
+      ...course,
+      id: courseId,
+      competencyId: course.competencyId || competencies[0].id,
+      competencies,
+      skills: course.skills?.length ? course.skills : defaultSkills,
+    };
   }
   async function actor(uid) {
     const data = (await db.collection("users").doc(uid).get()).data();
@@ -98,6 +106,7 @@ export function createAssessmentService(db) {
       );
       const enriched = await Promise.all(
         courses.map(async (c) => {
+          const competencies = courseCompetencies(c);
           const roster =
             teacher && c.studentIds.length
               ? await db.getAll(
@@ -107,8 +116,9 @@ export function createAssessmentService(db) {
           return {
             id: c.id,
             name: c.name,
-            competencyId: c.competencyId || "resuelve-problemas-cantidad",
-            skills: c.skills || defaultSkills,
+            competencyId: c.competencyId || competencies[0].id,
+            competencies,
+            skills: c.skills?.length ? c.skills : defaultSkills,
             students: roster
               .filter((s) => s.exists && s.data().role === "student")
               .map((s) => ({ id: s.id, name: s.data().displayName || s.id })),

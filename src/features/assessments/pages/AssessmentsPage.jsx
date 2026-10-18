@@ -8,16 +8,25 @@ import { newAssessment, statusLabels } from "../utils/forms";
 import AssessmentEditor from "../components/AssessmentEditor";
 import StudentAttempt from "../components/StudentAttempt";
 import ResultsPanel from "../components/ResultsPanel";
+import AssessmentCompleted from "../components/AssessmentCompleted";
 
 export default function AssessmentsPage() {
   const { isTeacher, user } = useAuth();
   const [data, setData] = useState(null);
   const [view, setView] = useState(null);
   const [filter, setFilter] = useState("");
+  const [now, setNow] = useState(0);
   const { busy, error, run } = useOperation();
   useEffect(() => {
     run(async () => setData(await assessmentRequest("bootstrap")));
   }, [run]);
+  useEffect(() => {
+    if (view?.kind !== "detail") return undefined;
+    const refreshTime = () => setNow(Date.now());
+    refreshTime();
+    const timer = setInterval(refreshTime, 30_000);
+    return () => clearInterval(timer);
+  }, [view?.kind]);
   const back = () => {
     setView(null);
     run(async () => setData(await assessmentRequest("bootstrap")));
@@ -36,7 +45,14 @@ export default function AssessmentsPage() {
         });
       } else {
         const value = await assessmentRequest("detail", { assessmentId: a.id });
-        setView({ kind: "detail", value, courseId: a.courseId });
+        setView({
+          kind:
+            value.assignment?.resultStatus === "graded"
+              ? "completed"
+              : "detail",
+          value,
+          courseId: a.courseId,
+        });
       }
     });
   const start = (a) =>
@@ -48,6 +64,25 @@ export default function AssessmentsPage() {
       }),
     );
   const course = data?.courses.find((c) => c.id === view?.courseId);
+  const detail = view?.kind === "detail" ? view.value : null;
+  const activeAttempt = Boolean(detail?.assignment.activeAttemptId);
+  const assessmentAvailable =
+    detail?.status === "published" &&
+    now >= Date.parse(detail.startsAt) &&
+    now < Date.parse(detail.endsAt);
+  const attemptsRemain =
+    detail && detail.assignment.count < detail.attemptLimit;
+  const canStartAssessment =
+    assessmentAvailable && (activeAttempt || attemptsRemain);
+  const availabilityMessage = activeAttempt
+    ? "Tienes un intento en curso. Puedes retomarlo."
+    : detail && !assessmentAvailable
+      ? now < Date.parse(detail.startsAt)
+        ? "Esta evaluación aún no está disponible."
+        : "El plazo para resolver esta evaluación terminó."
+      : detail && !attemptsRemain
+        ? "Ya utilizaste todos los intentos permitidos."
+        : "";
   if (view?.kind === "edit")
     return (
       <AssessmentEditor
@@ -61,6 +96,14 @@ export default function AssessmentsPage() {
       <StudentAttempt
         initial={view.value}
         studentId={user.uid}
+        courseName={course?.name}
+        onDone={back}
+      />
+    );
+  if (view?.kind === "completed")
+    return (
+      <AssessmentCompleted
+        title={view.value.title}
         courseName={course?.name}
         onDone={back}
       />
@@ -111,12 +154,20 @@ export default function AssessmentsPage() {
               {view.value.durationMinutes ? " minutos" : ""}.
             </p>
             <p>Se utiliza el último intento enviado.</p>
+            {availabilityMessage && (
+              <Alert
+                tone={canStartAssessment ? "info" : "warning"}
+                title={canStartAssessment ? "Puedes continuar" : "No disponible"}
+              >
+                {availabilityMessage}
+              </Alert>
+            )}
             <div className="flex flex-wrap gap-3">
               <Button
-                disabled={busy || view.value.status !== "published"}
+                disabled={busy || !canStartAssessment}
                 onClick={() => start(view.value)}
               >
-                Iniciar / retomar intento
+                {activeAttempt ? "Retomar intento" : "Iniciar evaluación"}
               </Button>
               {view.value.assignment.result && (
                 <Button

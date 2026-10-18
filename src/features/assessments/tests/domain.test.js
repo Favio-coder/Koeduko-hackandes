@@ -30,6 +30,14 @@ describe('validación y publicación', () => {
     const a = { ...definition(), maxScore: 1, questions: [{ ...question('tf', 'custom', 1), type: 'true_false', options: ['Verdadero', 'Falso'] }] }
     expect(validateAssessment(a, { ...course, skills: [{ id: 'custom', label: 'Propio' }] }, true).questions).toHaveLength(1)
   })
+  it('limita la competencia al catálogo autorizado del curso', () => {
+    const a = definition()
+    expect(() => validateAssessment({ ...a, competencyId: 'otra-competencia' }, course)).toThrow(/autorizada/)
+    expect(validateAssessment(
+      { ...a, competencyId: 'otra-competencia' },
+      { ...course, competencies: [{ id: 'resuelve-problemas-cantidad', label: 'Cantidad' }, { id: 'otra-competencia', label: 'Otra' }] },
+    ).competencyId).toBe('otra-competencia')
+  })
   it('no expone claves, explicaciones ni matrícula a estudiantes', () => {
     const publicData = publicAssessment(definition())
     expect(publicData.studentIds).toBeUndefined()
@@ -50,6 +58,46 @@ describe('calificación determinista y contrato v1.0', () => {
   it('rechaza respuestas incompletas o desconocidas', () => {
     expect(() => grade(definition(), 'student-1', { q1: 0 })).toThrow()
     expect(() => grade(definition(), 'student-1', { q1: 0, q2: 0, q3: 1, q4: 0, injected: 1 })).toThrow()
+  })
+  it('no inventa mastery ni evidenceCount para conocimientos sin preguntas', () => {
+    const result = grade(
+      { ...definition(), maxScore: 5, questions: [question('only', 'addition', 5)] },
+      'student-1',
+      { only: 0 },
+    )
+    expect(result.skills).toEqual([
+      {
+        skillId: 'addition',
+        score: 5,
+        maxScore: 5,
+        evidenceCount: 1,
+        mastery: 1,
+      },
+    ])
+  })
+  it.each([
+    { overallScore: 21 },
+    { overallScore: -1 },
+    {
+      skills: [
+        { skillId: 'addition', score: 11, maxScore: 10, mastery: 1.1, evidenceCount: 1 },
+      ],
+    },
+    {
+      skills: [
+        { skillId: 'addition', score: 10, maxScore: 10, mastery: 1, evidenceCount: 0 },
+      ],
+    },
+  ])('rechaza resultados inconsistentes %j', (changes) => {
+    const result = grade(definition(), 'student-1', {
+      q1: 0,
+      q2: 0,
+      q3: 0,
+      q4: 0,
+    })
+    const invalid = { ...result, ...changes }
+    if (changes.skills) invalid.skills = changes.skills
+    expect(() => validateResult(invalid)).toThrow()
   })
   it('genera exactamente el contrato con dos resultados y sumas consistentes', () => {
     const a = { ...definition(), status: 'finalized' }

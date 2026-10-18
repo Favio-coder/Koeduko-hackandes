@@ -61,6 +61,9 @@ export default function ResultsPanel({ initial, course, onDone }) {
                   Estado / intentos
                 </th>
                 <th scope="col" className="p-3">
+                  Puntaje bruto
+                </th>
+                <th scope="col" className="p-3">
                   Nota / {a.scale}
                 </th>
                 {skills.map((id) => (
@@ -85,7 +88,14 @@ export default function ResultsPanel({ initial, course, onDone }) {
                         : "Pendiente"}{" "}
                     · {r.count}
                   </td>
-                  <td className="p-3">{r.result ? r.scaledScore : "—"}</td>
+                  <td className="p-3">
+                    {r.result
+                      ? `${r.result.overallScore} / ${r.result.maxScore}`
+                      : "—"}
+                  </td>
+                  <td className="p-3">
+                    {r.result ? `${r.scaledScore} / ${a.scale}` : "—"}
+                  </td>
                   {skills.map((id) => {
                     const s = r.result?.skills.find((s) => s.skillId === id);
                     return (

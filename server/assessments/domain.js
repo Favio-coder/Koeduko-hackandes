@@ -17,6 +17,44 @@ export const defaultSkills = MATH_SKILLS.map(({ id, label }) => ({
   id,
   label,
 }));
+const DEFAULT_COMPETENCY_ID = "resuelve-problemas-cantidad";
+const DEFAULT_COMPETENCY_LABEL = "Resuelve problemas de cantidad";
+
+export function courseCompetencies(course) {
+  const source =
+    Array.isArray(course.competencies) && course.competencies.length
+      ? course.competencies
+      : [
+          {
+            id: course.competencyId || DEFAULT_COMPETENCY_ID,
+            label: course.competencyLabel || DEFAULT_COMPETENCY_LABEL,
+          },
+        ];
+  requireThat(
+    source.length <= 20 &&
+      source.every(
+        (competency) =>
+          competency &&
+          validId(competency.id) &&
+          text(competency.label, 200),
+      ),
+    "Catálogo de competencias del curso inválido.",
+  );
+  const competencies = source.map(({ id, label }) => ({
+    id,
+    label: label.trim(),
+  }));
+  requireThat(
+    new Set(competencies.map(({ id }) => id)).size === competencies.length,
+    "El curso contiene competencias duplicadas.",
+  );
+  const primaryId = course.competencyId || competencies[0].id;
+  requireThat(
+    competencies.some(({ id }) => id === primaryId),
+    "La competencia principal debe pertenecer al catálogo del curso.",
+  );
+  return competencies;
+}
 
 // Integer points avoid floating-point drift in contract invariants.
 export function validateAssessment(input, course, publish = false) {
@@ -29,6 +67,13 @@ export function validateAssessment(input, course, publish = false) {
     "Tipo inválido.",
   );
   requireThat(validId(input.competencyId), "Competencia obligatoria.");
+  requireThat(
+    courseCompetencies(course).some(
+      (competency) => competency.id === input.competencyId,
+    ),
+    "Selecciona una competencia autorizada para este curso.",
+    403,
+  );
   requireThat([20, 100].includes(input.scale), "Escala inválida.");
   requireThat(
     Number.isInteger(input.maxScore) &&
@@ -241,10 +286,13 @@ export function grade(assessment, studentId, answers) {
 
 export function validateResult(result) {
   requireThat(
-    validId(result.studentId) &&
-      Number.isFinite(result.overallScore) &&
+    result &&
+      validId(result.studentId) &&
+      Number.isInteger(result.overallScore) &&
+      Number.isInteger(result.maxScore) &&
       result.maxScore > 0 &&
-      Number.isFinite(result.maxScore),
+      result.overallScore >= 0 &&
+      result.overallScore <= result.maxScore,
     "Resultado inválido.",
     409,
   );
@@ -259,13 +307,15 @@ export function validateResult(result) {
   for (const s of result.skills)
     requireThat(
       validId(s.skillId) &&
-        Number.isFinite(s.score) &&
+        Number.isInteger(s.score) &&
+        Number.isInteger(s.maxScore) &&
+        Number.isInteger(s.evidenceCount) &&
         s.maxScore > 0 &&
-        Number.isFinite(s.maxScore) &&
         s.score >= 0 &&
         s.score <= s.maxScore &&
+        s.mastery >= 0 &&
+        s.mastery <= 1 &&
         s.mastery === s.score / s.maxScore &&
-        Number.isInteger(s.evidenceCount) &&
         s.evidenceCount > 0,
       "Integridad de conocimiento inválida.",
       409,
