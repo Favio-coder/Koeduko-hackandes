@@ -281,3 +281,24 @@ describe('the observer logs why Gemini failed (HTTP status included, never the t
     expect(logger.info).toHaveBeenCalledWith('afterLiveEventSaved: observador', expect.objectContaining({ speak: false, why: 'failed:http:429' }))
   })
 })
+
+describe('afterLiveEventSaved: the room is empty but there was little conversation', () => {
+  it('marks the bot as done so the room can be invited again, and never throws', async () => {
+    const markBotDone = vi.fn().mockResolvedValue(undefined)
+    const hook = createAfterLiveEventSaved({ getStore: () => ({ markBotDone }), getGenerate: () => null, logger: { info: vi.fn() }, closeSessionFor: vi.fn() })
+    await hook({ sessionId: 's1', result: { roomEmpty: true, closeNow: false } })
+    expect(markBotDone).toHaveBeenCalledWith('s1')
+
+    const failing = createAfterLiveEventSaved({ getStore: () => ({ markBotDone: vi.fn().mockRejectedValue(new Error('x')) }), getGenerate: () => null, logger: { info: vi.fn() } })
+    await expect(failing({ sessionId: 's1', result: { roomEmpty: true } })).resolves.toBeUndefined()
+  })
+
+  it('does not mark it done when the session is closed automatically (closing already does it)', async () => {
+    const markBotDone = vi.fn()
+    const closeSessionFor = vi.fn().mockResolvedValue({ alreadyClosed: false })
+    const hook = createAfterLiveEventSaved({ getStore: () => ({ markBotDone }), getGenerate: () => null, logger: { info: vi.fn() }, closeSessionFor })
+    await hook({ sessionId: 's1', result: { roomEmpty: true, closeNow: true } })
+    expect(closeSessionFor).toHaveBeenCalledTimes(1)
+    expect(markBotDone).not.toHaveBeenCalled()
+  })
+})

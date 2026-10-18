@@ -355,6 +355,15 @@ export function createAfterLiveEventSaved({
       await autoClose(sessionId)
       return
     }
+    // Se fue la ultima persona pero hubo poca conversacion (no se cierra sola): el bot ya salio, se puede volver a invitar.
+    if (result?.roomEmpty) {
+      try {
+        await getStore().markBotDone?.(sessionId)
+      } catch {
+        // solo se queda el estado viejo: el docente puede cerrar o re-invitar a mano
+      }
+      return
+    }
     if (!result?.intervention) {
       if (result?.judge) await judgeConversation({ sessionId, judge: result.judge })
       return

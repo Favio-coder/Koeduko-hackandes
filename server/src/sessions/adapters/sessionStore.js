@@ -148,10 +148,11 @@ export function createSessionStore({ db, FieldValue }) {
         // configuracion) y no queda nadie que cierre. La sesion se cierra sola y genera el reporte y la memoria.
         const humansLeft = state.presence.filter((p) => !BOT_KEYS.has(p.k))
         const humanTalk = state.transcripts.filter((tr) => !BOT_KEYS.has(tr.k))
-        const closeNow = event.type === 'leave' && humansLeft.length === 0 && humanTalk.length >= AUTO_CLOSE_MIN_TRANSCRIPTS
+        const roomEmpty = event.type === 'leave' && humansLeft.length === 0
+        const closeNow = roomEmpty && humanTalk.length >= AUTO_CLOSE_MIN_TRANSCRIPTS
 
         ops.writes = writes // solo cuentan las escrituras del intento que se confirmo
-        return { evaluated: ingested.due, intervention, context, judge, closeNow }
+        return { evaluated: ingested.due, intervention, context, judge, closeNow, roomEmpty }
       })
 
       return { ...outcome, ops }
@@ -253,6 +254,14 @@ export function createSessionStore({ db, FieldValue }) {
      */
     async recordIntervention(sessionId, { type, k = null, t }) {
       await db.doc(`learningSessions/${sessionId}/live/state`).update({ interventions: FieldValue.arrayUnion({ type, k, t }) })
+    },
+
+    /**
+     * El bot ya no esta en la reunion (se fue la ultima persona, el bot sale solo 2 s despues) pero la sesion NO se cerro:
+     * se marca bot.status = 'done' para que la pantalla deje de decir «tutor en la reunion» y se pueda volver a invitar (1 escritura).
+     */
+    async markBotDone(sessionId) {
+      await sessionRef(sessionId).update({ 'bot.status': 'done' })
     },
 
     /** Marca por donde se entrego una intervencion ya creada, p. ej. ['app', 'meet_chat'] (1 escritura). */
