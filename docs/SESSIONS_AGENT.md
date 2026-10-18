@@ -30,7 +30,21 @@ escucha ─> decide ─> actúa ─> cierra ─> recuerda ─> usa la memoria
 
 ## 2.1 La cadena automática (de la sala al reporte)
 
-\
+```
+Docente crea las salas (emparejamiento) ──► registra el enlace de Meet de cada sala   ← único paso manual del docente
+                                              │
+Alguien de la sala toca «Entrar» ─────────────┤  abre el Meet y pide el tutor (docente o integrante de ESA sala)
+                                              ▼
+ /api/start-session-bot ─► reserva el bot (transacción, no se duplica) ─► asigna el problema si la sala no tiene
+                           (según la habilidad en foco del grupo: core/problemBank.js) ─► crea el bot en Recall
+                                              ▼
+ Alguien admite al bot en Meet                                                         ← paso manual (ver límites)
+                                              ▼
+ Primer evento ─► bot.status = in_call ─► reglas / observador / aprendizaje ─► chat + voz
+                                              ▼
+ Se va la última persona (tras ≥ 3 frases) ─► cierre automático: reporte, memoria y perfil (aprende del resultado)
+```
+
 - El docente **monitorea** desde la sala (en vivo: quién habla, conversación, lo que dijo el tutor) y puede cerrar o
   invitar a mano en cualquier momento: los botones siguen ahí como respaldo.
 - Asignar el problema solo ocurre si la sala no tiene uno; una sala con problema no se toca. Si falla, el bot entra igual.
@@ -150,7 +164,12 @@ aceptable para datos de menores. Hasta resolverlas, esto es un prototipo de demo
 
 ## 8. Límites conocidos
 
-- Solo 5 señales activas: cuando ninguna salta, el tutor calla. No es un tutor conversacional.
+- **Dos pasos siguen siendo manuales:** el docente registra el enlace de Meet de cada sala (no se puede crear un Meet
+  desde el servidor sin la API de Google Meet con OAuth) y alguien tiene que **admitir al bot** en la sala de espera
+  de Meet (no hay forma de saltarla sin que el anfitrión abra el acceso del espacio).
+- El cierre automático se dispara cuando se va la última persona; si alguien se desconecta un instante y vuelve, el
+  bot ya salió (se va 2 s después) y la sesión queda cerrada.
+- Las señales por reglas son 5; cuando ninguna salta, el observador de la conversación decide si hablar (§3.1).
 - La transcripción automática se equivoca con nombres y números; el motor intervino **una sola vez** en la única
   prueba real (ver `TESTING.md`), y esa conversación no era de matemática.
 - La asignación de cada participante a un uid de estudiante (`studentId`) sigue en `null`: por eso la memoria usa el
