@@ -13,6 +13,7 @@
  */
 
 import { foldText } from './text.js'
+import { namesOperation, resultPartOf } from './operations.js'
 import { extractNumbers, scanNumbers } from './spanishNumbers.js'
 import { eventTime, foldEvents, talkTimeFromState } from './liveState.js'
 
@@ -104,7 +105,7 @@ export function countConfusionMarkers(text) {
  * Parte un texto en frases sin romper decimales ("3.5"). Marca las interrogativas: leer la
  * pregunta en voz alta ("¿cuanto son seis por ocho?") no es responderla.
  */
-function sentencesOf(text) {
+export function sentencesOf(text) {
   const protectedText = foldText(text).replace(/(?<=\d)\.(?=\d)/g, '\u0001')
   return (protectedText.match(/[^.!?;\n]+[.!?;\n]*/g) ?? []).map((raw) => ({
     text: raw.replace(/[.!?;\n]+$/, '').replaceAll('\u0001', '.'),
@@ -123,6 +124,13 @@ function sentencesOf(text) {
 export function answerNumbersOf(text) {
   const answers = []
   for (const sentence of sentencesOf(text)) {
+    // "seis por ocho" nombra una operacion: 6 y 8 son datos, no una respuesta. Solo cuenta lo que
+    // viene despues de "es" / "son" / "=" ("seis por ocho son cuarenta y ocho" -> 48).
+    if (namesOperation(sentence.text)) {
+      const result = resultPartOf(sentence.text)
+      if (result) answers.push(...answerNumbersOf(result))
+      continue
+    }
     const { numbers, words, items } = scanNumbers(sentence.text)
     if (numbers.length === 0) continue
 
