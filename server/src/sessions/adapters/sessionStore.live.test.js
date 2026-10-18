@@ -14,6 +14,7 @@ function fakeFirestore({ docs = {}, abortFirst = 0, createExists = false } = {})
   const committed = []
   const readPaths = []
   const created = []
+  const updates = []
   const db = {
     doc: (path) => ({
       path,
@@ -31,16 +32,19 @@ function fakeFirestore({ docs = {}, abortFirst = 0, createExists = false } = {})
             return { exists: ref.path in docs, data: () => structuredClone(docs[ref.path]) }
           },
           set: (ref, data) => pending.push({ path: ref.path, data }),
+          update: (ref, data) => pending.push({ path: ref.path, update: data }),
         }
         const result = await fn(tx)
         if (attempt < abortFirst) continue // conflicto: se descartan las escrituras y se reintenta
-        committed.push(...pending)
-        for (const { path, data } of pending) docs[path] = structuredClone(data)
+        updates.push(...pending.filter((w) => w.update))
+        const writes = pending.filter((w) => !w.update)
+        committed.push(...writes)
+        for (const { path, data } of writes) docs[path] = structuredClone(data)
         return result
       }
     },
   }
-  return { firebase: { db, FieldValue: { serverTimestamp: () => 'SERVER_TS' } }, committed, readPaths, created, docs }
+  return { firebase: { db, FieldValue: { serverTimestamp: () => 'SERVER_TS' } }, committed, readPaths, created, docs, updates }
 }
 
 const STATE = 'learningSessions/s1/live/state'
@@ -293,5 +297,32 @@ describe('processLiveEvent: the expected answer lives in private/answer', () => 
     const exposed = committed.filter((w) => w.path === VIEW || w.path.includes('/liveEvents/'))
     expect(exposed.length).toBeGreaterThan(0)
     expect(JSON.stringify(exposed.map((w) => w.data))).not.toMatch(/48|expectedAnswer|"answer"/)
+  })
+})
+
+describe('processLiveEvent: the first event proves the bot is in the call', () => {
+  const session = (status) => ({ [SESSION]: { createdBy: 'd', bot: { id: 'bot-1', status, region: 'us-west-2' } } })
+
+  it('moves bot.status from requested to in_call once, in the same transaction that already reads the session (+1 write, +0 reads)', async () => {
+    const { firebase, updates } = fakeFirestore({ docs: session('requested') })
+    const store = createSessionStore(firebase)
+    const first = await store.processLiveEvent('s1', 'evt-1', join('a', 0))
+
+    expect(updates).toEqual([{ path: SESSION, update: { 'bot.status': 'in_call' } }])
+    expect(first.ops).toEqual({ reads: 2, writes: 4, attempts: 1 })
+  })
+
+  it('does not touch the session again once it is in the call, nor for other states', async () => {
+    for (const status of ['in_call', 'done', 'failed', undefined]) {
+      const { firebase, updates } = fakeFirestore({ docs: session(status) })
+      await createSessionStore(firebase).processLiveEvent('s1', 'evt-1', join('a', 0))
+      expect(updates).toEqual([])
+    }
+  })
+
+  it('a conflict retry does not apply the change twice', async () => {
+    const { firebase, updates } = fakeFirestore({ docs: session('requested'), abortFirst: 1 })
+    await createSessionStore(firebase).processLiveEvent('s1', 'evt-1', join('a', 0))
+    expect(updates).toHaveLength(1)
   })
 })

@@ -77,10 +77,12 @@ export function createSessionStore({ db, FieldValue }) {
         let intervention = null
         let context = null
         let judge = null
+        let botEnteredCall = false
         if (ingested.due) {
           const sessionSnap = await tx.get(sessionRef(sessionId))
           ops.reads += 1
           const session = sessionSnap.exists ? sessionSnap.data() : null
+          botEnteredCall = session?.bot?.status === 'requested'
 
           // La respuesta esperada se lee UNA vez por problema y se cachea en el estado (solo servidor).
           const activityId = activityIdOf(session)
@@ -115,6 +117,12 @@ export function createSessionStore({ db, FieldValue }) {
           }
         }
 
+        // Recall solo manda eventos cuando el bot ya entro y esta grabando: el primer evento prueba que esta en la llamada.
+        // Sin esto la pantalla dice «admitelo en Meet» para siempre. Una sola vez, dentro de la transaccion que ya leyo la sesion.
+        if (botEnteredCall) {
+          tx.update(sessionRef(sessionId), { 'bot.status': 'in_call' })
+          writes += 1
+        }
         if (state !== before) {
           tx.set(stateRef, state)
           writes += 1
