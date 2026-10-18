@@ -285,6 +285,37 @@ export function createSessionStore({ db, FieldValue }) {
       })
     },
 
+    /**
+     * Conexion de Google del docente (refresh token), o null. Vive en `teacherIntegrations/{uid}`: sin reglas para clientes,
+     * asi que solo el servidor la lee y la escribe. El token nunca llega al navegador.
+     */
+    async getGoogleConnection(uid) {
+      const snap = await db.doc(`teacherIntegrations/${uid}`).get()
+      return snap.exists ? (snap.data().google ?? null) : null
+    },
+
+    /** Guarda (o reemplaza) la conexion de Google del docente (1 escritura). */
+    async saveGoogleConnection(uid, { refreshToken, scope }) {
+      await db.doc(`teacherIntegrations/${uid}`).set({ google: { refreshToken, scope, connectedAt: FieldValue.serverTimestamp() } }, { merge: true })
+    },
+
+    /**
+     * Guarda el enlace de Meet creado por el servidor, SOLO si la sala sigue sin enlace (dos personas pueden entrar a la vez:
+     * gana la primera y la otra recibe el enlace ya guardado). Una transaccion, 1 escritura.
+     *
+     * @returns {Promise<{ saved: boolean, meetingUrl: string|null }>}
+     */
+    async saveMeeting(sessionId, meetingUrl) {
+      return db.runTransaction(async (tx) => {
+        const snap = await tx.get(sessionRef(sessionId))
+        if (!snap.exists) return { saved: false, meetingUrl: null }
+        const current = snap.data().meetingUrl
+        if (isValidMeetUrl(current)) return { saved: false, meetingUrl: current }
+        tx.update(sessionRef(sessionId), { meetingUrl, meetingProvider: 'google-meet', meetingCreatedBy: 'server' })
+        return { saved: true, meetingUrl }
+      })
+    },
+
     /** Contexto de la sala (roles segun el diagnostico), o null (1 lectura). */
     async getContext(sessionId) {
       const snap = await db.doc(`learningSessions/${sessionId}/private/context`).get()

@@ -26,9 +26,20 @@ function fromRecallFailure(error) {
  * }} input
  * @returns {Promise<{ botId: string, status: 'requested' }>}
  */
-export async function startSessionBot({ sessionId, nowMs, config, store, createBot }) {
+export async function startSessionBot({ sessionId, nowMs, config, store, createBot, ensureMeeting = null }) {
   if (typeof sessionId !== 'string' || !SESSION_ID_PATTERN.test(sessionId)) {
     throw new SessionBotError('invalid-argument', 'sessionId es obligatorio.')
+  }
+
+  // Una sala sin enlace de Meet lo recibe aqui, con la cuenta de Google que el docente conecto (si lo hizo).
+  let meeting = { created: false }
+  try {
+    meeting = (await ensureMeeting?.(sessionId)) ?? meeting
+  } catch {
+    meeting = { created: false, reason: 'failed' }
+  }
+  if (meeting.reason === 'teacher-not-connected') {
+    throw new SessionBotError('failed-precondition', 'La sala no tiene enlace de Meet y el docente aun no conecto su cuenta de Google. Conectala o registra el enlace a mano.')
   }
 
   const { meetingUrl } = await store.claimBot(sessionId, { region: config.region, nowMs })
@@ -73,5 +84,5 @@ export async function startSessionBot({ sessionId, nowMs, config, store, createB
     throw new SessionBotError('internal', 'El bot se creo pero no se pudo guardar su id.', { botId })
   }
 
-  return { botId, status: 'requested', problemAssigned: problem.assigned === true, rolesAssigned }
+  return { botId, status: 'requested', meetingUrl, meetingCreated: meeting.created === true, problemAssigned: problem.assigned === true, rolesAssigned }
 }

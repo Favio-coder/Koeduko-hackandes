@@ -32,7 +32,7 @@ describe('startSessionBot', () => {
   it('claims, creates the bot with the stored Meet link and saves its id', async () => {
     const deps = setup()
 
-    await expect(startSessionBot(deps)).resolves.toEqual({ botId: 'bot-1', status: 'requested', problemAssigned: false, rolesAssigned: false })
+    await expect(startSessionBot(deps)).resolves.toEqual({ botId: 'bot-1', status: 'requested', meetingUrl: MEET, meetingCreated: false, problemAssigned: false, rolesAssigned: false })
 
     expect(deps.store.claimBot).toHaveBeenCalledWith('smoke-001', { region: 'us-west-2', nowMs: 1000 })
     expect(deps.createBot).toHaveBeenCalledWith({
@@ -113,7 +113,7 @@ describe('startSessionBot: problem assignment', () => {
     const createBot = vi.fn().mockImplementation(async () => { order.push('bot'); return { botId: 'b1' } })
     const result = await startSessionBot({ sessionId: 's1', nowMs: 1, config, store, createBot })
     expect(order).toEqual(['problem', 'bot'])
-    expect(result).toEqual({ botId: 'b1', status: 'requested', problemAssigned: true, rolesAssigned: false })
+    expect(result).toEqual({ botId: 'b1', status: 'requested', meetingUrl: MEET, meetingCreated: false, problemAssigned: true, rolesAssigned: false })
   })
 
   it('never blocks the bot: a failure assigning the problem is swallowed', async () => {
@@ -126,5 +126,41 @@ describe('startSessionBot: problem assignment', () => {
     const store = { ...base(), claimBot: vi.fn().mockRejectedValue(new Error('ya invitado')), ensureProblem: vi.fn() }
     await expect(startSessionBot({ sessionId: 's1', nowMs: 1, config, store, createBot: vi.fn() })).rejects.toThrow()
     expect(store.ensureProblem).not.toHaveBeenCalled()
+  })
+})
+
+describe('startSessionBot: the Meet link is created when the room has none', () => {
+  const config = { apiKey: 'k', region: 'us-west-2', webhookUrl: 'https://x.test/api/recall-webhook', webhookToken: 't', language: 'es' }
+  const base = () => ({
+    claimBot: vi.fn().mockResolvedValue({ meetingUrl: 'https://meet.google.com/abc-defg-hij' }),
+    setBotId: vi.fn().mockResolvedValue(undefined),
+    markBotFailed: vi.fn().mockResolvedValue(undefined),
+  })
+
+  it('creates the link before claiming the bot, and returns it with meetingCreated', async () => {
+    const order = []
+    const store = base()
+    store.claimBot.mockImplementation(async () => { order.push('claim'); return { meetingUrl: 'https://meet.google.com/abc-defg-hij' } })
+    const ensureMeeting = vi.fn().mockImplementation(async () => { order.push('meeting'); return { created: true } })
+    const result = await startSessionBot({ sessionId: 's1', nowMs: 1, config, store, createBot: vi.fn().mockResolvedValue({ botId: 'b' }), ensureMeeting })
+    expect(order).toEqual(['meeting', 'claim'])
+    expect(result).toMatchObject({ meetingUrl: 'https://meet.google.com/abc-defg-hij', meetingCreated: true })
+  })
+
+  it('explains what is missing when the teacher has not connected Google, and does not claim the bot', async () => {
+    const store = base()
+    const ensureMeeting = vi.fn().mockResolvedValue({ created: false, reason: 'teacher-not-connected' })
+    await expect(startSessionBot({ sessionId: 's1', nowMs: 1, config, store, createBot: vi.fn(), ensureMeeting })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      message: expect.stringContaining('conecto su cuenta de Google'),
+    })
+    expect(store.claimBot).not.toHaveBeenCalled()
+  })
+
+  it('a crash while creating the link does not stop the existing flow (claimBot still decides)', async () => {
+    const store = base()
+    const result = await startSessionBot({ sessionId: 's1', nowMs: 1, config, store, createBot: vi.fn().mockResolvedValue({ botId: 'b' }), ensureMeeting: vi.fn().mockRejectedValue(new Error('boom')) })
+    expect(result.meetingCreated).toBe(false)
+    expect(store.claimBot).toHaveBeenCalledTimes(1)
   })
 })

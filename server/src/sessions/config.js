@@ -49,6 +49,24 @@ export function readMeetChatConfig(env) {
 }
 
 /**
+ * Conexion con Google para crear las reuniones de Meet (ver core/googleOAuth.js). Sin ID y secreto del cliente queda apagada y
+ * el docente registra el enlace de Meet a mano, como siempre. El tipo de acceso de los espacios (GOOGLE_MEET_ACCESS) es OPEN
+ * por defecto: entra cualquiera que tenga el enlace, sin sala de espera, y asi el bot no necesita que lo admitan.
+ */
+export function readGoogleConfig(env) {
+  const clientId = env.GOOGLE_CLIENT_ID?.trim() || undefined
+  const clientSecret = env.GOOGLE_CLIENT_SECRET?.trim() || undefined
+  const access = (env.GOOGLE_MEET_ACCESS ?? 'OPEN').trim().toUpperCase()
+  return {
+    enabled: Boolean(clientId && clientSecret),
+    clientId,
+    clientSecret,
+    redirectUri: env.GOOGLE_REDIRECT_URI?.trim() || 'https://koeduko.vercel.app/api/google-callback',
+    accessType: ['OPEN', 'TRUSTED', 'RESTRICTED'].includes(access) ? access : 'OPEN',
+  }
+}
+
+/**
  * Observador de la conversacion (ver core/conversationJudge.js): encendido por defecto. CONVERSATION_JUDGE_ENABLED=false
  * lo apaga y el tutor vuelve a hablar solo por las senales por reglas. Necesita GEMINI_API_KEY (sin ella no hay lectura).
  */

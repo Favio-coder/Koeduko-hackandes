@@ -1,10 +1,13 @@
+import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import Icon from '@/components/ui/Icon'
 import useToast from '@/components/ui/useToast'
 import { SESSION_STATUS } from '@/shared/constants/contracts'
 import { useAuth } from '@/contexts/AuthContext'
+import ConnectGoogle from '../components/ConnectGoogle'
 import { useSessions } from '../hooks/useSessions'
+import { GOOGLE_RESULT_MESSAGES } from '../services/googleConnectService'
 
 /** Etiqueta y tono del badge según el estado del contrato. */
 const STATUS_META = {
@@ -38,12 +41,23 @@ const dateFormatter = new Intl.DateTimeFormat('es-CO', {
 export default function SessionsPage() {
   const { isTeacher } = useAuth()
   const { sessions: allSessions, loading, error, reload } = useSessions()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const sessions = allSessions.filter((session) =>
     (!params.get('courseId') || session.courseId === params.get('courseId')) &&
     (!params.get('assessmentId') || session.assessmentId === params.get('assessmentId')) &&
     (!params.get('studentId') || session.studentIds?.includes(params.get('studentId'))))
   const toast = useToast()
+
+  // Al volver de Google el servidor deja el resultado en ?google=...: se avisa una vez y se limpia la direccion.
+  const googleResult = params.get('google')
+  useEffect(() => {
+    if (!googleResult) return
+    const message = GOOGLE_RESULT_MESSAGES[googleResult]
+    if (message) message.tone === 'success' ? toast.success(message.text) : toast.error(message.text)
+    const next = new URLSearchParams(params)
+    next.delete('google')
+    setParams(next, { replace: true })
+  }, [googleResult]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopy = async (url) => {
     try {
@@ -74,6 +88,8 @@ export default function SessionsPage() {
           <Button to="/matching/results" icon="users" className="w-full shrink-0 sm:w-auto">Crear salas desde resultados</Button>
         )}
       </header>
+
+      {isTeacher && <ConnectGoogle />}
 
       {error && <ErrorState error={error} onRetry={reload} compact />}
       {loading && <LoadingState label="Cargando salas..." compact />}

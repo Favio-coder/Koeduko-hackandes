@@ -44,6 +44,7 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
   const toast = useToast()
   // El reporte de cierre solo lo lee el docente (reglas de Firestore): al estudiante no se le suscribe.
   const { summary } = useSessionSummary(sessionId, { enabled: isTeacher })
+  const [creating, setCreating] = useState(false)
   const [closed, setClosed] = useState(null) // lo que devolvio close-session, para mostrar el reporte sin esperar a Firestore
 
   if (loading) return <LoadingState label="Cargando sesión..." />
@@ -62,6 +63,24 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
   const handleEnter = () => {
     window.open(session.meetingUrl, '_blank', 'noreferrer')
     if (!isClosed && canInvite(botStatus)) inviteTutor({ sessionId }).catch(() => {})
+  }
+
+  // La sala no tiene Meet: el servidor lo crea con la cuenta de Google del docente, trae al tutor y devuelve el enlace. La pestaña
+  // se abre YA, dentro del clic, para que el navegador no la bloquee por esperar la respuesta.
+  const handleCreateAndEnter = async () => {
+    const popup = window.open('about:blank', '_blank')
+    setCreating(true)
+    try {
+      const data = await inviteTutor({ sessionId })
+      if (data?.meetingUrl && popup) popup.location.href = data.meetingUrl
+      else if (data?.meetingUrl) window.location.assign(data.meetingUrl)
+      else popup?.close()
+    } catch (failure) {
+      popup?.close()
+      toast.error(failure.message)
+    } finally {
+      setCreating(false)
+    }
   }
 
   const handleCopy = async () => {
@@ -107,6 +126,17 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
       {isTeacher && !isClosed && <InviteTutor sessionId={sessionId} botStatus={botStatus} />}
       {isTeacher && !isClosed && <CloseSession sessionId={sessionId} onClosed={setClosed} />}
       {report && <CompetencyReport report={report} steps={reportSteps} />}
+
+      {session && !session.meetingUrl && !isClosed && (
+        <Card title="Reunión de Google Meet" description="Esta sala todavía no tiene reunión.">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-[#5A6B6A]">Se crea sola, con la cuenta de Google que conectó el docente, y el tutor entra con ustedes.</p>
+            <Button icon="video" loading={creating} disabled={creating} onClick={handleCreateAndEnter} className="sm:shrink-0">
+              Crear reunión y entrar
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {session?.meetingUrl && (
         <Card title="Reunión de Google Meet" description="Enlace de esta pareja.">
