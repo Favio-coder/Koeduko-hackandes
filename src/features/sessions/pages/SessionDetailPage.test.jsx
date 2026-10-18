@@ -74,6 +74,24 @@ describe('SessionDetailPage', () => {
     expect(retry).toHaveBeenCalled()
   })
 
+  it('keeps the invite button and the problem visible when the live data fails to load', () => {
+    live.current = state({
+      error: 'No tienes permiso para ver esta sesión.',
+      session: { title: 'Pareja 1', currentProblem: { text: 'Hay 6 cajas con 8 lápices cada una.', expectedAnswer: 48 } },
+    })
+    renderPage()
+    expect(screen.getByText('No tienes permiso para ver esta sesión.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Invitar tutor' })).toBeInTheDocument()
+    expect(screen.getByText('Hay 6 cajas con 8 lápices cada una.')).toBeInTheDocument()
+  })
+
+  it('shows the problem statement but never its expected answer', () => {
+    live.current = state({ session: { currentProblem: { text: '¿Cuántos lápices hay en total?', expectedAnswer: 48 } } })
+    const { container } = renderPage()
+    expect(screen.getByText('¿Cuántos lápices hay en total?')).toBeInTheDocument()
+    expect(container.textContent).not.toContain('48')
+  })
+
   it('shows "Esperando al tutor…" when there is no activity, with a fallback title', () => {
     renderPage()
     expect(screen.getByText('Esperando al tutor…')).toBeInTheDocument()

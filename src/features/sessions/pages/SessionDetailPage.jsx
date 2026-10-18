@@ -37,11 +37,11 @@ export default function SessionDetailPage() {
 
   if (loading) return <LoadingState label="Cargando sesión..." />
 
-  if (error) return <ErrorState title="No se pudo abrir la sesión" error={error} onRetry={retry} />
-
   const status = STATUS_META[session?.status]
   const botStatus = session?.bot?.status
   const hasActivity = Boolean(view) || interventions.length > 0
+  // Solo el enunciado: la respuesta esperada vive en el mismo documento, pero nunca se muestra.
+  const problemText = session?.currentProblem?.text
 
   const handleCopy = async () => {
     try {
@@ -104,7 +104,15 @@ export default function SessionDetailPage() {
         </Card>
       )}
 
-      {hasActivity ? (
+      {problemText && (
+        <Card title="Problema de la sesión" description="Lo que están resolviendo ahora.">
+          <p className="break-words text-base font-medium text-[#304744]">{problemText}</p>
+        </Card>
+      )}
+
+      {error ? (
+        <ErrorState title="No se pudo abrir la sesión" error={error} onRetry={retry} />
+      ) : hasActivity ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="min-w-0 space-y-6">
             <TalkShareCard view={view} />
