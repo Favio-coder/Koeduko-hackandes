@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import TeacherDashboard from '@/features/dashboard/pages/TeacherDashboard'
@@ -135,5 +135,79 @@ describe('TeacherDashboard con estudiantes reales', () => {
       '/botones/emparejar-card.png',
       '/botones/gestionarsalas-card.png',
     ])
+  })
+
+  it('superpone los valores en las ilustraciones optimizadas de las métricas', async () => {
+    const { container } = renderDashboard()
+    await screen.findByText('Alumno 6')
+
+    const images = [...container.querySelectorAll('img')].filter((img) =>
+      img.getAttribute('src')?.startsWith('/metricas/'),
+    )
+
+    expect(images.map((img) => img.getAttribute('src'))).toEqual([
+      '/metricas/MetricasEstudiante.webp',
+      '/metricas/MetricasCurso.webp',
+      '/metricas/MetricasEvaluaciones.webp',
+    ])
+    images.forEach((img) => {
+      // Decorativa: el dato asociado a la tarjeta ya ofrece el contexto accesible.
+      expect(img).toHaveAttribute('alt', '')
+      expect(img).toHaveAttribute('loading', 'lazy')
+      expect(img).toHaveAttribute('width', '1200')
+      expect(img).toHaveAttribute('height', '1200')
+      expect(img).toHaveAttribute('decoding', 'async')
+      expect(img.className).toContain('object-contain')
+    })
+
+    expect(screen.getByLabelText('Estudiantes')).toHaveTextContent('6')
+    expect(screen.getByLabelText('Cursos')).toHaveTextContent('2')
+    expect(screen.getByLabelText('Evaluaciones')).toHaveTextContent('1')
+    expect(screen.getByRole('group', { name: 'Métricas del docente' })).toHaveClass(
+      'sm:grid-cols-2',
+      'xl:grid-cols-3',
+    )
+  })
+
+  it('permite recorrer las métricas en móvil con controles y mantiene la cuadrícula en escritorio', async () => {
+    const { container } = renderDashboard()
+    await screen.findByText('Alumno 6')
+
+    const track = screen.getByRole('group', { name: 'Métricas del docente' })
+    const scrollTo = vi.fn()
+    Object.defineProperty(track, 'scrollTo', { configurable: true, value: scrollTo })
+
+    expect(track.className).toContain('overflow-x-auto')
+    expect(track.className).toContain('sm:grid')
+    expect(track.className).toContain('xl:grid-cols-3')
+    expect(screen.getByRole('button', { name: 'Ver métrica anterior' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Ver métrica siguiente' })).toBeEnabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver Cursos' }))
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: track.clientWidth, behavior: 'smooth' })
+    expect(screen.getByRole('button', { name: 'Ver métrica anterior' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Ver Cursos' })).toHaveAttribute('aria-current', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver métrica siguiente' }))
+    expect(scrollTo).toHaveBeenLastCalledWith({ left: track.clientWidth * 2, behavior: 'smooth' })
+    expect(container.querySelectorAll('[aria-roledescription="diapositiva"]')).toHaveLength(3)
+  })
+
+  it('vuelve al icono cuando una ilustracion de metrica no carga', async () => {
+    const { container } = renderDashboard()
+    await screen.findByText('Alumno 6')
+
+    const [first] = [...container.querySelectorAll('img')].filter((img) =>
+      img.getAttribute('src')?.startsWith('/metricas/'),
+    )
+    const card = first.closest('article')
+    expect(card.querySelector('img')).not.toBeNull()
+
+    fireEvent.error(first)
+    await waitFor(() => expect(card.querySelector('img')).toBeNull())
+    expect(card.querySelector('svg')).not.toBeNull()
+    expect(within(card).getByText('Estudiantes')).toBeInTheDocument()
+    expect(within(card).getByLabelText('Estudiantes')).toHaveTextContent('6')
   })
 })
