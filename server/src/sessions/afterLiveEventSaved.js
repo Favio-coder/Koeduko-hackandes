@@ -2,7 +2,8 @@ import { deterministicId } from './core/ids.js'
 import { addresseeOf } from './core/interventionPolicy.js'
 import { DEFAULT_CONFIG } from './core/signals.js'
 import { memoryCacheKey, memoryScopeOf, studentKeyOf } from './core/studentKey.js'
-import { sendChatMessage } from './adapters/recall.js'
+import { synthesize } from './adapters/elevenlabs.js'
+import { sendAudio, sendChatMessage } from './adapters/recall.js'
 import { composeIntervention } from './tutor.js'
 
 /**
@@ -53,6 +54,9 @@ export function createAfterLiveEventSaved({
   getMemory = () => null,
   getChat = () => null,
   sendChat = sendChatMessage,
+  getVoice = () => null,
+  synthesizeSpeech = synthesize,
+  sendAudioToBot = sendAudio,
   cooldownSec = DEFAULT_CONFIG.cooldownSec,
   logText = false,
   now = () => Date.now(),
@@ -97,31 +101,77 @@ export function createAfterLiveEventSaved({
     return { notes, cache: 'miss' }
   }
 
-  /** Escribe el mensaje en el chat de Meet. Nunca lanza; devuelve que paso para el log. */
-  async function deliverToMeetChat({ sessionId, interventionId, message, loadSession }) {
+  /** Escribe el mensaje en el chat de Meet. Nunca lanza. No registra nada: eso lo hace deliver(). */
+  async function sendToChat({ message, loadSession }) {
     const chat = getChat()
-    if (!chat?.enabled || !chat.apiKey) return { deliveredTo: ['app'], chat: 'disabled' }
+    if (!chat?.enabled || !chat.apiKey) return { ok: false, chat: 'disabled' }
 
     const loaded = await loadSession()
-    if (loaded.failed) return { deliveredTo: ['app'], chat: 'session-read-failed' }
+    if (loaded.failed) return { ok: false, chat: 'session-read-failed' }
     const bot = loaded.session?.bot
-    if (!bot?.id) return { deliveredTo: ['app'], chat: 'no-bot' }
+    if (!bot?.id) return { ok: false, chat: 'no-bot' }
 
     let sent
     try {
       sent = await sendChat({ apiKey: chat.apiKey, region: bot.region ?? chat.region, botId: bot.id, text: message })
     } catch {
-      return { deliveredTo: ['app'], chat: 'invalid' }
+      return { ok: false, chat: 'invalid' }
     }
-    if (!sent.ok) return { deliveredTo: ['app'], chat: 'failed', chatStatus: sent.status }
+    if (!sent.ok) return { ok: false, chat: 'failed', chatStatus: sent.status }
+    return { ok: true, chat: 'sent', chatStatus: sent.status }
+  }
 
-    const deliveredTo = ['app', 'meet_chat']
+  /**
+   * Dice el mensaje en voz alta en la reunion (EXPERIMENTAL, apagado por defecto): ElevenLabs lo convierte en mp3 y
+   * Recall lo reproduce. Nunca lanza; si algo falla el tutor sigue por chat. Solo registra estados HTTP, nunca el texto.
+   */
+  async function speak({ message, loadSession }) {
+    const voice = getVoice()
+    if (!voice?.enabled) return { ok: false, voice: 'disabled' }
+
+    const loaded = await loadSession()
+    if (loaded.failed) return { ok: false, voice: 'session-read-failed' }
+    const bot = loaded.session?.bot
+    if (!bot?.id) return { ok: false, voice: 'no-bot' }
+
+    let audio
     try {
-      await getStore().setDeliveredTo(sessionId, interventionId, deliveredTo)
+      audio = await synthesizeSpeech({ apiKey: voice.elevenKey, voiceId: voice.voiceId, modelId: voice.modelId, text: message })
     } catch {
-      return { deliveredTo: ['app'], chat: 'sent-not-recorded', chatStatus: sent.status }
+      return { ok: false, voice: 'invalid' }
     }
-    return { deliveredTo, chat: 'sent', chatStatus: sent.status }
+    if (!audio.ok) return { ok: false, voice: 'tts-failed', voiceStatus: audio.status }
+
+    let sent
+    try {
+      sent = await sendAudioToBot({ apiKey: voice.apiKey, region: bot.region ?? voice.region, botId: bot.id, mp3Base64: audio.mp3Base64 })
+    } catch {
+      return { ok: false, voice: 'invalid' }
+    }
+    if (!sent.ok) return { ok: false, voice: 'failed', voiceStatus: sent.status }
+    return { ok: true, voice: 'sent', voiceStatus: sent.status }
+  }
+
+  /** Entrega a Meet por chat y por voz EN PARALELO y anota por donde llego en un solo deliveredTo. Nunca lanza. */
+  async function deliver({ sessionId, interventionId, message, loadSession }) {
+    const [chat, voice] = await Promise.all([sendToChat({ message, loadSession }), speak({ message, loadSession })])
+    const deliveredTo = ['app', ...(chat.ok ? ['meet_chat'] : []), ...(voice.ok ? ['meet_voice'] : [])]
+
+    let recorded = true
+    if (deliveredTo.length > 1) {
+      try {
+        await getStore().setDeliveredTo(sessionId, interventionId, deliveredTo)
+      } catch {
+        recorded = false
+      }
+    }
+    const { ok: chatOk, ...chatInfo } = chat
+    const { ok: voiceOk, ...voiceInfo } = voice
+    return {
+      ...chatInfo,
+      ...voiceInfo,
+      ...(recorded ? {} : { ...(chatOk ? { chat: 'sent-not-recorded' } : {}), ...(voiceOk ? { voice: 'sent-not-recorded' } : {}) }),
+    }
   }
 
   return async function afterLiveEventSaved({ sessionId, result }) {
@@ -179,7 +229,7 @@ export function createAfterLiveEventSaved({
     })
 
     // Solo una intervencion nueva va al chat: si ya existia, ya se entrego (o se intento) antes.
-    const delivery = created ? await deliverToMeetChat({ sessionId, interventionId, message: composed.message, loadSession }) : { chat: 'duplicate' }
+    const delivery = created ? await deliver({ sessionId, interventionId, message: composed.message, loadSession }) : { chat: 'duplicate', voice: 'duplicate' }
 
     logger.info('afterLiveEventSaved: intervencion', {
       sessionId,
@@ -189,6 +239,8 @@ export function createAfterLiveEventSaved({
       memoryCache,
       chat: delivery.chat,
       ...(delivery.chatStatus !== undefined ? { chatStatus: delivery.chatStatus } : {}),
+      voice: delivery.voice,
+      ...(delivery.voiceStatus !== undefined ? { voiceStatus: delivery.voiceStatus } : {}),
       source: composed.source,
       ...(composed.reason ? { reason: composed.reason } : {}),
       ms: now() - startedAt,
