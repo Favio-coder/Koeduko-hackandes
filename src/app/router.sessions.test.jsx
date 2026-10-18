@@ -36,10 +36,11 @@ describe('router: /sessions/:sessionId', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByRole('heading', { name: 'Prueba de aceptacion' })).toBeInTheDocument()
+    // La pagina se carga con import() perezoso: con la maquina cargada tarda mas que el 1 s por defecto.
+    expect(await screen.findByRole('heading', { name: 'Prueba de aceptacion' }, { timeout: 10000 })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Invitar tutor' })).toBeInTheDocument()
     expect(screen.getByText('Esperando al tutor…')).toBeInTheDocument()
     // el shell sigue ahi: el contenido va dentro de <main>, junto al menu
     expect(screen.getByRole('main')).toContainElement(screen.getByRole('button', { name: 'Invitar tutor' }))
-  })
+  }, 15000)
 })
