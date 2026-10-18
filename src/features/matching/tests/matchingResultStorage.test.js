@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createMatchingResult } from '../services/matchingService'
 import { prepareDemoProfiles } from '../data/prepareDemoProfiles'
+import { classroomFixture } from './helpers/classroomFixture'
 import { MATCHING_RESULT_KEY, readMatchingResult, saveMatchingResult } from '../services/matchingResultStorage'
 
 const storageFor = (raw = null) => ({
@@ -10,6 +11,20 @@ const storageFor = (raw = null) => ({
 })
 
 describe('último resultado de la pestaña', () => {
+  it('separa resultados reales por docente y verifica curso/evaluación al recuperarlos', () => {
+    const memory = new Map()
+    const storage = { getItem: (key) => memory.get(key), setItem: (key, value) => memory.set(key, value) }
+    const { profile } = classroomFixture()
+    const result = createMatchingResult(profile)
+    const scope = { ownerId: 'teacher-1', courseId: profile.courseId, assessmentId: profile.assessmentId }
+    saveMatchingResult(result, storage, scope)
+    expect(readMatchingResult(storage, scope).result).toEqual(result)
+    expect(readMatchingResult(storage, { ...scope, ownerId: 'teacher-2' }).result).toBeNull()
+    expect(readMatchingResult(storage, { ...scope, courseId: 'other-course' }).result).toBeNull()
+    expect(readMatchingResult(storage, { ...scope, assessmentId: 'other-assessment' }).result).toBeNull()
+    expect(readMatchingResult(storage).result).toBeNull()
+    expect(() => saveMatchingResult(createMatchingResult(prepareDemoProfiles()), storage, scope)).toThrow(/contexto/)
+  })
   it('restaura el mismo resultado sin volver a calcularlo', () => {
     const result = createMatchingResult(prepareDemoProfiles())
     const storage = storageFor()

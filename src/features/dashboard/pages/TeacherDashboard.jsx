@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
-import { Button, Card, LoadingAnimation, ProgressBar } from '@/components/ui'
+import { Button, Card, EmptyState, ErrorState, LoadingAnimation, LoadingState } from '@/components/ui'
 import Avatar from '@/components/ui/Avatar'
 import Icon from '@/components/ui/Icon'
-import { DEMO_STUDENTS } from '@/shared/lib/demoData'
+import { loadBootstrap } from '@/features/assessments/services/assessmentService'
 import { useAuth } from '@/contexts/AuthContext'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 /** Tarjeta de métrica: cifra grande + etiqueta + icono. */
 function StatCard({ label, value, icon, hint }) {
@@ -15,7 +15,7 @@ function StatCard({ label, value, icon, hint }) {
       </span>
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-wide text-[#5A6B6A]">{label}</p>
-        <p className="mt-0.5 text-2xl font-bold tabular-nums text-[#304744]">{value}</p>
+        <output aria-label={label} className="mt-0.5 block text-2xl font-bold tabular-nums text-[#304744]">{value}</output>
         {hint && <p className="mt-0.5 text-xs text-[#7D8C8A]">{hint}</p>}
       </div>
     </Card>
@@ -95,13 +95,39 @@ function QuickAction({ to, label, hint, img, icon }) {
 }
 
 export default function TeacherDashboard() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
+  const uid = user?.uid
   const firstName = (profile?.displayName || 'docente').split(' ')[0]
+  const [roster, setRoster] = useState(null)
+  const [revision, setRevision] = useState(0)
 
+  useEffect(() => {
+    let active = true
+    if (!uid) return
+    loadBootstrap({ refresh: true }).then(
+      (data) => { if (active) setRoster({ uid, revision, data }) },
+      (error) => { if (active) setRoster({ uid, revision, error }) },
+    )
+    return () => { active = false }
+  }, [uid, revision])
+
+  const current = roster?.uid === uid && roster?.revision === revision ? roster : null
+  const courses = current?.data?.courses ?? []
+  const studentsById = new Map()
+  for (const course of courses) {
+    for (const student of course.students ?? []) {
+      const existing = studentsById.get(student.id)
+      if (existing) existing.courses.push(course.name)
+      else studentsById.set(student.id, { ...student, courses: [course.name] })
+    }
+  }
+  const students = [...studentsById.values()]
+  const loaded = Boolean(current?.data)
+  const retry = () => setRevision((value) => value + 1)
   const stats = [
-    { label: 'Estudiantes', value: DEMO_STUDENTS.length, icon: 'users', hint: 'En el aula' },
-    { label: 'Sesiones activas', value: 1, icon: 'video', hint: 'En curso' },
-    { label: 'Parejas formadas', value: 2, icon: 'users', hint: 'Por complementariedad' },
+    { label: 'Estudiantes', value: loaded ? students.length : '—', icon: 'users', hint: 'Alumnos únicos de tus cursos' },
+    { label: 'Cursos', value: loaded ? courses.length : '—', icon: 'clipboard', hint: 'Asignados a tu cuenta' },
+    { label: 'Evaluaciones', value: loaded ? (current.data.assessments ?? []).length : '—', icon: 'clipboard', hint: 'Disponibles para gestionar' },
   ]
 
   const shortcuts = [
@@ -162,35 +188,30 @@ export default function TeacherDashboard() {
         </div>
       </Card>
 
-      {/* Estudiantes */}
       <Card
         title="Estudiantes registrados"
-        description="Datos ficticios de demostración."
+        description="Listado real de tus cursos, sin contar dos veces al mismo alumno."
         padding="sm"
-        actions={
-          <Button to="/assessments" variant="ghost" size="sm">
-            Ver diagnóstico
-          </Button>
-        }
+        actions={<>
+          <Button onClick={retry} variant="secondary" size="sm">Actualizar estudiantes</Button>
+          <Button to="/students" variant="ghost" size="sm">Ver estudiantes</Button>
+        </>}
       >
-        <ul className="divide-y divide-[#E6EAE3]">
-          {DEMO_STUDENTS.map((student) => (
-            <li key={student.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <Avatar name={student.displayName} size="sm" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[#304744]">
-                    {student.displayName}
-                  </p>
-                  <p className="truncate font-mono text-xs text-[#7D8C8A]">{student.id}</p>
-                </div>
-              </div>
-              <div className="w-full sm:w-44">
-                <ProgressBar value={student.skills.addition} label="Adición" />
+        {!uid && <ErrorState error="Inicia sesión para consultar tus estudiantes." />}
+        {uid && !current && <LoadingState label="Cargando estudiantes…" />}
+        {current?.error && <ErrorState error={current.error} onRetry={retry} />}
+        {loaded && students.length === 0 && <EmptyState title="No hay estudiantes asignados" description="Los alumnos aparecerán cuando estén registrados en tus cursos." />}
+        {loaded && students.length > 0 && <ul aria-label="Estudiantes registrados" className="divide-y divide-[#E6EAE3]">
+          {students.map((student) => (
+            <li key={student.id} className="flex min-w-0 items-center gap-3 py-3">
+              <Avatar name={student.name || student.id} size="sm" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[#304744]">{student.name || student.id}</p>
+                <p className="truncate text-xs text-[#7D8C8A]">{student.courses.join(' · ')}</p>
               </div>
             </li>
           ))}
-        </ul>
+        </ul>}
       </Card>
 
     </div>

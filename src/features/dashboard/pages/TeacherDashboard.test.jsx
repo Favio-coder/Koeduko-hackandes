@@ -1,54 +1,97 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import TeacherDashboard from '@/features/dashboard/pages/TeacherDashboard'
 
-vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ profile: { displayName: 'Lucía Méndez' } }),
+const { bootstrap, session } = vi.hoisted(() => ({
+  bootstrap: vi.fn(),
+  session: { user: { uid: 'teacher-1' }, profile: { displayName: 'Lucía Méndez' } },
 }))
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => session }))
+vi.mock('@/features/assessments/services/assessmentService', () => ({ loadBootstrap: bootstrap }))
 
-describe('TeacherDashboard', () => {
-  it('saluda con el nombre del perfil y marca claramente los datos de demostración', () => {
-    render(
-      <MemoryRouter>
-        <TeacherDashboard />
-      </MemoryRouter>,
-    )
+const fixture = () => {
+  const students = Array.from({ length: 6 }, (_, index) => ({ id: 'real-' + index, name: 'Alumno ' + (index + 1) }))
+  return {
+    courses: [
+      { id: 'course-1', name: 'Matemática 5A', students },
+      { id: 'course-2', name: 'Refuerzo', students: [students[0]] },
+    ],
+    assessments: [{ id: 'assessment-1' }],
+  }
+}
+const renderDashboard = () => render(<MemoryRouter><TeacherDashboard /></MemoryRouter>)
+beforeEach(() => {
+  bootstrap.mockReset()
+  bootstrap.mockResolvedValue(fixture())
+  session.user = { uid: 'teacher-1' }
+})
+afterEach(cleanup)
 
-    expect(screen.getByRole('heading', { name: '¡Hola, Lucía! 👋' })).toBeInTheDocument()
-    expect(screen.getByText('Gestiona tus estudiantes y acompaña su aprendizaje.')).toBeInTheDocument()
-    expect(screen.getByText('Datos de demostración')).toBeInTheDocument()
+describe('TeacherDashboard con estudiantes reales', () => {
+  it('saluda al docente y cuenta seis estudiantes únicos aunque uno esté en dos cursos', async () => {
+    renderDashboard()
+    expect(screen.getByRole('heading', { name: '¡Hola, Lucía!' })).toBeInTheDocument()
+    expect(await screen.findByText('Alumno 6')).toBeInTheDocument()
+    expect(screen.getByLabelText('Estudiantes')).toHaveTextContent('6')
+    expect(screen.getByLabelText('Cursos')).toHaveTextContent('2')
+    expect(screen.getByLabelText('Evaluaciones')).toHaveTextContent('1')
+    const roster = screen.getByRole('list', { name: 'Estudiantes registrados' })
+    expect(within(roster).getAllByRole('listitem')).toHaveLength(6)
+    expect(within(roster).getAllByText('Alumno 1')).toHaveLength(1)
+    expect(bootstrap).toHaveBeenCalledWith({ refresh: true })
+    expect(screen.queryByText('Ana Torres')).not.toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
 
-  it('conserva las acciones del dashboard y muestra progreso para los estudiantes de demostración', () => {
-    render(
-      <MemoryRouter>
-        <TeacherDashboard />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getByRole('link', { name: 'Diagnosticar estudiantes' })).toHaveAttribute(
-      'href',
-      '/assessments',
-    )
+  it('conserva los accesos a diagnóstico, emparejamiento, salas y roster real', async () => {
+    renderDashboard()
+    await screen.findByText('Alumno 6')
+    expect(screen.getByRole('link', { name: 'Diagnosticar estudiantes' })).toHaveAttribute('href', '/assessments')
     expect(screen.getByRole('link', { name: 'Formar parejas' })).toHaveAttribute('href', '/matching')
     expect(screen.getByRole('link', { name: 'Gestionar salas' })).toHaveAttribute('href', '/sessions')
-    expect(screen.getByRole('link', { name: 'Ver diagnóstico' })).toHaveAttribute(
-      'href',
-      '/assessments',
-    )
-    expect(screen.getAllByRole('progressbar')).toHaveLength(5)
-    expect(screen.getByText('Ana Torres')).toBeInTheDocument()
-    expect(screen.getByText('student-001')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver estudiantes' })).toHaveAttribute('href', '/students')
   })
 
-  it('muestra las ilustraciones de los accesos rápidos, decorativas y con carga diferida', () => {
+  it('actualiza la cantidad cuando cambia el roster', async () => {
+    renderDashboard()
+    await screen.findByText('Alumno 6')
+    bootstrap.mockResolvedValue({ courses: [], assessments: [] })
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar estudiantes' }))
+    await screen.findByText('No hay estudiantes asignados')
+    expect(screen.getByLabelText('Estudiantes')).toHaveTextContent('0')
+    expect(screen.queryByText('Alumno 6')).not.toBeInTheDocument()
+  })
+
+  it('no muestra una cantidad ficticia ante un fallo y permite reintentar', async () => {
+    bootstrap.mockRejectedValueOnce(new Error('Sin conexión'))
+    renderDashboard()
+    await screen.findByText('Sin conexión')
+    expect(screen.getByLabelText('Estudiantes')).toHaveTextContent('—')
+    fireEvent.click(within(screen.getByRole('alert')).getByRole('button'))
+    await screen.findByText('Alumno 6')
+    expect(screen.getByLabelText('Estudiantes')).toHaveTextContent('6')
+  })
+
+  it('retira los alumnos anteriores al cambiar de cuenta', async () => {
+    const view = renderDashboard()
+    await screen.findByText('Alumno 6')
+    bootstrap.mockResolvedValue({ courses: [], assessments: [] })
+    session.user = { uid: 'teacher-2' }
+    view.rerender(<MemoryRouter><TeacherDashboard /></MemoryRouter>)
+    expect(screen.queryByText('Alumno 6')).not.toBeInTheDocument()
+    await screen.findByText('No hay estudiantes asignados')
+    expect(screen.getByLabelText('Estudiantes')).toHaveTextContent('0')
+  })
+
+  it('muestra las ilustraciones de los accesos rápidos, decorativas y con carga diferida', async () => {
     const { container } = render(
       <MemoryRouter>
         <TeacherDashboard />
       </MemoryRouter>,
     )
 
+    await screen.findByText('Alumno 6')
     const images = [...container.querySelectorAll('img')].filter((img) =>
       img.getAttribute('src')?.startsWith('/botones/'),
     )

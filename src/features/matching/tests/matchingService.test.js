@@ -8,7 +8,7 @@ const realProfiles = () => toKnowledgeProfiles(DEMO_STUDENTS).map((profile) => (
 
 describe('KnowledgeProfile[] a grupos internos', () => {
   it('consume el contrato existente y conserva Pair[] sin perder el trío', () => {
-    const profiles = realProfiles()
+    const profiles = realProfiles().slice(0, 5)
     const original = JSON.stringify(profiles)
     const result = createMatchingResult(profiles)
     expect(result.assessmentId).toBe('assessment-1')

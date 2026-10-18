@@ -94,11 +94,11 @@ En /matching se muestra la cantidad real de estudiantes recibidos y sus habilida
 
 /matching/results es una pantalla distinta: muestra el último agrupamiento generado, con resumen y filtros de parejas/tríos. No ejecuta el algoritmo. Sin una propuesta guardada, invita a volver a Estudiantes.
 
-El último resultado se conserva en sessionStorage de esta pestaña, separado por versión del modelo. Se valida al recuperarlo sin recalcular. Si el almacenamiento falla, Ver resultados lleva la propuesta mediante el estado del router y se avisa que no sobrevivirá a una recarga. No se escribe en Firestore ni se integran sesiones.
+El último resultado se conserva en sessionStorage de esta pestaña, separado por docente y versión del modelo. Las rutas filtran por curso y evaluación; un docente no recupera la propuesta de otro ni la demo anterior. Se valida al recuperarlo sin recalcular. Si el almacenamiento falla, Ver resultados lleva la propuesta mediante el estado del router, con el identificador del docente, y se avisa que no sobrevivirá a una recarga. No se escribe en Firestore ni se integran sesiones.
 
 No hay formulario para pegar JSON ni visor de JSON. Los datos estructurados siguen disponibles dentro del resultado del servicio/hook.
 
-Si no se pasa knowledgeProfiles, se usa únicamente la demo compartida de shared/lib/demoData.js. Una lista vacía o inválida recibida desde la evaluación jamás activa ese fallback.
+Sin props explícitas, /matching consulta loadBootstrap({ refresh: true }), la misma API de cursos y roster autorizados que Estudiantes. Permite seleccionar curso y una evaluación finalizada de resuelve-problemas-cantidad. Los nombres proceden del roster; los puntajes proceden únicamente del paquete de esa evaluación. Se muestran las cantidades de matriculados y evaluados por separado. Los matriculados sin resultados en la evaluación seleccionada no se agrupan ni reciben puntajes ficticios. No se mezclan perfiles históricos de knowledgeProfiles sin identificar la evaluación.
 
 Las evaluaciones finalizadas se integran mediante el endpoint autenticado
 `GET /api/assessments/matching-profile?courseId=...&assessmentId=...`. Desde
@@ -111,10 +111,7 @@ la siguiente carga sin mantener una copia desactualizada. La finalización solo
 habilita los perfiles: no ejecuta el optimizador. El docente confirma el
 agrupamiento mediante «Agrupar».
 
-La ruta `/matching` sin parámetros mantiene los perfiles demo únicamente para
-la demostración existente. Una ruta con curso/evaluación seleccionados nunca
-recurre a datos demo ante un error de autorización, una evaluación no finalizada
-o un fallo de red.
+La ruta /matching sin parámetros también usa datos reales: muestra inicialmente el primer curso y exige elegir una evaluación compatible finalizada. No selecciona la primera evaluación automáticamente ni exige completar las otras pruebas del curso. Una URL que ya identifica curso y evaluación conserva esa selección explícita. Al cambiar curso se retira la selección de evaluación anterior. Actualizar datos recarga roster y resultados y obliga a pulsar Agrupar otra vez. Un error, curso vacío o diagnóstico pendiente nunca activa datos demo. La fuente compartida de simulación solo se pasa explícitamente en MatchingDemo; no hay fallback en el hook.
 
 ## Variables y fundamento
 
@@ -131,7 +128,7 @@ Más información: [INVESTIGACION.md](INVESTIGACION.md).
 - /matching o /matching/results: cuenta docente.
 - /demo/matching#/matching: prueba aislada con la misma fuente demo, sin Firebase ni autenticación.
 
-Abre Estudiantes → revisa la cantidad → pulsa Agrupar → abre Ver resultados. Los filtros y motivos permiten revisar la propuesta sin recalcularla.
+Como docente, abre /matching → selecciona curso y evaluación finalizada → revisa estudiantes → pulsa Agrupar → abre Ver resultados. Ver estudiantes del curso enlaza al roster real /students. Los filtros y motivos permiten revisar la propuesta sin recalcularla. La API requiere el despliegue Vercel o vercel dev; npm run dev por sí solo no ejecuta las funciones /api.
 
     npm test
     npm run lint
