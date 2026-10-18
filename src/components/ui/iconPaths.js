@@ -4,6 +4,7 @@
  * Módulo de datos puro: sin componentes, para mantener Fast Refresh válido.
  */
 export const paths = {
+  lock: 'M8 10V7a4 4 0 0 1 8 0v3M6 10h12a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Zm6 4v3',
   /* --- navegación --- */
   home: 'M3 10.5 12 3l9 7.5M5.25 9.75V20a1 1 0 0 0 1 1h11.5a1 1 0 0 0 1-1V9.75',
   users:

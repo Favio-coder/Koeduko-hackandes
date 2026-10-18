@@ -85,6 +85,7 @@ export default function Login() {
 
         <PasswordInput
           label="Contraseña"
+          icon="lock"
           type="password"
           id="password"
           autoComplete="current-password"
