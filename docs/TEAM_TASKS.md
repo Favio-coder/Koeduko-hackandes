@@ -15,7 +15,7 @@ Ramas: `feature/auth-dashboard` (DEV 1), `feature/matching-engine` (DEV 2),
 - Contratos en `src/shared/constants/contracts.js`.
 - Datos demo en `src/shared/lib/demoData.js`, utilidades puras en `shared/lib/utils.js`.
 - Stubs funcionales de Assessments, Matching, Sessions, Tutor.
-- `functions/src/` con `askTutor` (Gemini vía secreto) y `requireUser`/`requireTeacher`.
+- Backend privilegiado en `server/` (Vercel): `ask-tutor`, `start-session-bot` y `recall-webhook`, con verificación del token de Firebase.
 - `firestore.rules`, `firestore.indexes.json`, `firebase.json`.
 - Lint y build verdes; 5 tests unitarios pasando.
 
@@ -42,7 +42,7 @@ src/features/dashboard/components/*
 
 ### Archivos que NO debes tocar
 `src/features/{matching,sessions,assessments,ai}/**`, `src/shared/**`,
-`functions/**`, `firestore.rules`, `docs/`. Si necesitas un cambio ahí,
+`server/**`, `firestore.rules`, `docs/`. Si necesitas un cambio ahí,
 avisa en el canal del equipo antes de mergear.
 
 ### Tareas
@@ -53,14 +53,14 @@ avisa en el canal del equipo antes de mergear.
 | 1.2 | Listado de aulas y creación de aula (`classrooms`) | P0 |
 | 1.3 | Estados de carga, error y vacío en todas las vistas | P0 |
 | 1.4 | Verificación responsive real (móvil 375px y escritorio) | P0 |
-| 1.5 | Cloud Function `promoteToTeacher` para asignar el rol docente de forma confiable | P0 |
+| 1.5 | Endpoint `promoteToTeacher` en `server/` (no hay Cloud Functions) para asignar el rol docente de forma confiable | P0 |
 | 1.6 | Dashboard docente: consume resultados de matching y sesiones | P1 |
 | 1.7 | Enlace al perfil del estudiante | P2 |
 
 **Sobre el rol docente (tarea 1.5):** ya está implementado el patrón correcto —
 el registro público siempre escribe `role: 'student'` y las rules prohíben que un
 usuario cambie su propio rol. Falta la vía real de promoción. Opciones:
-- Cloud Function `onCall` protegida con secreto de invitación (recomendado), o
+- Endpoint en `server/` protegido con secreto de invitación (recomendado), o
 - consola de Firebase / script de administrador.
 
 ### Criterios de aceptación
@@ -141,12 +141,12 @@ Necesitas que DEV 1 cree los documentos en `students`. Mientras tanto usa
 ```text
 src/features/sessions/**
 src/features/ai/**
-functions/src/agents/**
+server/**
 ```
 
 ### Dependencias
 - Parejas de DEV 2 (`matchingResults/{id}/pairs/{id}`).
-- `functions/src/admin.js` (`requireUser`, `requireTeacher`) — **no editar**.
+- `server/src/firebaseAdmin.js` y la verificación del token de los endpoints — **no editar** sin avisar.
 
 ### Tareas
 
@@ -169,8 +169,8 @@ functions/src/agents/**
 - **Fase 2:** solo si da tiempo. Requiere OAuth con scopes de Calendar/Meet.
 
 ### Reglas del tutor IA
-- Gemini se llama **solo** desde `functions/src/agents/askTutor.js`.
-- La API key es un secreto de Cloud Functions. **Nunca** en `.env`, en Firestore
+- Gemini se llama **solo** desde `server/` (`api/ask-tutor.js` y el motor de sesiones).
+- La API key es una variable de entorno secreta del proyecto Vercel `ko_eduko`. **Nunca** en `.env`, en Firestore
   ni en una variable `VITE_`.
 - El tutor da pistas y hace preguntas. **No entrega la solución final.**
 

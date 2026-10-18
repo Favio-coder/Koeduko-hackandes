@@ -23,7 +23,7 @@ aprendizamiento**: no hay evidencia empírica.
 ## Cronograma
 
 ### Fase 0 — Base compartida (hecha)
-Arquitectura, estructura, contratos, router, layouts, reglas, Cloud Function base.
+Arquitectura, estructura, contratos, router, layouts, reglas, servidor base.
 
 ### Fase 1 — Horas 0–4 · En paralelo
 
@@ -119,12 +119,11 @@ Arquitectura, estructura, contratos, router, layouts, reglas, Cloud Function bas
 
 ## Decisiones técnicas pendientes
 
-1. ¿Quién promueve a docente: Cloud Function con secreto de invitación o consola?
+1. ¿Quién promueve a docente: endpoint del servidor (`server/`) con secreto de invitación o consola?
    → **DEV 1 decide en H4**, lo documenta en `API_CONTRACTS.md`.
 2. ¿Algoritmo exacto o greedy? → **DEV 2 decide en H10**. Si es greedy, declarar
    que no garantiza optimalidad en el código y en la UI.
-3. ¿Región de Functions `europe-west1`? Confirmar y ajustar en **dos** archivos
-   (`src/services/firebase.js` y la Cloud Function).
+3. ~~Región de Functions~~ — ya no aplica: no hay Cloud Functions (plan Spark); el backend es `server/` en Vercel.
 
 ---
 

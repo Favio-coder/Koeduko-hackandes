@@ -171,7 +171,7 @@ Reglas en `firestore.rules`. Índices en `firestore.indexes.json`.
 }
 ```
 
-- Escritura **exclusiva de Cloud Functions** (`allow write: if false` en rules).
+- Escritura **exclusiva del servidor** (`server/`, con firebase-admin; `allow write: if false` en rules).
 - Lectura: el propio estudiante o el docente.
 
 ---

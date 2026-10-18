@@ -187,29 +187,40 @@ es `null` y la UI muestra "sin enlace de reunion".
 askTutor({ sessionId, prompt }): Promise<string>
 ```
 
-Lanza `Error` si falta `sessionId`/`prompt` o si la función no responde.
+Lanza `Error` con el mensaje del servidor (o uno amistoso si no hay red) cuando falta `sessionId`/`prompt` o el servidor no responde.
 **Nunca** llamar a la API de Gemini desde el navegador.
 
-### Cloud Function — `functions/src/agents/askTutor.js`
+### Endpoint — `server/api/ask-tutor.js` (Vercel)
 
-```javascript
-onCall({ region: 'europe-west1', secrets: [geminiApiKey] })
-  -> { reply: string }
+```text
+POST https://koeduko.vercel.app/api/ask-tutor
+Authorization: Bearer <Firebase ID token>
+{ sessionId, prompt }  ->  { reply: string }
 ```
 
-- Entrada: `{ sessionId, prompt }`.
-- Errores: `unauthenticated`, `invalid-argument`, `not-found`, `internal`.
+- Lo puede llamar el docente o un estudiante cuyo uid esté en `studentIds` de la sesión.
+- Errores HTTP: `401` sin token válido, `400` entrada inválida, `403` sin permiso, `404` sesión inexistente, `500` interno.
+- CORS: solo los orígenes de `ALLOWED_ORIGINS` más `http://localhost:5173`; nunca `*`.
 - Registra la interacción en `learningSessions/{id}/tutorInteractions`.
+- Reutiliza `gemini.js` y `interventionPolicy.js` (`composeHint`): modelo fijado, límite de 6 s y
+  respuesta determinista si Gemini falla. La respuesta esperada nunca viaja en el prompt.
 
-### PedagogyPrompt — `functions/src/agents/tutorPrompt.js`
+### Endpoint — `server/api/start-session-bot.js`
 
-```javascript
-buildTutorInstruction({ prompt, skillLabel, level }): string
-buildTutorPayload({ prompt, skillLabel, level }): { systemInstruction, prompt }
+```text
+POST https://koeduko.vercel.app/api/start-session-bot
+Authorization: Bearer <Firebase ID token del docente>
+{ sessionId }  ->  { botId }
 ```
 
-Reglas: español breve (máx. 4 frases), favorece la explicación entre compañeros,
-pistas progresivas por nivel, **nunca entrega la solución final**.
+Solo docente. Lee el enlace de Meet de la sesión guardada (el navegador no lo envía) y evita
+invitar dos veces con una transacción. El estado queda en `learningSessions/{id}.bot.status`
+(`requested`, `in_call`, `done`, `failed`).
+
+### Webhook — `server/api/recall-webhook.js`
+
+Recibe los eventos de Recall.ai (token en la query, comparación en tiempo constante). Alimenta
+`learningSessions/{id}/live/state` y escribe `live/view` y `agentInterventions`. Ver `server/README.md`.
 
 ## 9. Firebase — `src/services/firebase.js`
 
@@ -217,9 +228,8 @@ pistas progresivas por nivel, **nunca entrega la solución final**.
 firebaseApp  // instancia única (default export)
 auth         // getAuth
 db           // getFirestore
-functions    // getFunctions(region: 'europe-west1')
 storage      // getStorage (solo si resulta necesario)
 ```
 
-Cambiar la región de Functions exige actualizar **dos** lugares:
-`src/services/firebase.js` y la opción `region` en la Cloud Function.
+No hay Cloud Functions: el proyecto Firebase está en el plan gratuito (Spark). Todo lo privilegiado
+vive en `server/`, un proyecto aparte de Vercel; el navegador lo llama con `src/services/serverApi.js`.
