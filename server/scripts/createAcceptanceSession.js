@@ -5,17 +5,14 @@
  *   node scripts/createAcceptanceSession.js --teacher-uid <uid> | --teacher-uid-file <archivo> [--session accept-001]
  *        [--meeting-url https://meet.google.com/htp-bkeg-oeb] [--service-account <archivo.json>]
  *
- * La cuenta de servicio se lee de un archivo FUERA del repo (por defecto
- * ~/Downloads/service-account.json) y nunca se imprime. No sobrescribe: si la sesion ya existe, falla.
- * Solo crea sesiones llamadas "accept-*".
+ * Credenciales (ver src/adminCredentials.js): FIREBASE_SERVICE_ACCOUNT_B64 como el servidor, o Application
+ * Default Credentials, o --service-account <archivo> como ultimo recurso; nada se imprime. No sobrescribe: si
+ * la sesion ya existe, falla. Solo crea sesiones llamadas "accept-*".
  */
 
 import { readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { cert, initializeApp } from 'firebase-admin/app'
-import { FieldValue, getFirestore } from 'firebase-admin/firestore'
+import { initAdmin } from '../src/adminCredentials.js'
 import { buildAcceptanceAnswer, buildAcceptanceSession } from '../src/sessions/core/acceptanceSession.js'
 
 const { values } = parseArgs({
@@ -25,7 +22,8 @@ const { values } = parseArgs({
     'teacher-uid-file': { type: 'string' },
     session: { type: 'string', default: 'accept-001' },
     'meeting-url': { type: 'string', default: 'https://meet.google.com/htp-bkeg-oeb' },
-    'service-account': { type: 'string', default: join(homedir(), 'Downloads', 'service-account.json') },
+    // Ultimo recurso: sin esto se usa FIREBASE_SERVICE_ACCOUNT_B64 o Application Default Credentials.
+    'service-account': { type: 'string' },
   },
 })
 
@@ -50,14 +48,13 @@ try {
   fail(error.message)
 }
 
-let account
+let admin
 try {
-  account = JSON.parse(readFileSync(values['service-account'], 'utf8'))
-} catch {
-  fail(`no pude leer la cuenta de servicio en ${values['service-account']}.`)
+  admin = initAdmin({ serviceAccountFile: values['service-account'], readFile: (file) => readFileSync(file, 'utf8') })
+} catch (error) {
+  fail(error.message)
 }
-
-const db = getFirestore(initializeApp({ credential: cert(account) }))
+const { db, FieldValue } = admin
 const ref = db.doc(`learningSessions/${values.session}`)
 
 try {
