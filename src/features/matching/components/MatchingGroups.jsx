@@ -1,4 +1,4 @@
-import React from 'react';
+//import React from 'react';
 
 // Subcomponente que usa tu página de resultados
 export function MatchingSummary() {

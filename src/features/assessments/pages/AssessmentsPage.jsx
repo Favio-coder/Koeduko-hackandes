@@ -9,6 +9,7 @@ import AssessmentEditor from "../components/AssessmentEditor";
 import StudentAttempt from "../components/StudentAttempt";
 import ResultsPanel from "../components/ResultsPanel";
 import AssessmentCompleted from "../components/AssessmentCompleted";
+import GradeHistoryPanel from "../components/GradeHistoryPanel";
 
 export default function AssessmentsPage() {
   const { isTeacher, user } = useAuth();
@@ -110,6 +111,13 @@ export default function AssessmentsPage() {
     );
   if (view?.kind === "results")
     return <ResultsPanel initial={view.value} course={course} onDone={back} />;
+  if (view?.kind === "grades")
+    return (
+      <GradeHistoryPanel
+        initial={view.value}
+        onDone={() => setView(null)}
+      />
+    );
   return (
     <div className="space-y-6">
       <header>
@@ -260,6 +268,22 @@ export default function AssessmentsPage() {
                   }
                 >
                   Crear evaluación
+                </Button>
+              )}
+              {!isTeacher && (
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () =>
+                      setView({
+                        kind: "grades",
+                        value: await assessmentRequest("grades"),
+                      }),
+                    )
+                  }
+                >
+                  Mis calificaciones
                 </Button>
               )}
               <Button variant="secondary" disabled={busy} onClick={back}>

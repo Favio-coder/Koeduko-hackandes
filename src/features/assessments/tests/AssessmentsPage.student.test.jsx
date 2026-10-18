@@ -46,6 +46,7 @@ describe("AssessmentsPage estudiante", () => {
       }
       if (action === "start") {
         return {
+          serverNow: new Date().toISOString(),
           assessment: {
             ...assessment,
             questions: [
@@ -62,6 +63,24 @@ describe("AssessmentsPage estudiante", () => {
             answers: {},
             revision: 0,
           },
+        };
+      }
+      if (action === "grades") {
+        return {
+          records: [],
+          averages: [
+            {
+              studentId: "student-1",
+              courseId: course.id,
+              courseName: course.name,
+              areaId: "math",
+              areaName: "Matemática",
+              average20: 13,
+              method: "arithmetic",
+              gradedCount: 2,
+              pendingCount: 1,
+            },
+          ],
         };
       }
       throw new Error(`Unexpected action: ${action}`);
@@ -119,5 +138,17 @@ describe("AssessmentsPage estudiante", () => {
     expect(
       screen.queryByRole("button", { name: "Iniciar evaluación" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("permite al estudiante consultar su historial y promedio del área", async () => {
+    render(<AssessmentsPage />);
+    await screen.findByRole("heading", { name: assessment.title });
+    fireEvent.click(screen.getByRole("button", { name: "Mis calificaciones" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Mis calificaciones" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("13 / 20")).toBeInTheDocument();
+    expect(assessmentRequest).toHaveBeenCalledWith("grades");
   });
 });

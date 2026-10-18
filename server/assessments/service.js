@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import {
   assertAvailable,
   buildMatchingContract,
+  courseAreas,
   courseCompetencies,
-  defaultSkills,
+  courseSkills,
   feedbackFor,
   grade,
   publicAssessment,
@@ -12,6 +13,7 @@ import {
   validateAnswers,
   validateAssessment,
 } from "./domain.js";
+import { calculateAreaAverage, normalizeGrade20 } from "./gradebook.js";
 
 const ROOT = "assessmentModules";
 const rows = (snap) => snap.docs.map((d) => ({ ...d.data(), id: d.id }));
@@ -25,6 +27,9 @@ export function createAssessmentService(db) {
     ).data();
     requireThat(
       course &&
+        typeof course.teacherId === "string" &&
+        course.teacherId.length > 0 &&
+        Array.isArray(course.studentIds) &&
         (teacher ? course.teacherId === uid : course.studentIds.includes(uid)),
       "No tienes acceso a este curso.",
       403,
@@ -35,7 +40,8 @@ export function createAssessmentService(db) {
       id: courseId,
       competencyId: course.competencyId || competencies[0].id,
       competencies,
-      skills: course.skills?.length ? course.skills : defaultSkills,
+      areas: courseAreas(course),
+      skills: courseSkills(course),
     };
   }
   async function actor(uid) {
@@ -69,6 +75,153 @@ export function createAssessmentService(db) {
   }
   async function assignmentRows(id) {
     return rows(await root(id).collection("assignments").get());
+  }
+  async function gradeHistory(uid, teacher, courseId) {
+    let courses;
+    if (courseId) {
+      courses = [await courseAccess(uid, courseId, teacher)];
+    } else {
+      requireThat(!teacher, "Selecciona un curso autorizado.", 400);
+      courses = rows(
+        await db
+          .collection("assessmentCourseAccess")
+          .where("studentIds", "array-contains", uid)
+          .get(),
+      ).map((course) => ({
+        ...course,
+        areas: courseAreas(course),
+      }));
+    }
+
+    const records = [];
+    for (const course of courses) {
+      const participants = teacher
+        ? course.studentIds
+        : [uid];
+      const courseGrades = await db.runTransaction(async (tx) => {
+        const assessmentSnapshot = await tx.get(
+          db.collection(ROOT).where("courseId", "==", course.id),
+        );
+        const assessments = rows(assessmentSnapshot).filter(
+          (assessment) =>
+            assessment.status !== "draft" &&
+            (teacher
+              ? assessment.ownerId === uid
+              : assessment.studentIds?.includes(uid)),
+        );
+        const refs = assessments.flatMap((assessment) =>
+          participants
+            .filter((studentId) => assessment.studentIds?.includes(studentId))
+            .map((studentId) => ({
+              assessment,
+              studentId,
+              ref: root(assessment.id)
+                .collection("assignments")
+                .doc(studentId),
+            })),
+        );
+        const snapshots = await Promise.all(
+          refs.map(({ ref }) => tx.get(ref)),
+        );
+        return { refs, snapshots };
+      });
+      const { refs, snapshots } = courseGrades;
+      const roster = teacher && participants.length
+        ? await db.getAll(
+            ...participants.map((studentId) =>
+              db.collection("users").doc(studentId),
+            ),
+          )
+        : [];
+      const names = new Map(
+        roster.map((snapshot) => [
+          snapshot.id,
+          snapshot.data()?.displayName || snapshot.id,
+        ]),
+      );
+
+      refs.forEach(({ assessment, studentId }, index) => {
+        const assignment = snapshots[index].data() || {
+          studentId,
+          count: 0,
+          resultStatus: "pending",
+          result: null,
+        };
+        const graded =
+          assignment.resultStatus === "graded" && assignment.result;
+        const status = graded
+          ? "graded"
+          : assignment.activeAttemptId
+            ? "in_progress"
+            : assignment.count > 0
+              ? "incomplete"
+              : "pending";
+        const score20 = graded ? normalizeGrade20(assignment.result) : null;
+        records.push({
+          studentId,
+          studentName: names.get(studentId) || studentId,
+          courseId: course.id,
+          courseName: course.name || course.id,
+          areaId: assessment.areaId,
+          areaName:
+            course.areas?.find((area) => area.id === assessment.areaId)
+              ?.label || assessment.areaId,
+          assessmentId: assessment.id,
+          assessmentTitle: assessment.title,
+          assessmentType: assessment.type,
+          assessmentStatus: assessment.status,
+          attemptCount: assignment.count || 0,
+          attemptId: assignment.lastAttemptId || null,
+          gradeStatus: status,
+          resultStatus: assignment.resultStatus || "pending",
+          rawScore: graded ? assignment.result.overallScore : null,
+          maxScore: graded ? assignment.result.maxScore : assessment.maxScore,
+          score20,
+          academicWeightPercent:
+            assessment.academicWeightPercent ?? null,
+          gradedAt: graded
+            ? assignment.academicGrade?.gradedAt || assignment.gradedAt
+            : null,
+          result: graded ? assignment.result : null,
+        });
+      });
+    }
+
+    const groups = new Map();
+    for (const record of records) {
+      const key = `${record.studentId}:${record.courseId}:${record.areaId}`;
+      const group = groups.get(key) || {
+        studentId: record.studentId,
+        studentName: record.studentName,
+        courseId: record.courseId,
+        courseName: record.courseName,
+        areaId: record.areaId,
+        areaName: record.areaName,
+        records: [],
+      };
+      group.records.push(record);
+      groups.set(key, group);
+    }
+    const averages = [...groups.values()].map((group) => ({
+      studentId: group.studentId,
+      studentName: group.studentName,
+      courseId: group.courseId,
+      courseName: group.courseName,
+      areaId: group.areaId,
+      areaName: group.areaName,
+      ...calculateAreaAverage(group.records),
+    }));
+    records.sort((first, second) =>
+      (second.gradedAt || "").localeCompare(first.gradedAt || ""),
+    );
+    return {
+      records: records.map((record) => {
+        const sanitized = { ...record };
+        delete sanitized.result;
+        return sanitized;
+      }),
+      averages,
+    };
   }
   const studentMetadata = (a) => {
     const copy = { ...a };
@@ -118,7 +271,8 @@ export function createAssessmentService(db) {
             name: c.name,
             competencyId: c.competencyId || competencies[0].id,
             competencies,
-            skills: c.skills?.length ? c.skills : defaultSkills,
+            areas: courseAreas(c),
+            skills: courseSkills(c),
             students: roster
               .filter((s) => s.exists && s.data().role === "student")
               .map((s) => ({ id: s.id, name: s.data().displayName || s.id })),
@@ -129,6 +283,9 @@ export function createAssessmentService(db) {
         courses: enriched,
         assessments: assessments.map((a) => (teacher ? a : studentMetadata(a))),
       };
+    }
+    if (action === "grades") {
+      return gradeHistory(uid, teacher, payload.courseId);
     }
     if (action === "save" || action === "publish") {
       requireThat(teacher, "Solo docentes.", 403);
@@ -249,9 +406,84 @@ export function createAssessmentService(db) {
       });
       return { ok: true };
     }
-    requireThat(!teacher, "Esta acción requiere una cuenta estudiantil.", 403);
     const definition = await privateAssessment(a.id);
     const assignmentRef = ref.collection("assignments").doc(uid);
+    if (action === "regrade") {
+      requireThat(teacher, "Solo el docente responsable.", 403);
+      requireThat(
+        validId(payload.studentId) && a.studentIds.includes(payload.studentId),
+        "Estudiante no asignado a esta evaluación.",
+        403,
+      );
+      const targetRef = ref.collection("assignments").doc(payload.studentId);
+      return db.runTransaction(async (tx) => {
+        const assignment = (await tx.get(targetRef)).data();
+        requireThat(
+          assignment?.resultStatus === "graded" &&
+            assignment.lastAttemptId,
+          "No hay una calificación final para recalificar.",
+          409,
+        );
+        const attemptRef = targetRef
+          .collection("attempts")
+          .doc(assignment.lastAttemptId);
+        const attempt = (await tx.get(attemptRef)).data();
+        requireThat(
+          attempt?.status === "graded",
+          "No se encontró el último intento corregido.",
+          409,
+        );
+        const result = grade(definition, payload.studentId, attempt.answers);
+        const scaledScore =
+          Math.round(
+            (result.overallScore / result.maxScore) * definition.scale * 100,
+          ) / 100;
+        const changed =
+          JSON.stringify(result) !== JSON.stringify(attempt.result);
+        if (!changed) {
+          return {
+            changed: false,
+            result: attempt.result,
+            scaledScore: attempt.scaledScore,
+          };
+        }
+        const changedAt = new Date().toISOString();
+        const academicGrade = {
+          score20: normalizeGrade20(result),
+          rawScore: result.overallScore,
+          maxScore: result.maxScore,
+          status: "graded",
+          gradedAt: changedAt,
+          attemptId: assignment.lastAttemptId,
+        };
+        const changeRef = targetRef.collection("gradeChanges").doc(randomUUID());
+        tx.update(attemptRef, {
+          result,
+          scaledScore,
+          academicGrade,
+          gradedAt: changedAt,
+        });
+        tx.update(targetRef, {
+          result,
+          scaledScore,
+          academicGrade,
+          gradedAt: changedAt,
+        });
+        tx.create(changeRef, {
+          assessmentId: a.id,
+          studentId: payload.studentId,
+          changedBy: uid,
+          changedAt,
+          previous: {
+            result: attempt.result,
+            scaledScore: attempt.scaledScore,
+          },
+          next: { result, scaledScore },
+        });
+        return { changed: true, result, scaledScore, gradedAt: changedAt };
+      });
+    }
+    requireThat(!teacher, "Esta acción requiere una cuenta estudiantil.", 403);
     if (action === "start") {
       return db.runTransaction(async (tx) => {
         const current = (await tx.get(ref)).data();
@@ -271,6 +503,7 @@ export function createAssessmentService(db) {
             return {
               attempt: oldAttempt,
               assessment: publicAssessment(definition),
+              serverNow: new Date().toISOString(),
               feedback:
                 current.feedbackMode === "immediate"
                   ? feedbackFor(definition, oldAttempt.answers)
@@ -307,7 +540,11 @@ export function createAssessmentService(db) {
           count: assignment.count + 1,
           activeAttemptId: id,
         });
-        return { attempt, assessment: publicAssessment(definition) };
+        return {
+          attempt,
+          assessment: publicAssessment(definition),
+          serverNow: new Date(now).toISOString(),
+        };
       });
     }
     if (action === "saveAnswers" || action === "submit") {
@@ -377,12 +614,21 @@ export function createAssessmentService(db) {
             (result.overallScore / result.maxScore) * definition.scale * 100,
           ) / 100;
         const gradedAt = new Date().toISOString();
+        const academicGrade = {
+          score20: normalizeGrade20(result),
+          rawScore: result.overallScore,
+          maxScore: result.maxScore,
+          status: "graded",
+          gradedAt,
+          attemptId: payload.attemptId,
+        };
         tx.update(attemptRef, {
           answers,
           revision,
           status: "graded",
           result,
           scaledScore,
+          academicGrade,
           gradedAt,
         });
         // Explicit policy: latest submitted attempt, never an arbitrary weighted mixture.
@@ -391,6 +637,7 @@ export function createAssessmentService(db) {
           resultStatus: "graded",
           result,
           scaledScore,
+          academicGrade,
           gradedAt,
           lastAttemptId: payload.attemptId,
         });

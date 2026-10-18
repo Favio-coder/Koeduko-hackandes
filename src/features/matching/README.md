@@ -100,7 +100,21 @@ No hay formulario para pegar JSON ni visor de JSON. Los datos estructurados sigu
 
 Si no se pasa knowledgeProfiles, se usa únicamente la demo compartida de shared/lib/demoData.js. Una lista vacía o inválida recibida desde la evaluación jamás activa ese fallback.
 
-Actualmente assessments aún no produce perfiles reales ni existe su servicio de resultados: la ruta por defecto recibe los cinco perfiles ficticios compartidos y espera el clic en Agrupar. La interfaz interna ya acepta los resultados cuando el productor los entregue. No se afirma una conexión a Firestore que todavía no existe.
+Las evaluaciones finalizadas se integran mediante el endpoint autenticado
+`GET /api/assessments/matching-profile?courseId=...&assessmentId=...`. Desde
+Resultados, el docente elige «Preparar perfiles para matching»; la pantalla
+`/matching` obtiene el contrato v1.0 directamente del backend, lo valida con
+este adaptador y muestra las habilidades con evidencia. No se descarga ni se
+sube JSON manualmente. El perfil se deriva de las asignaciones actuales al
+consultar el endpoint, de modo que una recalificación autorizada se refleja en
+la siguiente carga sin mantener una copia desactualizada. La finalización solo
+habilita los perfiles: no ejecuta el optimizador. El docente confirma el
+agrupamiento mediante «Agrupar».
+
+La ruta `/matching` sin parámetros mantiene los perfiles demo únicamente para
+la demostración existente. Una ruta con curso/evaluación seleccionados nunca
+recurre a datos demo ante un error de autorización, una evaluación no finalizada
+o un fallo de red.
 
 ## Variables y fundamento
 

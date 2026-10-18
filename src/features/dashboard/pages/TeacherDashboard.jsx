@@ -136,7 +136,7 @@ export default function TeacherDashboard() {
           <Avatar name={profile?.displayName || 'Docente'} size="md" />
           <div className="min-w-0">
             <h2 className="truncate text-xl font-bold tracking-tight text-[#304744] sm:text-2xl">
-              ¡Hola, {firstName}! 👋
+              ¡Hola, {firstName}! 
             </h2>
             <p className="mt-1 text-sm text-[#5A6B6A]">
               Gestiona tus estudiantes y acompaña su aprendizaje.
