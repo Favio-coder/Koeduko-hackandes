@@ -99,6 +99,16 @@ describe('claimBot', () => {
   })
 })
 
+describe('setDeliveredTo', () => {
+  it('updates only deliveredTo on the intervention', async () => {
+    const { firebase, writes } = fakeFirebase()
+    await createSessionStore(firebase).setDeliveredTo('s1', 'int-1', ['app', 'meet_chat'])
+    expect(writes).toEqual([
+      { op: 'update', path: 'learningSessions/s1/agentInterventions/int-1', data: { deliveredTo: ['app', 'meet_chat'] } },
+    ])
+  })
+})
+
 describe('setBotId / markBotFailed', () => {
   it('updates only the bot fields', async () => {
     const { firebase, writes } = fakeFirebase()

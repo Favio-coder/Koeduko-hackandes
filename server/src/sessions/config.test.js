@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readRecallConfig } from './config.js'
+import { readMeetChatConfig, readRecallConfig } from './config.js'
 import { ConfigError } from './errors.js'
 
 const env = {
@@ -62,5 +62,21 @@ describe('readRecallConfig', () => {
       expect(error.message).not.toContain('fake-api-key')
       expect(error.message).not.toContain('fake-token')
     }
+  })
+})
+
+describe('readMeetChatConfig', () => {
+  it('is on by default when there is a Recall key', () => {
+    expect(readMeetChatConfig({ RECALL_API_KEY: 'k', RECALL_REGION: 'us-west-2' })).toEqual({ enabled: true, apiKey: 'k', region: 'us-west-2' })
+    expect(readMeetChatConfig({ RECALL_API_KEY: 'k', MEET_CHAT_ENABLED: 'true' }).enabled).toBe(true)
+  })
+
+  it.each(['false', 'FALSE', ' 0 ', 'off', 'no'])('turns off with MEET_CHAT_ENABLED=%s', (value) => {
+    expect(readMeetChatConfig({ RECALL_API_KEY: 'k', MEET_CHAT_ENABLED: value }).enabled).toBe(false)
+  })
+
+  it('is off without a Recall key', () => {
+    expect(readMeetChatConfig({}).enabled).toBe(false)
+    expect(readMeetChatConfig({ RECALL_API_KEY: '  ' }).enabled).toBe(false)
   })
 })

@@ -119,6 +119,11 @@ export function createSessionStore({ db, FieldValue }) {
       }
     },
 
+    /** Marca por donde se entrego una intervencion ya creada, p. ej. ['app', 'meet_chat'] (1 escritura). */
+    async setDeliveredTo(sessionId, interventionId, deliveredTo) {
+      await db.doc(`learningSessions/${sessionId}/agentInterventions/${interventionId}`).update({ deliveredTo })
+    },
+
     /** Rol guardado en users/{uid}. El rol nunca se acepta del cliente. */
     async getUserRole(uid) {
       const snap = await db.doc(`users/${uid}`).get()

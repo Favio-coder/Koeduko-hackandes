@@ -29,3 +29,19 @@ export function readRecallConfig(env) {
     language: env.RECALL_TRANSCRIPT_LANGUAGE?.trim() || 'es',
   }
 }
+
+/**
+ * Chat de la reunion: MEET_CHAT_ENABLED es "true" por defecto; solo "false", "0", "off" o "no"
+ * lo apagan. Sin clave de Recall tampoco hay chat (el tutor sigue funcionando en la app).
+ * Una variable de Vercel solo se aplica en un despliegue nuevo: apagarlo = cambiar la variable y
+ * redesplegar el mismo codigo.
+ */
+export function readMeetChatConfig(env) {
+  const flag = (env.MEET_CHAT_ENABLED ?? 'true').trim().toLowerCase()
+  const apiKey = env.RECALL_API_KEY?.trim() || undefined
+  return {
+    enabled: !['false', '0', 'off', 'no'].includes(flag) && Boolean(apiKey),
+    apiKey,
+    region: env.RECALL_REGION?.trim() || undefined,
+  }
+}
