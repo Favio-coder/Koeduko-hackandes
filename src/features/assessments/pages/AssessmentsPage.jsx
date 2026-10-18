@@ -41,16 +41,20 @@ export default function AssessmentsPage() {
     return () => clearInterval(timer);
   }, [view?.kind]);
   /* Volver a pulsar «Curso» en el menú devuelve al listado del módulo, incluso
-     desde el editor: se respeta la confirmación de cambios sin guardar. */
-  const navIntent = location.state?.koedukoNav;
+     desde el editor: se respeta la confirmación de cambios sin guardar.
+     Solo debe reaccionar a una navegación real. Si se escuchara cualquier cambio
+     de `view`, abrir el editor o los resultados se cerraría al instante. */
+  const handledNav = useRef(null);
   useEffect(() => {
-    if (navIntent !== "/assessments" || !view) return;
+    if (handledNav.current === location) return;
+    handledNav.current = location;
+    if (location.state?.koedukoNav !== "/assessments" || !view) return;
     if (view.kind === "edit" && exitRef.current) {
       exitRef.current();
       return;
     }
     back();
-  }, [navIntent, view, back]);
+  }, [location, view, back]);
   const open = (a) =>
     run(async () => {
       if (isTeacher) {

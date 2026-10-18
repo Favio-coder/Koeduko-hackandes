@@ -101,6 +101,41 @@ describe('AssessmentsPage docente', () => {
     await waitFor(() => expect(screen.queryByText('Cargando evaluaciones…')).not.toBeInTheDocument())
   })
 
+  it('mantiene abierto el editor tras entrar desde el menú y pulsar «Crear evaluación»', async () => {
+    renderPage()
+    await screen.findByRole('heading', { name: 'Evaluaciones', level: 1 })
+    /* Navegación real del menú: queda registrada la intención de volver al curso. */
+    fireEvent.click(screen.getByRole('button', { name: 'Ir al menú de curso' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Crear evaluación' }))
+
+    expect(await screen.findByLabelText(/Nombre de la evaluación/)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Crear evaluación' })).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: /1\. ?Información general/ })).toBeInTheDocument()
+  })
+
+  it('mantiene abierta la vista de resultados tras entrar desde el menú', async () => {
+    vi.mocked(loadBootstrap).mockResolvedValue({
+      courses: [course],
+      assessments: [{ ...draft, status: 'published', studentIds: ['student-1'] }],
+    })
+    vi.mocked(assessmentRequest).mockImplementation(async (action) => {
+      if (action === 'results') return { assessment: draft, assignments: [] }
+      throw new Error(`Unexpected action: ${action}`)
+    })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Ir al menú de curso' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Ver resultados' }))
+
+    expect(
+      await screen.findByRole('heading', { name: /Resultados · Borrador de prueba/ }),
+    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Ver resultados' })).not.toBeInTheDocument()
+    })
+  })
+
   it('vuelve al listado del curso al pulsar «Curso» en el menú', async () => {
     renderPage()
     await openEditor()
