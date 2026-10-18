@@ -46,6 +46,25 @@ Las respuestas se leen frase por frase y entienden los números en palabras en e
 («¿cuánto son seis por ocho?») no cuenta como respuesta, y nombrar una operación («seis por ocho») tampoco: solo
 cuenta el resultado que se anuncia después («son cuarenta y ocho»).
 
+### 3.1 El observador de la conversación (cuando las reglas no dicen nada)
+
+Las señales por reglas dependen de un problema con respuesta numérica y de patrones concretos. Una sesión sin problema, o
+una conversación de otro tema, las dejaba mudas (se vio con dos compañeros reales: `currentProblem: null`, y el tutor
+nunca habló). Para cubrirlo, `core/conversationJudge.js` agrega una capa que **solo corre si las reglas no intervinieron**:
+
+- Cada ~30 s (y no antes de 60 s tras cualquier intervención), si hay al menos 12 palabras nuevas de personas, un modelo
+  lee la conversación reciente (12 frases), con el contexto de la clase y el problema si existe, y responde un JSON:
+  **hablar o callar**, tipo (`confusion`, `atasco`, `error-conceptual`, `fuera-de-tema`, `excluido`), destinatario y
+  mensaje. Callar es lo normal.
+- El modelo no ejecuta nada: el código valida el mensaje con la misma política (máx. 2 oraciones, una pregunta, nombra al
+  destinatario, nunca la respuesta). Con una sola persona le habla solo a ella.
+- No suma escrituras al estado (la marca `lastJudgeT` viaja en la que ya existe); si habla, 1 escritura más para que el
+  cooldown la recuerde. Sale por chat y voz como las demás (`signal: CONVERSATION`, `source: observer`).
+- Se apaga con `CONVERSATION_JUDGE_ENABLED=false`. Necesita `GEMINI_API_KEY`.
+
+Límite: depende de la calidad de la transcripción y de un modelo; puede callar cuando debería hablar o al revés. Los logs
+registran solo códigos (`speak`, `kind`, `why`), nunca lo que dijeron.
+
 ## 4. El mensaje del tutor
 
 - **Máximo 2 oraciones y 220 caracteres**, una pregunta, el nombre del destinatario, y menciona el problema.
