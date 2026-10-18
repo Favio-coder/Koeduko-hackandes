@@ -1,6 +1,7 @@
 import { deterministicId } from './core/ids.js'
 import { addresseeOf } from './core/interventionPolicy.js'
 import { DEFAULT_CONFIG } from './core/signals.js'
+import { memoryQueryOf } from './core/memoryText.js'
 import { memoryCacheKey, memoryScopeOf, studentKeyOf } from './core/studentKey.js'
 import { synthesize } from './adapters/elevenlabs.js'
 import { sendAudio, sendChatMessage } from './adapters/recall.js'
@@ -80,7 +81,7 @@ export function createAfterLiveEventSaved({
     const hit = cached?.[memoryCacheKey(key)]
     if (Array.isArray(hit)) return { notes: hit, cache: 'hit' }
 
-    const query = problem ? `${problem.skillId ?? 'matemática'}: ${problem.text ?? ''}`.trim() : 'resolución de problemas de matemática'
+    const query = memoryQueryOf(problem)
     let notes
     try {
       const recalled = await memory.recall(key, query)
