@@ -17,6 +17,7 @@ describe('readRecallConfig', () => {
       webhookUrl: 'https://koeduko-sessions.vercel.app/api/recall-webhook',
       webhookToken: 'fake-token',
       language: 'es',
+      speak: false,
     })
   })
 

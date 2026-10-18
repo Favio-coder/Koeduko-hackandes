@@ -64,15 +64,33 @@ export function withToken(webhookUrl, token) {
   return url.toString()
 }
 
-/** Body de Create Bot. Sin join_at: el bot entra de inmediato. */
+/**
+ * Un mp3 silencioso de ~78 ms: tres tramas MPEG-1 Layer III (128 kbps, 44,1 kHz, estereo) con el cuerpo en ceros,
+ * que se decodifican como silencio. Recall exige que el bot nazca con `automatic_audio_output` para poder usar
+ * despues `output_audio`; la documentacion sugiere justo esto: "a short silent mp3".
+ */
+export function silentMp3Base64() {
+  const frame = Buffer.alloc(417) // 144 * 128000 / 44100 = 417 bytes por trama
+  frame[0] = 0xff
+  frame[1] = 0xfb // sincronia + MPEG-1 + Layer III + sin CRC
+  frame[2] = 0x90 // 128 kbps, 44,1 kHz, sin relleno
+  return Buffer.concat([frame, frame, frame]).toString('base64')
+}
+
+/**
+ * Body de Create Bot. Sin join_at: el bot entra de inmediato. Con `speak` el bot nace con salida de audio
+ * (un clip silencioso), requisito de Recall para que despues pueda hablar con sendAudio.
+ */
 export function buildCreateBotBody({
   meetingUrl,
   sessionId,
   webhookUrl,
   botName = BOT_NAME,
   language = 'es',
+  speak = false,
 }) {
   return {
+    ...(speak ? { automatic_audio_output: { in_call_recording: { data: { kind: 'mp3', b64_data: silentMp3Base64() } } } } : {}),
     meeting_url: requireText(meetingUrl, 'meetingUrl'),
     bot_name: botName,
     metadata: { sessionId: requireText(sessionId, 'sessionId') },
@@ -124,9 +142,10 @@ export async function createBot({
   webhookUrl,
   botName,
   language,
+  speak = false,
   fetchImpl = globalThis.fetch,
 }) {
-  const body = buildCreateBotBody({ meetingUrl, sessionId, webhookUrl, botName, language })
+  const body = buildCreateBotBody({ meetingUrl, sessionId, webhookUrl, botName, language, speak })
   const bot = await call(fetchImpl, `${apiBase(region)}/bot/`, { apiKey, body })
   if (typeof bot?.id !== 'string' || !bot.id) {
     throw new RecallApiError('Recall no devolvio el id del bot.', { status: 502 })
@@ -168,6 +187,40 @@ export async function sendChatMessage({
       method: 'POST',
       headers: { Authorization: requireText(apiKey, 'apiKey'), accept: 'application/json', 'content-type': 'application/json' },
       body: JSON.stringify({ message, to: 'everyone' }),
+      signal: controller.signal,
+    })
+    return { ok: response.ok, status: response.status }
+  } catch {
+    return { ok: false, status: 0 }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Hace que el bot reproduzca un mp3 en la reunion (`POST /bot/{id}/output_audio/`, `{ kind: "mp3", b64_data }`).
+ * Nunca lanza: devuelve { ok, status } (status 0 = sin respuesta).
+ *
+ * OJO: la documentacion de Recall dice que este endpoint es para clips cortos y que NO es para habla dinamica
+ * generada en tiempo real por un TTS ni para baja latencia (para eso recomienda Output Media). Aqui se usa para UNA
+ * frase corta cada >= 90 s, como experimento detras de MEET_VOICE_ENABLED: se valida en una reunion real y, si falla
+ * o tarda, se deja apagado. Requiere que el bot se haya creado con `speak: true`. No registra el audio.
+ *
+ * @returns {Promise<{ ok: boolean, status: number }>}
+ */
+export async function sendAudio({ apiKey, region, botId, mp3Base64, timeoutMs = 8000, fetchImpl = globalThis.fetch }) {
+  requireText(botId, 'botId')
+  if (!BOT_ID_PATTERN.test(botId)) throw new TypeError('botId no es valido.')
+  const data = requireText(mp3Base64, 'mp3Base64')
+  const url = `${apiBase(region)}/bot/${botId}/output_audio/`
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetchImpl(url, {
+      method: 'POST',
+      headers: { Authorization: requireText(apiKey, 'apiKey'), accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'mp3', b64_data: data }),
       signal: controller.signal,
     })
     return { ok: response.ok, status: response.status }

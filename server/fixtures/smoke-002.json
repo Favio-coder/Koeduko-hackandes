@@ -1,0 +1,284 @@
+{
+  "description": "liveEvents de la primera prueba real de matematica en Google Meet (~151 s, UN solo participante, espanol). Participante anonimizado.",
+  "sessionId": "smoke-002",
+  "source": "Reconstruido para el replay: join, transcript y leave salen de liveEvents (Firestore) y speech_on/speech_off de la API de Recall (no se guardan en Firestore); t = segundos desde el inicio de la grabacion. El problema: 6 cajas con 8 lapices (respuesta 48). Es una conversacion desordenada y con un solo participante: no hay SILENT_PEER ni DOMINANCE.",
+  "participants": [
+    {
+      "participantId": 100,
+      "participantKey": "estudiante a"
+    }
+  ],
+  "counts": {
+    "join": 1,
+    "speech_on": 7,
+    "transcript": 8,
+    "speech_off": 7,
+    "leave": 1
+  },
+  "events": [
+    {
+      "id": "evt-joinp100t2e0",
+      "type": "join",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 0.002147868974134326,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:52:44.313147Z"
+    },
+    {
+      "id": "evt-speechonp100t3609e0",
+      "type": "speech_on",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 3.609,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:52:47.920875Z"
+    },
+    {
+      "id": "evt-transcriptp100t5005e6685",
+      "type": "transcript",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 5.0054707527160645,
+      "tEnd": 6.685471057891846,
+      "text": "A ver, estoy hablando del",
+      "occurredAt": "2026-10-18T06:52:50.996Z"
+    },
+    {
+      "id": "evt-transcriptp100t6835e8675",
+      "type": "transcript",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 6.835471153259277,
+      "tEnd": 8.675470352172852,
+      "text": "Necesito que puedas intervenir.",
+      "occurredAt": "2026-10-18T06:52:52.986Z"
+    },
+    {
+      "id": "evt-speechoffp100t15245e0",
+      "type": "speech_off",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 15.245,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:52:59.556646Z"
+    },
+    {
+      "id": "evt-speechonp100t15545e0",
+      "type": "speech_on",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 15.545,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:52:59.856985Z"
+    },
+    {
+      "id": "evt-speechoffp100t26881e0",
+      "type": "speech_off",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 26.881,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:53:11.192514Z"
+    },
+    {
+      "id": "evt-speechonp100t39792e0",
+      "type": "speech_on",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 39.792,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:53:24.103685Z"
+    },
+    {
+      "id": "evt-speechoffp100t42346e0",
+      "type": "speech_off",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 42.346,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:53:26.657003Z"
+    },
+    {
+      "id": "evt-speechonp100t42721e0",
+      "type": "speech_on",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 42.721,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:53:27.032415Z"
+    },
+    {
+      "id": "evt-transcriptp100t43312e45632",
+      "type": "transcript",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 43.312156677246094,
+      "tEnd": 45.63215637207031,
+      "text": "Hay seis cajas con ocho lapiceros. ¿Cuánto lapiceros?",
+      "occurredAt": "2026-10-18T06:53:29.943Z"
+    },
+    {
+      "id": "evt-transcriptp100t47482e50522",
+      "type": "transcript",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 47.482154846191406,
+      "tEnd": 50.52215576171875,
+      "text": "No entiendo cómo se hace, de hecho, así no entiendo.",
+      "occurredAt": "2026-10-18T06:53:34.833Z"
+    },
+    {
+      "id": "evt-speechoffp100t53456e0",
+      "type": "speech_off",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 53.456,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:53:37.767267Z"
+    },
+    {
+      "id": "evt-speechonp100t90766e0",
+      "type": "speech_on",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 90.766,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:54:15.077619Z"
+    },
+    {
+      "id": "evt-transcriptp100t91319e95079",
+      "type": "transcript",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 91.31878662109376,
+      "tEnd": 95.07878112792967,
+      "text": "No sé. Es cuarenta y ocho",
+      "occurredAt": "2026-10-18T06:54:19.389Z"
+    },
+    {
+      "id": "evt-speechoffp100t96772e0",
+      "type": "speech_off",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 96.772,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:54:21.083105Z"
+    },
+    {
+      "id": "evt-speechonp100t100825e0",
+      "type": "speech_on",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 100.825,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:54:25.136922Z"
+    },
+    {
+      "id": "evt-speechoffp100t106380e0",
+      "type": "speech_off",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 106.38,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:54:30.691961Z"
+    },
+    {
+      "id": "evt-transcriptp100t110072e113992",
+      "type": "transcript",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 110.07215881347656,
+      "tEnd": 113.99215698242188,
+      "text": "No sé de de de cuál es el por ejemplo pues es lo que hablé.",
+      "occurredAt": "2026-10-18T06:54:38.303Z"
+    },
+    {
+      "id": "evt-speechonp100t110134e0",
+      "type": "speech_on",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 110.134,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:54:34.445318Z"
+    },
+    {
+      "id": "evt-transcriptp100t120522e122682",
+      "type": "transcript",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 120.52215576171876,
+      "tEnd": 122.68215942382812,
+      "text": "¿Quién será esa compañía?",
+      "occurredAt": "2026-10-18T06:54:46.993Z"
+    },
+    {
+      "id": "evt-transcriptp100t123562e124202",
+      "type": "transcript",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 123.5621566772461,
+      "tEnd": 124.20215606689452,
+      "text": "Ellos",
+      "occurredAt": "2026-10-18T06:54:48.513Z"
+    },
+    {
+      "id": "evt-speechoffp100t125373e0",
+      "type": "speech_off",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 125.373,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:54:49.684736Z"
+    },
+    {
+      "id": "evt-leavep100t151267e0",
+      "type": "leave",
+      "participantKey": "estudiante a",
+      "participantId": 100,
+      "studentId": null,
+      "t": 151.26712036132812,
+      "tEnd": null,
+      "text": null,
+      "occurredAt": "2026-10-18T06:55:15.578115Z"
+    }
+  ]
+}

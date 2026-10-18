@@ -42,6 +42,7 @@ export async function startSessionBot({ sessionId, nowMs, config, store, createB
       sessionId,
       webhookUrl: withToken(config.webhookUrl, config.webhookToken),
       language: config.language,
+      speak: config.speak === true,
     }))
   } catch (error) {
     await store.markBotFailed(sessionId).catch(() => {})

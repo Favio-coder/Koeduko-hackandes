@@ -42,6 +42,7 @@ describe('startSessionBot', () => {
       sessionId: 'smoke-001',
       webhookUrl: 'https://koeduko-sessions.vercel.app/api/recall-webhook?token=fake-token',
       language: 'es',
+      speak: false,
     })
     expect(deps.store.setBotId).toHaveBeenCalledWith('smoke-001', 'bot-1')
     expect(deps.store.markBotFailed).not.toHaveBeenCalled()

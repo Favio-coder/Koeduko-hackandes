@@ -184,7 +184,8 @@ export function buildCompetencyReport({ transcripts = [], totals = null, partici
 
     // 1. Traduce: nombra una operacion con numeros; o se confundio al plantear el problema.
     const operations = mine.filter((tr) => tr.sentences.some((s) => s.operation))
-    const stuck = mine.filter((tr) => tr.confusion && (firstAnswerT === null || tr.t <= firstAnswerT))
+    // Una frase que ademas RESPONDE ("No se. Es cuarenta y ocho") no es evidencia de dificultad para plantear: ya respondio.
+    const stuck = mine.filter((tr) => tr.confusion && tr.answers.length === 0 && (firstAnswerT === null || tr.t <= firstAnswerT))
     const labeledTranslate = doubtful.filter((d) => d.k === key && labels[d.id] === CAPABILITY_IDS.TRADUCE)
     const translates = stateFor({ strong: operations.length, weak: stuck.length + labeledTranslate.length, strongNeeded: 2 })
 

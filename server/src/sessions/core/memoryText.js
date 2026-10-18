@@ -21,6 +21,21 @@ const SKILL_LABELS = Object.freeze({
 const stateOf = (student, id) => student.capacidades.find((c) => c.id === id)?.estado ?? EVIDENCE_STATE.NONE
 
 /**
+ * Consulta para recordar a un estudiante. Se escribe en el MISMO vocabulario que la nota que guarda memoryTextOf
+ * (desempeno: comunicacion, estrategia, argumentacion, mas la habilidad), porque la busqueda es SEMANTICA: buscar con
+ * el enunciado del problema ("Hay 6 cajas con 8 lapices...") no se parece a una nota de desempeno y no devolvia nada
+ * (comprobado en la primera prueba real: cache 'miss' y 0 notas aunque el cierre habia guardado una).
+ * Nunca incluye el enunciado ni la respuesta.
+ *
+ * @param {{ skillId?: string|null }|null} [problem]
+ * @returns {string}
+ */
+export function memoryQueryOf(problem = null) {
+  const skill = SKILL_LABELS[problem?.skillId] ?? 'matemática'
+  return `¿Cómo le fue en ${skill} en sesiones anteriores? Comunicación, estrategia de cálculo, planteó la operación y argumentación.`
+}
+
+/**
  * @param {{ sessionId: string, problem?: { skillId?: string|null }|null, student: { resumen: { talkPct: number }, capacidades: object[] } }} input
  * @returns {string}
  */

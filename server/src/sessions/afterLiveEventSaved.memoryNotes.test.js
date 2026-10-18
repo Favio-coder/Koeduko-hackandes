@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { MAX_MEMORY_NOTES, MAX_MEMORY_NOTE_CHARS, buildInterventionPrompt, SYSTEM_INSTRUCTION } from './core/interventionPolicy.js'
+import { memoryQueryOf } from './core/memoryText.js'
 import { studentKeyOf } from './core/studentKey.js'
 import { createAfterLiveEventSaved } from './afterLiveEventSaved.js'
 import { composeIntervention } from './tutor.js'
@@ -77,7 +78,7 @@ describe('afterLiveEventSaved with memory', () => {
     await hook({ sessionId: 's2', result })
 
     const expectedKey = studentKeyOf({ participantKey: 'estudiante b', scope: 'docente-1' })
-    expect(memory.recall).toHaveBeenCalledWith(expectedKey, 'multiplication: ¿Cuántos lápices hay en total?')
+    expect(memory.recall).toHaveBeenCalledWith(expectedKey, memoryQueryOf(problem))
     expect(generate.mock.calls[0][0].userPrompt).toContain('- «Sesión s1: usó estrategia correcta; sin evidencia de argumentación.»')
     expect(logger.info).toHaveBeenCalledWith('afterLiveEventSaved: intervencion', expect.objectContaining({ memoryNotes: 1 }))
   })
