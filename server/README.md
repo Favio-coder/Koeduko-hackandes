@@ -341,8 +341,9 @@ pegado al número, y una pregunta ("¿cuánto son seis por ocho?") no cuenta com
 - El anfitrión debe admitir al bot en Meet manualmente (limitación de Google Meet).
 - Qué está probado y qué no, con sus datos: `docs/TESTING.md`. En corto: `start-session-bot` desde la app con un
   docente real **sí** se probó (el bot se creó y entró a la reunión), pero **nunca** una conversación de matemática
-  entre dos estudiantes de punta a punta, ni un mensaje del tutor visto en el chat de Meet, ni un cierre de sesión
-  real con su reporte, ni la memoria entre dos sesiones.
+  entre dos estudiantes de punta a punta, ni un mensaje del tutor visto en el chat de Meet, ni el reporte de una
+  conversación real, ni la memoria entre dos sesiones. El cierre en sí (`close-session`) sí se probó de punta a punta
+  con una sesión real sin conversación (ver `docs/TESTING.md`).
 - El token del webhook va en la URL (`?token=`). Recall muestra esa URL en la configuración del
   bot, por lo que debe rotarse después de cada demo. Mejora futura: verificar la firma HMAC que
   Recall envía en las cabeceras.

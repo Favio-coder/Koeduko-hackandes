@@ -32,6 +32,8 @@ no carga sin las llaves de Firebase. No son de este módulo y no se tocaron.
 | **CORS del backend** | `OPTIONS` desde cada origen | – | 204 para el frontend de producción, el alias de la preview y `localhost:5173`; 403 para un origen ajeno; 401 sin token. |
 | **Pantalla de la sesión** | Navegador real, docente logueado, sesión real | `accept-001`, `accept-mem-1` | Muestra problema, enlace de Meet, «Invitar tutor» y «Cerrar sesión»; el error de permisos se muestra bien. |
 | **Invitar al tutor desde la app** | Clic real en «Invitar tutor» | `accept-mem-1` | El bot se creó y entró a la reunión (admitido por el anfitrión tras ~5 min de espera). |
+| **Cerrar una sesión de punta a punta** (18-oct-2026) | Clic real en «Cerrar sesión» contra `POST /api/close-session` en producción, con docente | `accept-mem-1`: la única sesión con eventos reales, pero **sin conversación** (entró una sola persona, 2,8 s de habla) | Respondió en 6 s y el reporte se mostró y quedó guardado en `summary/final` (el docente lo lee; la sesión pasó a `completed`). `steps`: `leaveCall` falló con 400 (el bot ya se había ido: el fallo quedó registrado y avisado, y el cierre siguió), `memory.saved` = 1, `classifier` omitido (no había frases dudosas). **No prueba la calidad del reporte**, solo que el flujo funciona. |
+| **«Sesión activa» y «Tutor IA» del menú** | Navegador real, docente logueado | Sesiones reales de Firestore | `/sessions/active` resuelve a una sesión real (`accept-mem-3`) y el ítem queda resaltado; `/sessions/active/tutor` lleva a su tutor. Ya no apuntan a una sesión de demostración. |
 
 ## 3. Lo que NO se probó
 
@@ -39,7 +41,7 @@ no carga sin las llaves de Firebase. No son de este módulo y no se tocaron.
 | --- | --- |
 | **Una conversación de matemática real entre dos estudiantes en Meet** | Es la prueba central y no se hizo: en el único intento (`accept-mem-1`) entró una sola persona y no hubo conversación. Por eso **no existe `smoke-002`**. |
 | **Que el mensaje del tutor llegue al chat de Meet** (`deliveredTo: meet_chat`) | El código y el contrato de Recall están verificados contra su documentación y con tests, pero nunca se vio un mensaje aparecer en un chat real. |
-| **`POST /api/close-session` con datos reales** | Solo tests unitarios y el rechazo sin token. Nunca se cerró una sesión con conversación real ni se vio el reporte con datos reales. |
+| **El reporte de competencias con una conversación real** | El cierre funciona (sección 2), pero nunca se generó el reporte de una conversación de matemática: no se sabe qué estados salen ni si las citas tienen sentido. |
 | **La memoria entre sesiones** (sesión 1 → sesión 2) | Cada pieza se probó por separado (guardar, recordar, el prompt), pero nunca el ciclo completo. No se sabe si cambia el texto de la intervención. |
 | **`SILENT_PEER`, `WRONG_ANSWER` y `CORRECT_ANSWER` con una conversación real de matemática** | Solo se vio `SILENT_PEER` y en una conversación que no era de matemática. |
 | **La calidad pedagógica de lo que dice el tutor, con niños** | No se evaluó con ningún niño ni docente. |

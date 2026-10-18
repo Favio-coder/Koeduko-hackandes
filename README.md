@@ -163,7 +163,8 @@ esté declarada.
 Detalle y datos en `docs/TESTING.md`. En corto: está probado con **una reunión real de Meet** (`smoke-001`, 3 personas,
 ~110 s; el motor intervino una vez) y con tests unitarios. **No** se ha ejecutado de punta a punta una conversación de
 matemática real entre dos estudiantes, ni se ha visto un mensaje del tutor aparecer en el chat de Meet, ni se ha
-cerrado una sesión real con su reporte, ni se ha comprobado la memoria entre dos sesiones. No se ha medido ningún
+generado el reporte de una conversación real (el cierre en sí sí funciona de punta a punta), ni se ha comprobado la
+memoria entre dos sesiones. No se ha medido ningún
 efecto sobre el aprendizaje.
 
 ### Despliegue
