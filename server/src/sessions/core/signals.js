@@ -150,14 +150,27 @@ export function answerNumbersOf(text) {
   return answers
 }
 
-function answerSignals(state, keys, from, problem, context) {
+/** Segundos que se espera la continuacion de un fragmento que termina en "y" ("cuarenta y" ... "dos"). */
+const CONTINUATION_SEC = 5
+
+/** La transcripcion corta las frases a media cifra: "...cuarenta y" | "dos, algo asi". Termina colgada en un conector. */
+const endsUnfinished = (text) => /\b(y|con)$/.test(foldText(text).trim().replace(/[,;.]+$/, ''))
+
+function answerSignals(state, keys, from, problem, context, now) {
   if (!problem || !Number.isFinite(problem.expectedAnswer)) return []
   const startedAt = Number.isFinite(problem.startedAtT) ? problem.startedAtT : -Infinity
   const signals = []
 
   for (const key of keys) {
-    const last = state.transcripts.filter((x) => x.k === key && x.t >= startedAt && x.e >= from).at(-1)
-    const numbers = last ? answerNumbersOf(last.x) : []
+    const mine = state.transcripts.filter((x) => x.k === key && x.t >= startedAt)
+    const last = mine.filter((x) => x.e >= from).at(-1)
+    if (!last) continue
+    // Un fragmento colgado ("cuarenta y") se espera un momento: leerlo solo daria "40" cuando la persona dijo 42.
+    if (endsUnfinished(last.x) && now - last.e < CONTINUATION_SEC) continue
+    // Si el fragmento anterior quedo colgado y este lo continua, se leen juntos.
+    const before = mine.at(-2)
+    const joined = before && before !== last && endsUnfinished(before.x) && last.t - before.e <= CONTINUATION_SEC ? `${before.x} ${last.x}` : last.x
+    const numbers = answerNumbersOf(joined)
     if (numbers.length === 0) continue
 
     const correct = numbers.some((n) => Math.abs(n - problem.expectedAnswer) < EPS)
@@ -221,7 +234,7 @@ export function detectSignalsFromState(state, now, { problem = null, config = {}
     signals.push({ type: 'STUCK', participantKey: null, studentId: null, t: now, evidence: { markers, windowSec: cfg.windowSec, ...context } })
   }
 
-  signals.push(...answerSignals(state, keys, from, problem, context))
+  signals.push(...answerSignals(state, keys, from, problem, context, now))
 
   return signals.filter((signal) => !cfg.disabledSignals.includes(signal.type)).sort(byPriorityThenKey)
 }

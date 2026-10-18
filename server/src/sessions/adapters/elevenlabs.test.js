@@ -45,6 +45,17 @@ describe('synthesize (ElevenLabs text to speech)', () => {
     expect(JSON.stringify(result)).not.toContain('xi-secret-key')
   })
 
+  it('adds the short error code of the service (detail.status) so a 400 can be told apart, and nothing else of the body', async () => {
+    const body = { detail: { status: 'invalid_uid', message: 'texto largo que no se registra' } }
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => body })
+    const result = await synthesize({ ...input, fetchImpl })
+    expect(result).toEqual({ ok: false, status: 400, code: 'invalid_uid' })
+    expect(JSON.stringify(result)).not.toContain('texto largo')
+
+    const odd = vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ detail: { status: 'x y <script>' } }) })
+    await expect(synthesize({ ...input, fetchImpl: odd })).resolves.toEqual({ ok: false, status: 400 })
+  })
+
   it('treats an empty body as a failure', async () => {
     await expect(synthesize({ ...input, fetchImpl: vi.fn().mockResolvedValue(audio(200, [])) })).resolves.toEqual({ ok: false, status: 200 })
   })
