@@ -21,7 +21,9 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { arrivalTime, inArrivalOrder, toRecallPayload } from '../src/sessions/core/recallPayload.js'
 
 const DEFAULT_URL = 'https://koeduko.vercel.app/api/recall-webhook'
-const SESSION_PATTERN = /^smoke-replay-[a-z0-9-]{1,40}$/
+// smoke-replay-*: sesiones desechables. accept-mem-*: las de la prueba de memoria entre sesiones, que
+// ademas necesitan un documento de sesion (ver scripts/createAcceptanceSession.js). Nunca accept-001 ni una real.
+const SESSION_PATTERN = /^(smoke-replay|accept-mem)-[a-z0-9-]{1,40}$/
 const MAX_ATTEMPTS = 3
 const REQUEST_TIMEOUT_MS = 8000
 
@@ -41,7 +43,7 @@ function fail(message) {
   process.exit(1)
 }
 
-if (!values.session || !SESSION_PATTERN.test(values.session)) fail('--session debe llamarse "smoke-replay-<algo>" (nunca una sesion real).')
+if (!values.session || !SESSION_PATTERN.test(values.session)) fail('--session debe llamarse "smoke-replay-<algo>" o "accept-mem-<algo>" (nunca una sesion real).')
 const speed = Number(values.speed)
 if (!(speed > 0)) fail('--speed debe ser un numero positivo.')
 if (!values.url.startsWith('https://')) fail('--url debe ser https.')
