@@ -262,7 +262,7 @@ activo. No se exportan habilidades sin evidencia. Ver
   pairId: "pair-001",
   matchingResultId: "result-001",
   title: "Sesion 1 - Ana y Luis",
-  studentIds: ["student-001", "student-002"],
+  studentIds: ["uid-firebase-ana", "uid-firebase-luis"], // UIDs de Firebase Auth, NO ids de la coleccion students
   meetingUrl: null,
   meetingProvider: "google-meet",
   status: "scheduled" | "live" | "completed" | "cancelled",
@@ -270,16 +270,55 @@ activo. No se exportan habilidades sin evidencia. Ver
   startedAt: Timestamp | null,
   endedAt: Timestamp | null,
   participation: {
-    "student-001": { "joinedAt": Timestamp, "messagesCount": 0 },
-    "student-002": { "joinedAt": Timestamp, "messagesCount": 0 }
+    "uid-firebase-ana": { "joinedAt": Timestamp, "messagesCount": 0 },
+    "uid-firebase-luis": { "joinedAt": Timestamp, "messagesCount": 0 }
   },
   createdBy: "uid-del-docente",
   createdAt: Timestamp
 }
 ```
 
-- Un estudiante solo puede modificar `status`, `joinedAt` y `participation` (regla acotada).
+- Lectura y actualización: el docente o un estudiante cuyo UID esté en `studentIds`. Crear y borrar: solo el docente.
+- Un estudiante de la sesión solo puede modificar `status`, `joinedAt` y `participation` (regla acotada).
+- `server/` (`auth.js`) y las reglas de `live/*` comparan `studentIds` contra `request.auth.uid`.
 - El docente gestiona el resto, incluido `meetingUrl`.
+
+`currentProblem` es solo el enunciado: `{ activityId, skillId, text }`. **La respuesta esperada no va en este
+documento** (lo leen los estudiantes de la sesión): vive en `private/answer`.
+
+### learningSessions/{sessionId}/private/answer
+
+```javascript
+{ activityId: "p-01", expectedAnswer: 48 }
+```
+
+- `allow read, write: if false`: ningún cliente. Solo el Admin SDK (`server/`). El motor la lee una vez por
+  problema y la cachea en `live/state.answer`. Para migrar una sesión vieja: `server/scripts/protectAnswer.js`.
+
+### learningSessions/{sessionId}/live/{state,view}
+
+- `live/view`: lo único de `live/` que lee el navegador (reparto de habla y últimas 20 frases ya calculados). Lo
+  leen el docente y los estudiantes de la sesión. No incluye la respuesta.
+- `live/state`: estado incremental del motor (ventana de habla, presencia, últimas transcripciones, habla
+  acumulada `totals`, caché de la respuesta). **Ningún cliente lo lee** (`read, write: if false`).
+
+### learningSessions/{sessionId}/summary/final
+
+```javascript
+{ v: 1, sessionId, report: { ... }, steps: { leaveCall, classifier, memory: { saved, failed, skipped, failures } }, closedAt: Timestamp }
+```
+
+- Lo escribe `POST /api/close-session` (ver `API_CONTRACTS.md` para la forma de `report`). Lectura: **solo el
+  docente**. Es evidencia formativa por competencias: nunca una nota.
+
+### students/{key}/memory/{id}  (respaldo de la memoria por estudiante)
+
+```javascript
+{ text: "Sesión accept-001, multiplicación: comunicó 28% del tiempo; usó estrategia correcta; sin evidencia de argumentación.", createdAt: Timestamp }
+```
+
+- `key` es el uid del estudiante o `<classroomId|uid del docente>:<hash>` (nunca correo ni nombre). Solo el Admin
+  SDK: la regla final lo niega todo al cliente. Se usa cuando AtomicMemory no responde.
 
 ### learningSessions/{sessionId}/tutorInteractions/{interactionId}
 
@@ -293,7 +332,7 @@ activo. No se exportan habilidades sin evidencia. Ver
 }
 ```
 
-- Escritura **exclusiva de Cloud Functions** (`allow write: if false` en rules).
+- Escritura **exclusiva del servidor** (`server/`, con firebase-admin; `allow write: if false` en rules).
 - Lectura: el propio estudiante o el docente.
 
 ---

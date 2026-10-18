@@ -33,9 +33,9 @@ export const SIDEBAR_ITEMS = [
   { to: '/matching', label: 'Emparejamiento', icon: 'sparkles', roles: [T] },
   { to: '/matching/results', label: 'Resultados', icon: 'chart', roles: [T], nested: true },
   { to: '/sessions', label: 'Salas', icon: 'video', roles: [S, T] },
-  { to: '/sessions/demo-session-1', label: 'Sesión activa', icon: 'calendar', roles: [S, T], nested: true },
+  { to: '/sessions/active', label: 'Sesión activa', icon: 'calendar', roles: [S, T], nested: true },
   {
-    to: '/sessions/demo-session-1/tutor',
+    to: '/sessions/active/tutor',
     label: 'Tutor IA',
     icon: 'koala',
     roles: [S, T],
@@ -65,8 +65,8 @@ const SECTION_TITLES = [
   { to: '/matching', label: 'Emparejamiento' },
   { to: '/matching/results', label: 'Resultados de emparejamiento' },
   { to: '/sessions', label: 'Salas' },
-  { to: '/sessions/demo-session-1', label: 'Sesión activa' },
-  { to: '/sessions/demo-session-1/tutor', label: 'Tutor IA' },
+  { to: '/sessions/active', label: 'Sesión activa' },
+  { to: '/sessions/active/tutor', label: 'Tutor IA' },
 ]
 
 /* Coincidencia por prefijo, de la ruta más específica a la más general. */

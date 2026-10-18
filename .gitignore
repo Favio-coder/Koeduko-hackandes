@@ -26,5 +26,14 @@ dist-ssr
 
 .env/
 .env
-.vercel
 .env*
+# Las plantillas SI se versionan (sin valores): server/.env.example y .env.example
+!.env.example
+
+# Vercel y credenciales de cuentas de servicio (nunca se commitean)
+.vercel
+server/.vercel
+*service-account*.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+firebase-adminsdk*.json
