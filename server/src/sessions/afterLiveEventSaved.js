@@ -284,7 +284,7 @@ export function createAfterLiveEventSaved({
       )
       decision = parseJudgeDecision(raw, { humans, expectedAnswer: judge.problem?.expectedAnswer ?? null })
     } catch (error) {
-      logger.info('afterLiveEventSaved: observador', { sessionId, speak: false, why: `failed:${error?.name === 'TimeoutError' ? 'timeout' : (error?.reason ?? 'error')}`, ms: now() - startedAt })
+      logger.info('afterLiveEventSaved: observador', { sessionId, speak: false, why: `failed:${error?.name === 'TimeoutError' ? 'timeout' : (error?.reason ?? 'error')}${error?.status ? `:${error.status}` : ''}`, ms: now() - startedAt })
       return
     }
     if (!decision.speak) {

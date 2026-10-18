@@ -88,6 +88,26 @@ nunca habló). Para cubrirlo, `core/conversationJudge.js` agrega una capa que **
 Límite: depende de la calidad de la transcripción y de un modelo; puede callar cuando debería hablar o al revés. Los logs
 registran solo códigos (`speak`, `kind`, `why`), nunca lo que dijeron.
 
+### 3.2 El latido: el reloj de la sala sigue corriendo en silencio
+
+El motor solo despierta con eventos de Recall y el silencio no genera ninguno: si todos callan, nada lo evaluaba (ni
+`GROUP_SILENCE`, ni el observador). Cada evento real deja un **ancla** (tiempo de sesión + reloj real) y `POST /api/tick`
+calcula cuánto tiempo pasó desde ella (`core/heartbeat.js`) y reevalúa:
+
+- Lo llama **la pantalla de la sala** (cada ~20 s mientras el tutor está en la reunión y la pestaña es visible) o un **cron
+  externo** con la cabecera `x-tick-secret` (`TICK_SECRET`), por si nadie tiene la pantalla abierta.
+- Una evaluación por sala cada 15 s como máximo, vengan de cuántas pantallas vengan (varias pantallas no multiplican el
+  costo). No evalúa una sala cerrada, sin eventos, sin gente, o cuyo último evento tiene más de 10 minutos.
+- Con el latido se enciende `GROUP_SILENCE` (40 s sin que nadie hable, con ≥ 2 personas). Costo: 1 lectura si no toca; 2-3
+  lecturas y 2 escrituras si evalúa.
+- Límite: sin pantalla abierta ni cron, el silencio sigue sin disparar nada.
+
+### 3.3 Cuota de Gemini
+
+`GEMINI_FALLBACK_MODEL`: si el modelo principal responde 429/5xx, el reintento usa ese (otro modelo suele tener su propia
+cuota). `GEMINI_JUDGE_MODEL`: el observador puede usar un modelo más liviano, y tras un 429 se calla 30 s para no competir
+con las intervenciones por reglas. Sin esas variables el comportamiento es el de antes (un reintento con el mismo modelo).
+
 ## 4. El mensaje del tutor
 
 - **Máximo 2 oraciones y 220 caracteres**, una pregunta, el nombre del destinatario, y menciona el problema.

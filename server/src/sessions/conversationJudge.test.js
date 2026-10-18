@@ -270,3 +270,14 @@ describe('the observer uses its own generator when there is one', () => {
     expect(none).toHaveBeenCalledTimes(1) // sin generador propio usa el del tutor
   })
 })
+
+describe('the observer logs why Gemini failed (HTTP status included, never the text)', () => {
+  it('reports failed:http:429 so a rate limit can be told apart from an outage', async () => {
+    const judge = { problem: null, t: 100, transcriptTail: [{ k: 'estudiante a', x: 'no entiendo este tema' }], present: ['estudiante a'] }
+    const logger = { info: vi.fn() }
+    const generate = vi.fn().mockRejectedValue(Object.assign(new Error('x'), { reason: 'http', status: 429 }))
+    const hook = createAfterLiveEventSaved({ getStore: () => ({}), getGenerate: () => generate, getJudge: () => ({ enabled: true }), logger })
+    await hook({ sessionId: 's1', result: { judge } })
+    expect(logger.info).toHaveBeenCalledWith('afterLiveEventSaved: observador', expect.objectContaining({ speak: false, why: 'failed:http:429' }))
+  })
+})
