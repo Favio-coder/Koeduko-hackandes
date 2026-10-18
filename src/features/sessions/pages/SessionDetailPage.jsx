@@ -14,6 +14,7 @@ import TranscriptCard from '../components/TranscriptCard'
 import MeetingLinkForm from '../components/MeetingLinkForm'
 import { useLiveSession } from '../hooks/useLiveSession'
 import { useNow } from '../hooks/useNow'
+import { useSessionHeartbeat } from '../hooks/useSessionHeartbeat'
 import { useSessionSummary } from '../hooks/useSessionSummary'
 import { botStatusMeta, canInvite } from '../lib/describeIntervention'
 import { inviteTutor } from '../services/sessionBotService'
@@ -46,6 +47,12 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
   const { summary } = useSessionSummary(sessionId, { enabled: isTeacher })
   const [creating, setCreating] = useState(false)
   const [closed, setClosed] = useState(null) // lo que devolvio close-session, para mostrar el reporte sin esperar a Firestore
+
+  // Mientras el tutor esta en la reunion y la sala sigue abierta, la pantalla avisa cada ~20 s para que el servidor reevalue
+  // aunque nadie hable (el silencio no genera eventos). El servidor limita a una evaluacion cada 15 s por sala.
+  useSessionHeartbeat(sessionId, {
+    enabled: session?.bot?.status === 'in_call' && session?.status !== SESSION_STATUS.COMPLETED && !closed && !summary?.report,
+  })
 
   if (loading) return <LoadingState label="Cargando sesión..." />
 

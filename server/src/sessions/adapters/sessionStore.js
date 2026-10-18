@@ -1,4 +1,5 @@
 import { canRequestBot } from '../core/botRequest.js'
+import { anchorOf, tickPlan } from '../core/heartbeat.js'
 import { activityIdOf, emptyState, evaluateDue, ingestEvent, problemFromSession } from '../core/liveEngine.js'
 import { viewOf } from '../core/liveView.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
@@ -62,7 +63,7 @@ export function createSessionStore({ db, FieldValue }) {
      *
      * @returns {Promise<{ evaluated: boolean, intervention: object|null, context: object|null, ops: { reads: number, writes: number, attempts: number } }>}
      */
-    async processLiveEvent(sessionId, eventId, event, { config = {} } = {}) {
+    async processLiveEvent(sessionId, eventId, event, { config = {}, nowMs = Date.now() } = {}) {
       const stateRef = db.doc(`learningSessions/${sessionId}/live/state`)
       const viewRef = db.doc(`learningSessions/${sessionId}/live/view`)
       const answerRef = db.doc(`learningSessions/${sessionId}/private/answer`)
@@ -79,6 +80,8 @@ export function createSessionStore({ db, FieldValue }) {
         const ingested = ingestEvent(before, event, { eventId, config })
 
         let state = ingested.state
+        // Cada evento real deja el ancla del reloj: el latido (processTick) la usa para hacer correr el tiempo en el silencio.
+        if (state !== before) state = { ...state, anchor: anchorOf(state, nowMs) }
         let intervention = null
         let context = null
         let judge = null
@@ -149,6 +152,78 @@ export function createSessionStore({ db, FieldValue }) {
 
         ops.writes = writes // solo cuentan las escrituras del intento que se confirmo
         return { evaluated: ingested.due, intervention, context, judge, closeNow }
+      })
+
+      return { ...outcome, ops }
+    },
+
+    /**
+     * Latido: evalua la sala con el reloj corriendo aunque no hayan llegado eventos (el silencio no genera ninguno). Calcula el
+     * tiempo de sesion desde el ancla del ultimo evento real (core/heartbeat.js) y corre el mismo motor, con GROUP_SILENCE
+     * encendida (solo el latido puede detectarla). Como maximo una evaluacion cada TICK_MIN_MS por sala, venga de cuantas
+     * pantallas venga. Una sala cerrada, sin eventos o inactiva hace mucho no evalua nada.
+     *
+     * Costo: 1 lectura si no toca (estado), y si toca 2 a 3 lecturas (estado, sala, y la respuesta una sola vez) y 2 escrituras
+     * (estado y vista).
+     *
+     * @returns {Promise<{ ticked: boolean, reason?: string, intervention?: object|null, context?: object|null, judge?: object|null, ops: object }>}
+     */
+    async processTick(sessionId, { nowMs = Date.now(), config = {} } = {}) {
+      const stateRef = db.doc(`learningSessions/${sessionId}/live/state`)
+      const viewRef = db.doc(`learningSessions/${sessionId}/live/view`)
+      const answerRef = db.doc(`learningSessions/${sessionId}/private/answer`)
+      const ops = { reads: 0, writes: 0, attempts: 0 }
+
+      const outcome = await db.runTransaction(async (tx) => {
+        ops.attempts += 1
+        const stateSnap = await tx.get(stateRef)
+        ops.reads += 1
+        if (!stateSnap.exists) return { ticked: false, reason: 'no-state' }
+        const before = stateSnap.data()
+        const plan = tickPlan(before, nowMs)
+        if (!plan.run) return { ticked: false, reason: plan.reason }
+
+        const sessionSnap = await tx.get(sessionRef(sessionId))
+        ops.reads += 1
+        const session = sessionSnap.exists ? sessionSnap.data() : null
+        if (!session || session.status === 'completed') return { ticked: false, reason: 'closed' }
+
+        let state = { ...before, lastT: plan.t, lastTickWallMs: nowMs }
+        const activityId = activityIdOf(session)
+        if (activityId !== null && state.answer?.id !== activityId) {
+          const answerSnap = await tx.get(answerRef)
+          ops.reads += 1
+          const stored = answerSnap.exists ? answerSnap.data()?.expectedAnswer : undefined
+          const value = Number(stored ?? session.currentProblem.expectedAnswer)
+          state = { ...state, answer: { id: activityId, v: Number.isFinite(value) ? value : null } }
+        }
+        const problem = problemFromSession(session, state.answer?.v ?? undefined)
+        const evaluated = evaluateDue(state, { problem, config: { ...config, disabledSignals: [] } })
+        state = evaluated.state
+
+        let context = null
+        let judge = null
+        if (evaluated.intervention) {
+          context = {
+            problem,
+            memory: state.memory ?? {},
+            transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
+            present: state.presence.map((p) => p.k),
+          }
+        } else if (evaluated.judge) {
+          judge = {
+            problem,
+            t: state.lastT,
+            classContext: [session?.courseId, session?.assessmentTitle].filter((x) => typeof x === 'string' && x).join(' · ') || null,
+            transcriptTail: state.transcripts.slice(-JUDGE_TAIL).map(({ k, x }) => ({ k, x })),
+            present: state.presence.map((p) => p.k),
+          }
+        }
+
+        tx.set(stateRef, state)
+        tx.set(viewRef, viewOf(state, { ...DEFAULT_CONFIG, ...config }))
+        ops.writes = 2
+        return { ticked: true, intervention: evaluated.intervention, context, judge }
       })
 
       return { ...outcome, ops }

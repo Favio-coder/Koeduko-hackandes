@@ -122,6 +122,14 @@ export const ENV_MANIFEST = [
     default: 'true',
   },
   {
+    name: 'TICK_SECRET',
+    target: 'server',
+    required: false,
+    secret: true,
+    purpose: 'Secreto para que un cron externo llame a /api/tick (cabecera x-tick-secret) y la sala se reevalue aunque nadie tenga la pantalla abierta. Sin el solo funciona el latido de la pantalla abierta.',
+    source: 'Lo generamos nosotros (valor aleatorio largo).',
+  },
+  {
     name: 'GEMINI_FALLBACK_MODEL',
     target: 'server',
     required: false,
