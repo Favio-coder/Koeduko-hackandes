@@ -20,6 +20,7 @@ function fakeFirebase(docs = {}) {
       fn({
         get: (ref) => ref.get(),
         update: (ref, data) => writes.push({ op: 'tx.update', path: ref.path, data }),
+        set: (ref, data) => writes.push({ op: 'tx.set', path: ref.path, data }),
       }),
   }
   return { firebase: { db, FieldValue: { serverTimestamp: () => 'SERVER_TS' } }, writes }
@@ -70,7 +71,15 @@ describe('claimBot', () => {
         path: 'learningSessions/s1',
         data: { bot: { id: null, status: 'requested', region: 'us-west-2', requestedAtMs: NOW } },
       },
+      // el reloj del bot nuevo empieza en 0: estado limpio con una epoca propia
+      { op: 'tx.set', path: 'learningSessions/s1/live/state', data: expect.objectContaining({ lastT: 0, lastEvalT: null, transcripts: [], interventions: [], epoch: NOW }) },
     ])
+  })
+
+  it('a bot invited again to the same room starts from a clean state (its clock restarts at 0)', async () => {
+    const { run, writes } = claim({ 'learningSessions/s1': { meetingUrl: MEET, bot: { id: 'old', status: 'done', requestedAtMs: NOW - 9999 } } })
+    await expect(run()).resolves.toEqual({ meetingUrl: MEET })
+    expect(writes.find((w) => w.path.endsWith('/live/state'))?.data).toMatchObject({ lastT: 0, lastEvalT: null, epoch: NOW })
   })
 
   it('fails with not-found when the session does not exist', async () => {

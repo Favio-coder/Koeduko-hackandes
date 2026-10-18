@@ -298,7 +298,7 @@ export function createAfterLiveEventSaved({
     }
 
     const signal = { type: 'CONVERSATION', participantKey: decision.to, studentId: null, t: judge.t, evidence: { kind: decision.kind } }
-    const interventionId = deterministicId('int', [sessionId, 'CONVERSATION', signal.participantKey ?? 'grupo', `b${Math.floor(judge.t / cooldownSec)}`])
+    const interventionId = deterministicId('int', [sessionId, `e${judge.epoch ?? 0}`, 'CONVERSATION', signal.participantKey ?? 'grupo', `b${Math.floor(judge.t / cooldownSec)}`])
     const { created } = await getStore().createIntervention(sessionId, interventionId, {
       signal: 'CONVERSATION',
       targetStudentId: null,
@@ -398,9 +398,11 @@ export function createAfterLiveEventSaved({
       generate: getGenerate(),
     })
 
-    // Un id por (sesion, senal, destinatario, ventana de cooldown): create() falla si ya existe.
+    // Un id por (sesion, epoca del bot, senal, destinatario, ventana de cooldown): create() falla si ya existe. La epoca
+    // distingue a un bot nuevo de la misma sala: su reloj vuelve a 0 y sin ella chocaria con las intervenciones de la vez anterior.
     const interventionId = deterministicId('int', [
       sessionId,
+      `e${context.epoch ?? 0}`,
       intervention.type,
       intervention.participantKey ?? 'grupo',
       `b${Math.floor(intervention.t / cooldownSec)}`,

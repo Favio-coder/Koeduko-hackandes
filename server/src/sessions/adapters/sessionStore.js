@@ -112,6 +112,7 @@ export function createSessionStore({ db, FieldValue }) {
               memory: state.memory ?? {},
               transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
               present: state.presence.map((p) => p.k),
+              epoch: state.epoch ?? 0,
             }
           } else if (evaluated.judge) {
             // Las reglas no dijeron nada: el observador lee la conversacion reciente (sin lecturas ni escrituras extra).
@@ -121,6 +122,7 @@ export function createSessionStore({ db, FieldValue }) {
               classContext: [session?.courseId, session?.assessmentTitle].filter((x) => typeof x === 'string' && x).join(' · ') || null,
               transcriptTail: state.transcripts.slice(-JUDGE_TAIL).map(({ k, x }) => ({ k, x })),
               present: state.presence.map((p) => p.k),
+              epoch: state.epoch ?? 0,
             }
           }
         }
@@ -210,6 +212,7 @@ export function createSessionStore({ db, FieldValue }) {
             memory: state.memory ?? {},
             transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
             present: state.presence.map((p) => p.k),
+            epoch: state.epoch ?? 0,
           }
         } else if (evaluated.judge) {
           judge = {
@@ -218,6 +221,7 @@ export function createSessionStore({ db, FieldValue }) {
             classContext: [session?.courseId, session?.assessmentTitle].filter((x) => typeof x === 'string' && x).join(' · ') || null,
             transcriptTail: state.transcripts.slice(-JUDGE_TAIL).map(({ k, x }) => ({ k, x })),
             present: state.presence.map((p) => p.k),
+            epoch: state.epoch ?? 0,
           }
         }
 
@@ -305,6 +309,10 @@ export function createSessionStore({ db, FieldValue }) {
         }
 
         tx.update(ref, { bot: { id: null, status: 'requested', region, requestedAtMs: nowMs } })
+        // Cada bot nuevo empieza su reloj en 0 (los tiempos de Recall son relativos a SU grabacion). Si la sala conserva el estado del bot
+        // anterior, los eventos nuevos quedan en el pasado (el motor no evalua) y los ids de las intervenciones chocan con los de la vez
+        // anterior (se tomarian por duplicadas). Estado limpio y una epoca nueva por bot.
+        tx.set(db.doc(`learningSessions/${sessionId}/live/state`), { ...emptyState(), epoch: nowMs })
         return { meetingUrl: session.meetingUrl.trim() }
       })
     },

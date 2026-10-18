@@ -302,3 +302,19 @@ describe('afterLiveEventSaved: the room is empty but there was little conversati
     expect(markBotDone).not.toHaveBeenCalled()
   })
 })
+
+describe('a new bot in the same room must not collide with the interventions of the previous one', () => {
+  const signal = { type: 'STUCK', participantKey: 'estudiante a', studentId: null, t: 20, evidence: {} }
+  const ids = async (epoch) => {
+    const store = { createIntervention: vi.fn().mockResolvedValue({ created: true }) }
+    const hook = createAfterLiveEventSaved({ getStore: () => store, getGenerate: () => null, logger: { info: vi.fn() } })
+    await hook({ sessionId: 's1', result: { intervention: signal, context: { problem: null, transcriptTail: [], present: ['estudiante a'], epoch } } })
+    return store.createIntervention.mock.calls[0][1]
+  }
+
+  it('the same signal at the same session time gets a different id in a different epoch, and the same id within one', async () => {
+    const first = await ids(1000)
+    expect(await ids(1000)).toBe(first)
+    expect(await ids(2000)).not.toBe(first)
+  })
+})
