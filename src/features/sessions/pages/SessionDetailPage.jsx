@@ -1,16 +1,21 @@
 import { Link, useParams } from 'react-router-dom'
-import { Badge, Button, Card, LoadingState } from '@/components/ui'
+import { Badge, Button, Card, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import Icon from '@/components/ui/Icon'
 import useToast from '@/components/ui/useToast'
+import { useAuth } from '@/contexts/AuthContext'
 import { SESSION_STATUS } from '@/shared/constants/contracts'
-import { useSession } from '../hooks/useSessions'
+import InterventionsCard from '../components/InterventionsCard'
+import InviteTutor from '../components/InviteTutor'
+import TalkShareCard from '../components/TalkShareCard'
+import TranscriptCard from '../components/TranscriptCard'
+import { useLiveSession } from '../hooks/useLiveSession'
+import { useNow } from '../hooks/useNow'
+import { botStatusMeta } from '../lib/describeIntervention'
 
 /**
- * PUNTO DE EXTENSION - DESARROLLADOR 3 (feature/sessions-ai)
- * Debe permitir al docente registrar/validar el enlace de Google Meet
- * y a los estudiantes unirse a la reunion.
- *
- * Solo cambia la presentación: mismos datos, mismo enlace, mismo destino.
+ * Sesion en vivo: quien habla, la conversacion y lo que dijo el tutor, todo por onSnapshot.
+ * Los datos de la pantalla salen de `live/view` (un documento chico que escribe el servidor),
+ * no de la ventana cruda de eventos, para no gastar la cuota gratuita de lecturas de Firestore.
  */
 
 const STATUS_META = {
@@ -20,27 +25,23 @@ const STATUS_META = {
   [SESSION_STATUS.CANCELLED]: { label: 'Cancelada', tone: 'neutral' },
 }
 
+const BACK_LINK_CLASS =
+  'inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-[#5A6B6A] transition-colors duration-150 hover:text-[#2A7A35] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45'
+
 export default function SessionDetailPage() {
   const { sessionId } = useParams()
-  const { session, loading } = useSession(sessionId)
+  const { isTeacher } = useAuth()
+  const { loading, error, session, view, interventions, retry } = useLiveSession(sessionId)
+  const nowMs = useNow()
   const toast = useToast()
 
   if (loading) return <LoadingState label="Cargando sesión..." />
 
-  if (!session) {
-    return (
-      <Card title="Sesión no encontrada">
-        <Link
-          to="/sessions"
-          className="text-sm font-semibold text-[#2A7A35] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
-        >
-          Volver a salas
-        </Link>
-      </Card>
-    )
-  }
+  if (error) return <ErrorState title="No se pudo abrir la sesión" error={error} onRetry={retry} />
 
-  const status = STATUS_META[session.status] ?? { label: session.status, tone: 'neutral' }
+  const status = STATUS_META[session?.status]
+  const botStatus = session?.bot?.status
+  const hasActivity = Boolean(view) || interventions.length > 0
 
   const handleCopy = async () => {
     try {
@@ -52,40 +53,43 @@ export default function SessionDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <header className="flex flex-col gap-3">
-        <Link
-          to="/sessions"
-          className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-[#5A6B6A] transition-colors duration-150 hover:text-[#2A7A35] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
-        >
+        <Link to="/sessions" className={BACK_LINK_CLASS}>
           <Icon name="chevronLeft" className="h-4 w-4" />
           Volver a salas
         </Link>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <h2 className="text-2xl font-bold tracking-tight text-[#304744] sm:text-3xl">
-            {session.title}
+          <h2 className="min-w-0 break-words text-2xl font-bold tracking-tight text-[#304744] sm:text-3xl">
+            {session?.title || `Sesión ${sessionId}`}
           </h2>
-          <Badge tone={status.tone} dot={status.dot}>
-            {status.label}
-          </Badge>
+          {status && (
+            <Badge tone={status.tone} dot={status.dot}>
+              {status.label}
+            </Badge>
+          )}
+          {botStatus && (
+            <Badge tone={botStatusMeta(botStatus).tone} dot={botStatusMeta(botStatus).dot}>
+              {botStatusMeta(botStatus).label}
+            </Badge>
+          )}
         </div>
-
-        <p className="font-mono text-xs text-[#7D8C8A]">pairId: {session.pairId}</p>
       </header>
 
-      <Card title="Reunión de Google Meet" description="Enlace generado para esta pareja.">
-        {session.meetingUrl ? (
+      {isTeacher && <InviteTutor sessionId={sessionId} botStatus={botStatus} />}
+
+      {session?.meetingUrl && (
+        <Card title="Reunión de Google Meet" description="Enlace de esta pareja.">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <a
               href={session.meetingUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-0 items-center gap-2 rounded-xl bg-[#F8FAF6] px-3 py-2.5 text-sm font-medium text-[#304744] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
+              className="inline-flex min-w-0 items-center gap-2 rounded-xl bg-[#F8FAF6] px-3 py-2.5 text-sm font-medium text-[#304744] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
             >
               <Icon name="video" className="h-4 w-4 shrink-0 text-[#2A7A35]" />
-              {/* URL larga: se recorta en vez de desbordar el layout */}
-              <span className="max-w-[16rem] truncate sm:max-w-xs">{session.meetingUrl}</span>
+              <span className="min-w-0 truncate sm:max-w-xs">{session.meetingUrl}</span>
             </a>
 
             <div className="flex gap-2 sm:ml-auto">
@@ -97,12 +101,25 @@ export default function SessionDetailPage() {
               </Button>
             </div>
           </div>
-        ) : (
-          <p className="text-sm text-[#5A6B6A]">
-            Todavía no hay enlace de reunión. El docente debe registrarlo.
-          </p>
-        )}
-      </Card>
+        </Card>
+      )}
+
+      {hasActivity ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="min-w-0 space-y-6">
+            <TalkShareCard view={view} />
+            <TranscriptCard lines={view?.transcripts ?? []} />
+          </div>
+          <div className="min-w-0">
+            <InterventionsCard items={interventions} nowMs={nowMs} />
+          </div>
+        </div>
+      ) : (
+        <EmptyState
+          title="Esperando al tutor…"
+          description="Cuando el tutor entre a la reunión y alguien hable, aquí verás quién participa y qué dice el tutor."
+        />
+      )}
 
       <Card
         title="Tutor IA"
@@ -111,10 +128,8 @@ export default function SessionDetailPage() {
         className="border-[#B7E8B5]"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[#2A7A35]">
-            Ayuda guiada sin resolver el ejercicio por el estudiante.
-          </p>
-          <Button to={`/sessions/${session.id}/tutor`} variant="subtle" icon="sparkles" className="shrink-0">
+          <p className="text-sm text-[#2A7A35]">Ayuda guiada sin resolver el ejercicio por el estudiante.</p>
+          <Button to={`/sessions/${sessionId}/tutor`} variant="subtle" icon="sparkles" className="shrink-0">
             Abrir tutor IA
           </Button>
         </div>
