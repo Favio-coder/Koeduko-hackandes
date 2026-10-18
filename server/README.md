@@ -99,6 +99,13 @@ por segundo de sesión:
 - Escrituras: 20 000 / 2,8 por s = ~7 100 s = **unos 118 minutos de sesión en vivo por día** (antes ~66).
 - Lecturas: 50 000 / 2,7 por s = ~18 800 s = ~313 minutos por día.
 
+**Pantalla en vivo (`live/view`).** La interfaz no lee `live/state` (su ventana de eventos pesa ~12 veces más
+por cada actualización que escucha). Cada vez que el motor evalúa, el servidor escribe además un documento
+chico, `learningSessions/{id}/live/view` (reparto de la palabra por participante y las últimas 20 frases).
+Eso suma ~1 escritura por evaluación: **~111 minutos al día** (estimado, no medido; el valor medido sigue
+siendo el de arriba). Las intervenciones guardadas ya no incluyen la respuesta esperada (`expectedAnswer`):
+la pantalla es legible por estudiantes.
+
 Las **escrituras siguen siendo el límite**: ~118 minutos al día para toda la cuota, y los ensayos con
 el reproductor (300 escrituras cada uno) también la consumen. Las reglas de seguridad que usan
 `get()` (ver `firestore.rules`) suman lecturas por cada consulta de la interfaz.
@@ -157,13 +164,14 @@ servidor por evento y las mismas 284 lecturas y 530 escrituras que sin Gemini):
   un cron) que llame a la evaluación con un `now` explícito; el motor ya lo admite. Está en
   `DEFAULT_CONFIG.disabledSignals`; para encenderlo, `disabledSignals: []`. Cualquier otra señal se
   apaga igual, sin tocar el código.
-- Las transcripciones del estado son las últimas 15: una respuesta dicha hace más de 15 frases no se
+- Las transcripciones del estado son las últimas 20: una respuesta dicha hace más de 20 frases no se
   evalúa.
 - Un evento de habla que llegue más viejo que el inicio del hablante actual se ignora.
 - El nombre del destinatario sale de la clave normalizada (sin tildes): "José" se dice "Jose".
 - La asignación de participantes a estudiantes (`studentId`) sigue en `null`.
-- `learningSessions/{id}/live/state` y `agentInterventions` aún no tienen regla de lectura en
-  `firestore.rules`: la interfaz no puede leerlas todavía.
+- Las reglas de lectura por sesión (`canReadSessionData`: docente o estudiante de la sesión) están en
+  `firestore.rules` pero **no se han probado con el emulador ni desplegado**: hasta
+  `firebase deploy --only firestore:rules`, la pantalla muestra «No tienes permiso para ver esta sesión.».
 
 ## Resultados de la prueba de humo real (17-oct-2026)
 
