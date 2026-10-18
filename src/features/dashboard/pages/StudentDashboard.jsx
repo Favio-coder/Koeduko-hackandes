@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom'
-import { Button, Card, ErrorState, LoadingState } from '@/components/ui'
+import { Link, useLocation } from 'react-router-dom'
+import { Alert, Button, Card, ErrorState, LoadingState } from '@/components/ui'
 import Avatar from '@/components/ui/Avatar'
 import Icon from '@/components/ui/Icon'
 import { useAuth } from '@/contexts/AuthContext'
@@ -8,7 +8,10 @@ import { useSessions } from '@/features/sessions/hooks/useSessions'
 export default function StudentDashboard() {
   const { profile } = useAuth()
   const { sessions, loading, error, reload } = useSessions()
+  const location = useLocation()
   const firstName = (profile?.displayName || 'estudiante').split(' ')[0]
+  /* El registro manda el curso en el que se matriculó al estudiante. */
+  const assignedCourse = location.state?.course
 
 
   return (
@@ -34,6 +37,13 @@ export default function StudentDashboard() {
       <p className="-mt-3 text-sm text-[#5A6B6A] sm:mt-0">
         Completa tu diagnóstico, revisa tu pareja y únete a la sesión.
       </p>
+
+      {/* Aviso de las cuentas nuevas: el servidor las matricula solas. */}
+      {assignedCourse && (
+        <Alert tone="success" title={`Ya estás en ${assignedCourse}`}>
+          Te asignamos el curso automáticamente. Tus evaluaciones están en la pestaña Curso.
+        </Alert>
+      )}
 
       {/* Acciones */}
       <div className="grid gap-3 sm:grid-cols-2">

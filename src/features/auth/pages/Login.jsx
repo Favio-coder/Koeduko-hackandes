@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/Field'
 import Alert from '@/components/ui/Alert'
 import AuthLayout from '@/components/layout/AuthLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import DemoAccess from '../components/DemoAccess'
+import { DEMO_TEACHER } from '../demoAccount'
 
 export default function Login() {
   const { login, isAuthenticated, error } = useAuth()
@@ -19,18 +21,30 @@ export default function Login() {
     return <Navigate to={location.state?.from || '/dashboard'} replace />
   }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
+  const signIn = async (credentials) => {
     setFormError(null)
     setSubmitting(true)
     try {
-      await login({ email, password })
+      await login(credentials)
       navigate(location.state?.from || '/dashboard', { replace: true })
     } catch {
       setFormError('Credenciales invalidas. Verifica tu correo y contrasena.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    await signIn({ email, password })
+  }
+
+  /* El acceso de la demo rellena los campos (para que se vea la cuenta) y
+     entra de una vez, como si el docente la hubiera escrito. */
+  const handleTeacherDemo = async () => {
+    setEmail(DEMO_TEACHER.email)
+    setPassword(DEMO_TEACHER.password)
+    await signIn(DEMO_TEACHER)
   }
 
   return (
@@ -97,6 +111,8 @@ export default function Login() {
           {submitting ? 'Ingresando...' : 'Iniciar sesión'}
         </Button>
       </form>
+
+      <DemoAccess onTeacherDemo={handleTeacherDemo} busy={submitting} />
     </AuthLayout>
   )
 }

@@ -14,6 +14,20 @@ matemática real **todavía no se ha ejecutado de punta a punta**; por eso este 
    (el nombre exacto: la memoria y el reporte dependen de él).
 5. Entrar a la app con la cuenta docente en la URL desplegada y comprobar que carga el login.
 
+## Dos accesos desde el login
+
+El login trae una tarjeta **«Demostración»** con los dos caminos de siempre:
+
+- **Ingresa como docente**: entra directo con la cuenta de la demo
+  (`faviusam@gmail.com`), sin escribir nada. La credencial viaja en el bundle del
+  navegador, así que es pública: es una cuenta de demo, nunca una real.
+- **Ingresa como estudiante**: lleva al registro. La cuenta nueva se crea con rol
+  estudiante y el servidor la matricula sola en el curso de matemática
+  (`selfEnrollment: true` en `assessmentCourseAccess/{courseId}`, o el único curso
+  del catálogo); al entrar, el panel del estudiante confirma «Ya estás en
+  Matemática». Ese camino necesita el backend desplegado: en `vite` la cuenta se
+  crea igual, pero la matrícula hay que hacerla a mano.
+
 Orden en la reunión: entran los dos Estudiantes y el anfitrión los admite → el docente pulsa **«Invitar tutor»** →
 el anfitrión admite a **«Tutor KoEduko»** → **el anfitrión sale del Meet** (si se queda, el tutor lo cuenta como un
 participante callado y le habla a él). Los Estudiantes se quedan hasta que termine la demo: si todos salen, el bot se
