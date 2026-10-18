@@ -26,6 +26,28 @@ export const COMPETENCY_ID = Object.freeze({
   RESOLVE_QUANTITY_PROBLEMS: 'resuelve-problemas-cantidad',
 })
 
+export const COMPETENCY_NAME = 'Resuelve problemas de cantidad'
+
+/**
+ * Capacidades de la competencia (Curriculo Nacional, primaria), en su orden oficial.
+ * El servidor tiene la misma lista en server/src/sessions/core/competencies.js; un test las compara.
+ */
+export const QUANTITY_CAPABILITIES = Object.freeze([
+  { id: 'traduce', nombre: 'Traduce cantidades a expresiones numéricas' },
+  { id: 'comunica', nombre: 'Comunica su comprensión sobre los números y las operaciones' },
+  { id: 'usa-estrategias', nombre: 'Usa estrategias y procedimientos de estimación y cálculo' },
+  { id: 'argumenta', nombre: 'Argumenta afirmaciones sobre las relaciones numéricas y las operaciones' },
+])
+
+/** Estado de una capacidad en el reporte de cierre. Es evidencia formativa: NUNCA una nota AD/A/B/C. */
+export const EVIDENCE_STATE = Object.freeze({
+  WITH: 'con evidencia',
+  PARTIAL: 'evidencia parcial',
+  NONE: 'sin evidencia suficiente',
+})
+
+export const FORMATIVE_NOTE = 'Evidencia formativa: la calificación la decide el docente.'
+
 /**
  * Habilidades matematicas evaluadas en la competencia inicial.
  * Los valores son mastery scores normalizados en [0, 1].
