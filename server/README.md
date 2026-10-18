@@ -106,6 +106,14 @@ Eso suma ~1 escritura por evaluación: **~111 minutos al día** (estimado, no me
 siendo el de arriba). Las intervenciones guardadas ya no incluyen la respuesta esperada (`expectedAnswer`):
 la pantalla es legible por estudiantes.
 
+**Chat de Meet.** Cada intervención *nueva* suma 1 lectura (la sesión, para el id del bot) y, si Recall
+responde 2xx, 1 escritura (`deliveredTo: ['app', 'meet_chat']`). Una intervención repetida no suma nada.
+Con ~1 intervención cada 90 s como máximo, son < 1 lectura y < 1 escritura por minuto: no mueve el límite.
+Se apaga con `MEET_CHAT_ENABLED=false` (cambiar la variable y redesplegar el mismo código; Vercel aplica las
+variables solo a despliegues nuevos). El mensaje se envía a Recall (`POST /bot/{id}/send_chat_message/`,
+body `{ message, to: "everyone" }`, 4 s de límite); si falla, la intervención queda solo en la app y se
+registra el estado HTTP, nunca el texto.
+
 Las **escrituras siguen siendo el límite**: ~118 minutos al día para toda la cuota, y los ensayos con
 el reproductor (300 escrituras cada uno) también la consumen. Las reglas de seguridad que usan
 `get()` (ver `firestore.rules`) suman lecturas por cada consulta de la interfaz.
