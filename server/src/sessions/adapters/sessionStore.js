@@ -3,6 +3,7 @@ import { activityIdOf, emptyState, evaluateDue, ingestEvent, problemFromSession 
 import { viewOf } from '../core/liveView.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
 import { DEFAULT_CONFIG } from '../core/signals.js'
+import { memoryCacheKey } from '../core/studentKey.js'
 import { SessionBotError } from '../errors.js'
 
 const ALREADY_EXISTS = 6 // codigo gRPC de Firestore cuando create() encuentra el documento
@@ -91,6 +92,8 @@ export function createSessionStore({ db, FieldValue }) {
           if (intervention) {
             context = {
               problem,
+              // Lo ya recordado de cada estudiante en ESTA sesion (cache en live/state): evita repetir el recall.
+              memory: state.memory ?? {},
               transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
               present: state.presence.map((p) => p.k),
             }
@@ -138,6 +141,14 @@ export function createSessionStore({ db, FieldValue }) {
     /** Marca por donde se entrego una intervencion ya creada, p. ej. ['app', 'meet_chat'] (1 escritura). */
     async setDeliveredTo(sessionId, interventionId, deliveredTo) {
       await db.doc(`learningSessions/${sessionId}/agentInterventions/${interventionId}`).update({ deliveredTo })
+    },
+
+    /**
+     * Cachea en live/state lo recordado de un estudiante en esta sesion (1 escritura, solo la primera vez
+     * por estudiante y sesion). Es un update por campo: no pisa el resto del estado.
+     */
+    async cacheMemoryNotes(sessionId, studentKey, notes) {
+      await db.doc(`learningSessions/${sessionId}/live/state`).update({ [`memory.${memoryCacheKey(studentKey)}`]: notes })
     },
 
     /** Rol guardado en users/{uid}. El rol nunca se acepta del cliente. */

@@ -27,5 +27,11 @@ export function studentKeyOf({ studentId = null, participantKey = null, scope = 
   return `${owner}:${digest}`
 }
 
+/**
+ * Nombre del campo de live/state.memory donde se cachea lo recordado de un estudiante durante la sesion.
+ * Un uid o un "<scope>:<hash>" solo difieren de un nombre de campo seguro en el ":", que se reemplaza.
+ */
+export const memoryCacheKey = (studentKey) => String(studentKey).replace(/[^A-Za-z0-9_-]/g, '_')
+
 /** El scope de una sesion: su aula, o el docente que la creo. */
 export const memoryScopeOf = (session) => session?.classroomId ?? session?.createdBy ?? null

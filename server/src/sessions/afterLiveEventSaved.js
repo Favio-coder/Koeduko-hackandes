@@ -1,7 +1,7 @@
 import { deterministicId } from './core/ids.js'
 import { addresseeOf } from './core/interventionPolicy.js'
 import { DEFAULT_CONFIG } from './core/signals.js'
-import { memoryScopeOf, studentKeyOf } from './core/studentKey.js'
+import { memoryCacheKey, memoryScopeOf, studentKeyOf } from './core/studentKey.js'
 import { sendChatMessage } from './adapters/recall.js'
 import { composeIntervention } from './tutor.js'
 
@@ -29,7 +29,9 @@ function publicEvidence(evidence = {}) {
  * Con memoria configurada, antes de redactar se recuerda lo que se sabe del destinatario de sesiones
  * anteriores (memoryNotes). La clave del estudiante sale de su uid o, si no esta enlazado, de un hash
  * del nombre dentro del aula/docente (ver core/studentKey.js). recall nunca rompe nada: si falla o
- * tarda mas de 2 s, no hay notas y el tutor habla como siempre. Costo: 1 lectura de la sesion (que el
+ * tarda mas de 2 s, no hay notas y el tutor habla como siempre. Lo recordado se cachea por estudiante y por
+ * sesion en live/state.memory (viene en context.memory, sin lectura extra): una vez recordado, no se vuelve a
+ * llamar. Costo: 1 lectura de la sesion (que el
  * chat reutiliza, no se lee dos veces) y 1 llamada externa, solo cuando hay una intervencion.
  *
  * @param {{
@@ -56,26 +58,43 @@ export function createAfterLiveEventSaved({
   now = () => Date.now(),
 }) {
   /** Lo que se sabe del destinatario de sesiones anteriores. Nunca lanza: sin memoria o con error, []. */
-  async function recallNotes({ intervention, problem, loadSession }) {
+  async function recallNotes({ sessionId, intervention, problem, cached, loadSession }) {
+    const none = { notes: [], cache: 'off' }
     const memory = getMemory()
-    if (!memory || !intervention.participantKey) return []
+    if (!memory || !intervention.participantKey) return none
 
     const loaded = await loadSession()
-    if (loaded.failed) return []
+    if (loaded.failed) return none
     const key = studentKeyOf({
       studentId: intervention.studentId,
       participantKey: intervention.participantKey,
       scope: memoryScopeOf(loaded.session),
     })
-    if (!key) return []
+    if (!key) return none
+
+    // Ya se recordo a este estudiante en esta sesion (cache en live/state): sin llamada externa.
+    const hit = cached?.[memoryCacheKey(key)]
+    if (Array.isArray(hit)) return { notes: hit, cache: 'hit' }
 
     const query = problem ? `${problem.skillId ?? 'matemática'}: ${problem.text ?? ''}`.trim() : 'resolución de problemas de matemática'
+    let notes = []
     try {
-      const notes = await memory.recall(key, query)
-      return Array.isArray(notes) ? notes : []
+      const recalled = await memory.recall(key, query)
+      notes = Array.isArray(recalled) ? recalled : []
     } catch {
-      return []
+      return { notes: [], cache: 'miss' }
     }
+
+    // Solo se cachea lo que SI se recordo: recall devuelve [] tanto cuando no hay memoria como cuando falla o
+    // tarda, y cachear ese [] le quitaria la memoria a ese estudiante el resto de la sesion.
+    if (notes.length > 0) {
+      try {
+        await getStore().cacheMemoryNotes(sessionId, key, notes)
+      } catch {
+        // El cache es una optimizacion: si no se pudo escribir, solo se repetira el recall.
+      }
+    }
+    return { notes, cache: 'miss' }
   }
 
   /** Escribe el mensaje en el chat de Meet. Nunca lanza; devuelve que paso para el log. */
@@ -124,7 +143,13 @@ export function createAfterLiveEventSaved({
       return sessionLoad
     }
 
-    const memoryNotes = await recallNotes({ intervention, problem: context.problem ?? null, loadSession })
+    const { notes: memoryNotes, cache: memoryCache } = await recallNotes({
+      sessionId,
+      intervention,
+      problem: context.problem ?? null,
+      cached: context.memory,
+      loadSession,
+    })
     const composed = await composeIntervention({
       signal: intervention,
       problem: context.problem ?? null,
@@ -161,6 +186,7 @@ export function createAfterLiveEventSaved({
       type: intervention.type,
       created,
       memoryNotes: memoryNotes.length,
+      memoryCache,
       chat: delivery.chat,
       ...(delivery.chatStatus !== undefined ? { chatStatus: delivery.chatStatus } : {}),
       source: composed.source,
