@@ -45,3 +45,22 @@ describe('RegistroAuxiliar', () => {
     expect(container.querySelectorAll('section, h2').length).toBe(0)
   })
 })
+
+describe('RegistroAuxiliar: reporte en PDF', () => {
+  it('opens the printable report with the session, and tells the teacher to choose "Guardar como PDF"', async () => {
+    const print = vi.fn()
+    render(<RegistroAuxiliar report={report} sessionId="accept-mem-1" download={vi.fn()} print={print} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar reporte (PDF)' }))
+    expect(print).toHaveBeenCalledWith({ report, sessionId: 'accept-mem-1' })
+    expect(await screen.findByText(/Guardar como PDF/)).toBeInTheDocument()
+  })
+
+  it('shows the reason when the browser blocks the window', async () => {
+    const print = vi.fn(() => {
+      throw new Error('El navegador bloqueó la ventana del reporte.')
+    })
+    render(<RegistroAuxiliar report={report} sessionId="s1" download={vi.fn()} print={print} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar reporte (PDF)' }))
+    expect(await screen.findByText('El navegador bloqueó la ventana del reporte.')).toBeInTheDocument()
+  })
+})

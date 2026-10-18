@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Alert, Button, Card } from '@/components/ui'
+import { printReport } from '../lib/reportDocument'
 import { BIMESTRES, CAPABILITY_COLUMN, GRADES, REGISTRO_NOTE, downloadRegistroAuxiliar } from '../lib/registroAuxiliar'
 
 const SHORT = Object.freeze({ traduce: 'Traduce', comunica: 'Comunica', 'usa-estrategias': 'Usa estrategias', argumenta: 'Argumenta' })
@@ -11,7 +12,7 @@ const SHORT = Object.freeze({ traduce: 'Traduce', comunica: 'Comunica', 'usa-est
  *
  * @param {{ report: object, sessionId: string, download?: typeof downloadRegistroAuxiliar }} props
  */
-export default function RegistroAuxiliar({ report, sessionId, download = downloadRegistroAuxiliar }) {
+export default function RegistroAuxiliar({ report, sessionId, download = downloadRegistroAuxiliar, print = printReport }) {
   const students = report?.estudiantes ?? []
   const [bimestre, setBimestre] = useState(1)
   const [grades, setGrades] = useState({})
@@ -32,8 +33,17 @@ export default function RegistroAuxiliar({ report, sessionId, download = downloa
     }
   }
 
+  const handlePrint = () => {
+    try {
+      print({ report, sessionId })
+      setState({ phase: 'done', message: 'Se abrió el reporte: en el diálogo de impresión elige «Guardar como PDF».' })
+    } catch (error) {
+      setState({ phase: 'error', message: error?.message || 'No se pudo abrir el reporte.' })
+    }
+  }
+
   return (
-    <Card title="Registro auxiliar (Excel)" description="La evidencia de esta sesión, en el formato del registro auxiliar de Matemática.">
+    <Card title="Descargas para el docente" description="La evidencia de esta sesión: registro auxiliar de Matemática (Excel) y reporte para imprimir o guardar como PDF.">
       <Alert tone="info" compact>{REGISTRO_NOTE}</Alert>
 
       <div className="mt-4 flex flex-wrap items-end gap-4">
@@ -51,6 +61,9 @@ export default function RegistroAuxiliar({ report, sessionId, download = downloa
         </label>
         <Button icon="download" loading={state.phase === 'working'} disabled={state.phase === 'working'} onClick={handleDownload}>
           Descargar registro auxiliar (Excel)
+        </Button>
+        <Button variant="secondary" icon="external" onClick={handlePrint}>
+          Descargar reporte (PDF)
         </Button>
       </div>
 
