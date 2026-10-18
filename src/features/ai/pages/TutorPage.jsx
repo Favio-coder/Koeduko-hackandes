@@ -7,8 +7,8 @@ import { askTutor } from '../services/tutorService'
 
 /**
  * PUNTO DE EXTENSION - DESARROLLADOR 3 (feature/sessions-ai)
- * Debe llamar a la Cloud Function `askTutor` (Gemini en el servidor).
- * Nunca invocar la API de Gemini directamente desde el navegador.
+ * Llama a `POST /api/ask-tutor` del backend de sesiones (`server/`, Vercel) con el ID token del usuario;
+ * Gemini corre allí. Nunca invocar la API de Gemini directamente desde el navegador.
  *
  * Solo presentación: mismo envío, mismos mensajes, mismo servicio.
  */
