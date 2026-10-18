@@ -1,81 +1,317 @@
-import { Alert, Card } from '@/components/ui'
-import { DEMO_STUDENTS, toKnowledgeProfiles } from '@/shared/lib/demoData'
-import { MATH_SKILLS } from '@/shared/constants/contracts'
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Alert, Button, Card } from "@/components/ui";
+import { Select } from "@/components/ui/Field";
+import { assessmentRequest } from "../services/assessmentService";
+import { useOperation } from "../hooks/useOperation";
+import { newAssessment, statusLabels } from "../utils/forms";
+import AssessmentEditor from "../components/AssessmentEditor";
+import StudentAttempt from "../components/StudentAttempt";
+import ResultsPanel from "../components/ResultsPanel";
+import AssessmentCompleted from "../components/AssessmentCompleted";
 
-/**
- * PUNTO DE EXTENSION - DESARROLLADOR 2 (feature/matching-engine)
- * Archivo de arranque. Sustituir por la implementacion real:
- *   features/assessments/services/assessmentService.js
- * Ver docs/API_CONTRACTS.md seccion "Assessments".
- *
- * Solo presentación: mismos datos y misma tabla.
- */
 export default function AssessmentsPage() {
-  const profiles = toKnowledgeProfiles(DEMO_STUDENTS)
-
+  const { isTeacher, user } = useAuth();
+  const [data, setData] = useState(null);
+  const [view, setView] = useState(null);
+  const [filter, setFilter] = useState("");
+  const [now, setNow] = useState(0);
+  const { busy, error, run } = useOperation();
+  useEffect(() => {
+    run(async () => setData(await assessmentRequest("bootstrap")));
+  }, [run]);
+  useEffect(() => {
+    if (view?.kind !== "detail") return undefined;
+    const refreshTime = () => setNow(Date.now());
+    refreshTime();
+    const timer = setInterval(refreshTime, 30_000);
+    return () => clearInterval(timer);
+  }, [view?.kind]);
+  const back = () => {
+    setView(null);
+    run(async () => setData(await assessmentRequest("bootstrap")));
+  };
+  const open = (a) =>
+    run(async () => {
+      if (isTeacher) {
+        const value = await assessmentRequest(
+          a.status === "draft" ? "detail" : "results",
+          { assessmentId: a.id },
+        );
+        setView({
+          kind: a.status === "draft" ? "edit" : "results",
+          value,
+          courseId: a.courseId,
+        });
+      } else {
+        const value = await assessmentRequest("detail", { assessmentId: a.id });
+        setView({
+          kind:
+            value.assignment?.resultStatus === "graded"
+              ? "completed"
+              : "detail",
+          value,
+          courseId: a.courseId,
+        });
+      }
+    });
+  const start = (a) =>
+    run(async () =>
+      setView({
+        kind: "attempt",
+        courseId: a.courseId,
+        value: await assessmentRequest("start", { assessmentId: a.id }),
+      }),
+    );
+  const course = data?.courses.find((c) => c.id === view?.courseId);
+  const detail = view?.kind === "detail" ? view.value : null;
+  const activeAttempt = Boolean(detail?.assignment.activeAttemptId);
+  const assessmentAvailable =
+    detail?.status === "published" &&
+    now >= Date.parse(detail.startsAt) &&
+    now < Date.parse(detail.endsAt);
+  const attemptsRemain =
+    detail && detail.assignment.count < detail.attemptLimit;
+  const canStartAssessment =
+    assessmentAvailable && (activeAttempt || attemptsRemain);
+  const availabilityMessage = activeAttempt
+    ? "Tienes un intento en curso. Puedes retomarlo."
+    : detail && !assessmentAvailable
+      ? now < Date.parse(detail.startsAt)
+        ? "Esta evaluación aún no está disponible."
+        : "El plazo para resolver esta evaluación terminó."
+      : detail && !attemptsRemain
+        ? "Ya utilizaste todos los intentos permitidos."
+        : "";
+  if (view?.kind === "edit")
+    return (
+      <AssessmentEditor
+        initial={view.value}
+        courses={data.courses}
+        onDone={back}
+      />
+    );
+  if (view?.kind === "attempt")
+    return (
+      <StudentAttempt
+        initial={view.value}
+        studentId={user.uid}
+        courseName={course?.name}
+        onDone={back}
+      />
+    );
+  if (view?.kind === "completed")
+    return (
+      <AssessmentCompleted
+        title={view.value.title}
+        courseName={course?.name}
+        onDone={back}
+      />
+    );
+  if (view?.kind === "results")
+    return <ResultsPanel initial={view.value} course={course} onDone={back} />;
   return (
     <div className="space-y-6">
       <header>
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#2A7A35]">Curso</p>
-        <h2 className="mt-1 text-2xl font-bold tracking-tight text-[#304744] sm:text-3xl">
-          Diagnóstico
-        </h2>
-        <p className="mt-1.5 text-sm text-[#5A6B6A]">
-          Evaluación inicial de la competencia «Resuelve problemas de cantidad» (5to de primaria).
+        <p className="text-sm font-semibold text-green-800">
+          Aprender y compartir
+        </p>
+        <h1 className="text-3xl font-bold text-[#304744]">Evaluaciones</h1>
+        <p className="mt-2 text-sm text-[#5A6B6A]">
+          {isTeacher
+            ? "Diseña evaluaciones y descubre la evidencia de aprendizaje de tu curso."
+            : "Cada respuesta nos ayuda a conocer cómo aprendes. ¡Vamos paso a paso!"}
         </p>
       </header>
-
-      <Alert tone="info" title="Interfaz mínima pendiente">
-        Este archivo es un punto de partida para el desarrollador 2. Debe implementar: carga de
-        items, registro de respuestas, cálculo de perfiles y persistencia en{' '}
-        <code className="rounded bg-white/70 px-1.5 py-0.5 font-mono text-xs">knowledgeProfiles</code>.
-      </Alert>
-
-      <Card
-        title="Perfiles de conocimiento"
-        description="Datos ficticios de demostración."
-        padding="sm"
-        actions={
-          <span className="rounded-full bg-[#E9F8EA] px-2.5 py-1 text-xs font-semibold text-[#2A7A35]">
-            {profiles.length} estudiantes
-          </span>
-        }
-      >
-        {/* Scroll horizontal contenido: la tabla no desborda la página */}
-        <div className="-mx-4 overflow-x-auto px-4 sm:-mx-5 sm:px-5">
-          <table className="w-full min-w-[32rem] text-left text-sm">
-            <caption className="sr-only">
-              Perfil de conocimiento por estudiante y destreza matemática
-            </caption>
-            <thead>
-              <tr className="border-b border-[#E6EAE3] text-xs uppercase tracking-wide text-[#5A6B6A]">
-                <th scope="col" className="py-2.5 pr-4 font-semibold">
-                  Estudiante
-                </th>
-                {MATH_SKILLS.map((s) => (
-                  <th key={s.id} scope="col" className="px-2 py-2.5 text-right font-semibold">
-                    {s.label}
-                  </th>
+      {error && (
+        <Alert tone="danger" title="No pudimos completar la solicitud">
+          {error}
+          <div className="mt-3">
+            <Button variant="secondary" onClick={back}>
+              Reintentar carga
+            </Button>
+          </div>
+        </Alert>
+      )}
+      {busy && <p role="status">Cargando…</p>}
+      {!data && !busy && !error && (
+        <p role="status">Preparando evaluaciones…</p>
+      )}
+      {view?.kind === "detail" ? (
+        <Card title={view.value.title}>
+          <div className="space-y-4">
+            <p>
+              {course?.name} · {statusLabels[view.value.status]}
+            </p>
+            <p>
+              Disponible: {new Date(view.value.startsAt).toLocaleString()} –{" "}
+              {new Date(view.value.endsAt).toLocaleString()}
+            </p>
+            <p>
+              Intentos iniciados: {view.value.assignment.count} /{" "}
+              {view.value.attemptLimit}. Duración:{" "}
+              {view.value.durationMinutes || "Hasta el cierre"}
+              {view.value.durationMinutes ? " minutos" : ""}.
+            </p>
+            <p>Se utiliza el último intento enviado.</p>
+            {availabilityMessage && (
+              <Alert
+                tone={canStartAssessment ? "info" : "warning"}
+                title={canStartAssessment ? "Puedes continuar" : "No disponible"}
+              >
+                {availabilityMessage}
+              </Alert>
+            )}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                disabled={busy || !canStartAssessment}
+                onClick={() => start(view.value)}
+              >
+                {activeAttempt ? "Retomar intento" : "Iniciar evaluación"}
+              </Button>
+              {view.value.assignment.result && (
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () =>
+                      setView({
+                        ...view,
+                        kind: "review",
+                        value: {
+                          ...view.value,
+                          review: await assessmentRequest("review", {
+                            assessmentId: view.value.id,
+                          }),
+                        },
+                      }),
+                    )
+                  }
+                >
+                  Ver mi resultado
+                </Button>
+              )}
+              <Button variant="ghost" onClick={back}>
+                Volver
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ) : view?.kind === "review" ? (
+        <Card title={`Mi resultado · ${view.value.title}`}>
+          <div className="space-y-4">
+            <p className="text-2xl font-bold">
+              {view.value.review.scaledScore} / {view.value.scale}
+            </p>
+            <p>
+              {view.value.review.result.overallScore} /{" "}
+              {view.value.review.result.maxScore} puntos
+            </p>
+            {view.value.review.feedback.map((f) => {
+              const q = view.value.review.questions.find(
+                (q) => q.questionId === f.questionId,
+              );
+              return (
+                <Alert
+                  key={f.questionId}
+                  tone={f.correct ? "success" : "info"}
+                  title={q.prompt}
+                >
+                  {f.correct ? "Correcta." : "Para repasar."} Respuesta:{" "}
+                  {q.options[f.correctAnswer]}. {f.explanation}
+                </Alert>
+              );
+            })}
+            {!view.value.review.feedback.length && (
+              <p>
+                La corrección detallada no está disponible según la
+                configuración docente.
+              </p>
+            )}
+            <Button onClick={back}>Volver</Button>
+          </div>
+        </Card>
+      ) : (
+        data && (
+          <>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="min-w-0 flex-1">
+                <Select
+                  label="Filtrar por evaluación"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  options={[
+                    { value: "", label: "Todas las evaluaciones" },
+                    ...data.assessments.map((a) => ({
+                      value: a.id,
+                      label: a.title,
+                    })),
+                  ]}
+                />
+              </div>
+              {isTeacher && (
+                <Button
+                  disabled={!data.courses.length || busy}
+                  onClick={() =>
+                    setView({
+                      kind: "edit",
+                      value: newAssessment(data.courses[0]),
+                    })
+                  }
+                >
+                  Crear evaluación
+                </Button>
+              )}
+              <Button variant="secondary" disabled={busy} onClick={back}>
+                Actualizar
+              </Button>
+            </div>
+            {!data.courses.length && (
+              <Alert tone="info" title="Sin cursos autorizados">
+                Un administrador debe habilitar tu curso y su matrícula en el
+                módulo de evaluaciones.
+              </Alert>
+            )}
+            {!data.assessments.length && (
+              <Card title="Aún no hay evaluaciones">
+                <p>
+                  {isTeacher
+                    ? "Crea tu primera evaluación con preguntas y estudiantes reales."
+                    : "Aquí aparecerán las evaluaciones que tu docente te asigne."}
+                </p>
+              </Card>
+            )}
+            <div className="grid gap-4 lg:grid-cols-2">
+              {data.assessments
+                .filter((a) => !filter || a.id === filter)
+                .map((a) => (
+                  <Card key={a.id} title={a.title}>
+                    <div className="space-y-3">
+                      <p className="text-sm">
+                        {data.courses.find((c) => c.id === a.courseId)?.name} ·{" "}
+                        {statusLabels[a.status]}
+                      </p>
+                      <p className="text-sm">
+                        Cierre: {new Date(a.endsAt).toLocaleString()}
+                      </p>
+                      <Button
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => open(a)}
+                      >
+                        {isTeacher
+                          ? a.status === "draft"
+                            ? "Editar borrador"
+                            : "Ver resultados"
+                          : "Abrir evaluación"}
+                      </Button>
+                    </div>
+                  </Card>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {profiles.map((p) => (
-                <tr key={p.studentId} className="border-b border-[#E6EAE3] last:border-0">
-                  <th scope="row" className="py-2.5 pr-4 font-semibold text-[#304744]">
-                    {p.displayName}
-                  </th>
-                  {MATH_SKILLS.map((s) => (
-                    <td key={s.id} className="px-2 py-2.5 text-right tabular-nums text-[#5A6B6A]">
-                      {p.skills[s.id].toFixed(2)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+            </div>
+          </>
+        )
+      )}
     </div>
-  )
+  );
 }

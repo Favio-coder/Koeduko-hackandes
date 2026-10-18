@@ -56,6 +56,10 @@ Reglas en `firestore.rules`. Índices en `firestore.indexes.json`.
 
 ## assessments/{assessmentId}
 
+> **Legacy contract.** La gestión docente implementada usa las colecciones
+> `assessmentCourseAccess` y `assessmentModules` descritas a continuación. Este
+> modelo anterior no es la fuente de persistencia de la API de evaluaciones.
+
 ```javascript
 {
   title: "Diagnostico inicial - Cantidad",
@@ -76,6 +80,97 @@ Reglas en `firestore.rules`. Índices en `firestore.indexes.json`.
   createdAt: Timestamp
 }
 ```
+
+## Gestión docente de evaluaciones (Fase 2)
+
+El backend accede a estas colecciones mediante Firebase Admin SDK. Las reglas
+de Firestore deniegan el acceso directo del cliente a todas ellas; las
+operaciones se realizan a través de `POST /api/assessments`, que verifica un
+Firebase ID token y vuelve a comprobar rol, pertenencia al curso y asignación.
+
+### assessmentCourseAccess/{courseId}
+
+ACL provisionada por administración. `teacherId` y `studentIds` son UIDs de
+Firebase Authentication. `competencies` es opcional: cuando se omite, se usa
+`competencyId` o la competencia inicial del proyecto.
+
+```javascript
+{
+  name: "Matemática 5A",
+  teacherId: "uid-docente",
+  studentIds: ["uid-estudiante-1", "uid-estudiante-2"],
+  competencyId: "resuelve-problemas-cantidad",
+  competencyLabel: "Resuelve problemas de cantidad",
+  competencies: [
+    { id: "resuelve-problemas-cantidad", label: "Resuelve problemas de cantidad" }
+  ],
+  skills: [{ id: "addition", label: "Adición" }]
+}
+```
+
+La API deriva el docente, la matrícula, las competencias y las habilidades
+permitidas de esta ACL. No confía en la matrícula, el rol ni el curso enviados
+por el navegador.
+
+### assessmentModules/{assessmentId}
+
+Documento de metadatos consultable por backend, sin preguntas ni claves.
+
+```javascript
+{
+  id: "uuid",
+  title: "Diagnóstico inicial",
+  courseId: "matematica-5a",
+  competencyId: "resuelve-problemas-cantidad",
+  type: "diagnostic", // diagnostic | exam | practice | homework
+  scale: 20, // 20 | 100
+  maxScore: 20,
+  durationMinutes: 30, // 0 = sin límite
+  attemptLimit: 1,
+  weightPercent: 0,
+  feedbackMode: "after_close",
+  startsAt: "2026-10-17T12:00:00.000Z",
+  endsAt: "2026-10-18T12:00:00.000Z",
+  studentIds: ["uid-estudiante-1"],
+  ownerId: "uid-docente",
+  status: "draft", // draft | published | closed | finalized
+  revision: 1,
+  createdAt: "2026-10-17T12:00:00.000Z",
+  updatedAt: "2026-10-17T12:00:00.000Z"
+}
+```
+
+Subcolecciones del módulo:
+
+```text
+assessmentModules/{id}/private/definition
+  Definición completa y autoritativa; contiene preguntas, correctAnswer y
+  explanation. Solo la API/Admin SDK puede leerla.
+
+assessmentModules/{id}/public/questions
+  Preguntas sanitizadas; no contiene correctAnswer ni explanation.
+
+assessmentModules/{id}/assignments/{studentUid}
+  studentId, count, activeAttemptId, resultStatus, result, scaledScore,
+  gradedAt y lastAttemptId. `result.overallScore` y los resultados por
+  conocimiento contienen puntajes brutos; `scaledScore` es la nota convertida
+  a `assessmentModules/{id}.scale`. Solo la API/Admin SDK puede acceder.
+
+assessmentModules/{id}/assignments/{studentUid}/attempts/{attemptId}
+  status, startedAt, expiresAt, answers, revision, savedAt, result,
+  scaledScore y gradedAt. Las respuestas y resultados no son legibles desde
+  el cliente; el endpoint devuelve solo lo autorizado para esa identidad.
+```
+
+La API omite claves y explicaciones en `start`; la retroalimentación se entrega
+únicamente según `feedbackMode`. La publicación crea los documentos de
+asignación dentro de la misma transacción que cambia el estado. El contrato de
+exportación JSON `1.0` permanece sin cambios.
+
+La exportación solo está disponible cuando el estado es `finalized`, cada
+estudiante asignado tiene un resultado validado y no queda ningún intento
+activo. No se exportan habilidades sin evidencia. Ver
+[Fase 4: calificación y contrato de matching](./assessments-phase-4.md).
 
 ## knowledgeProfiles/{profileId}
 

@@ -13,7 +13,8 @@ Competencia inicial: **«Resuelve problemas de cantidad»**, quinto de primaria.
 ## Stack
 
 React 19 · Vite · Tailwind CSS v4 · React Router 7 · Firebase (Auth, Firestore,
-Storage, Functions) · Gemini (desde Cloud Functions) · Google Meet
+Storage, Cloud Functions) · Vercel Functions · Gemini (desde Cloud Functions) ·
+Google Meet
 
 ## Instalación
 
@@ -25,10 +26,34 @@ cp .env.example .env      # completar con los datos de tu proyecto Firebase
 npm run dev
 ```
 
+## Desarrollo local (frontend y backend)
+
+`npm run dev` ejecuta solo Vite. Para que las solicitudes a `/api/assessments`
+lleguen a la función backend de Vercel, ejecuta desde la raíz del repositorio:
+
+```bash
+npx vercel login
+npx vercel link       # vincular el proyecto Vercel una vez
+npx vercel dev
+```
+
+Esto sirve el frontend y `api/` en el mismo origen (por defecto,
+`http://localhost:3000`). Se necesita Vercel CLI y una cuenta/proyecto Firebase.
+Completa las variables públicas `VITE_FIREBASE_*` de `.env` desde
+`.env.example`, y agrega `FIREBASE_SERVICE_ACCOUNT_JSON` con las credenciales de
+una cuenta de servicio serializadas como JSON en una sola línea. Esa variable es
+solo del backend: no debe llevar prefijo `VITE_`, copiarse al cliente ni
+versionarse. En Vercel se configura como variable de entorno del proyecto.
+
+El frontend sin backend Vercel puede arrancar con `npm run dev`, pero las
+operaciones de evaluaciones que llaman a `/api/assessments` no funcionarán. La
+función callable del tutor se despliega por separado desde `functions/`.
+
 ## Scripts
 
 ```bash
 npm run dev         # servidor de desarrollo
+npx vercel dev      # frontend + API local de Vercel
 npm run build       # build de producción
 npm run preview     # sirve el build
 npm run lint        # ESLint
@@ -47,6 +72,8 @@ src/
 ├── shared/         # constants/contracts.js y lib/ (utilidades puras, datos demo)
 ├── services/       # firebase.js
 └── test/setup.js
+api/                # Vercel Functions (endpoints HTTP)
+server/             # lógica privada usada por las API Functions
 functions/src/      # Cloud Functions (tutor IA)
 docs/               # arquitectura, esquema, contratos, tareas, integración, roadmap
 ```
@@ -57,6 +84,10 @@ docs/               # arquitectura, esquema, contratos, tareas, integración, ro
 | --- | --- |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura, límites entre módulos, dependencias |
 | [`docs/FIRESTORE_SCHEMA.md`](docs/FIRESTORE_SCHEMA.md) | Colecciones, campos, reglas e índices |
+| [`docs/assessments-phase-2.md`](docs/assessments-phase-2.md) | Gestión docente de evaluaciones y pruebas de Fase 2 |
+| [`docs/assessments-phase-3.md`](docs/assessments-phase-3.md) | Examen interactivo del estudiante y pruebas de Fase 3 |
+| [`docs/assessments-phase-4.md`](docs/assessments-phase-4.md) | Calificación, resultados y contrato matching v1.0 |
+| [`docs/assessments-phase-5.md`](docs/assessments-phase-5.md) | Auditoría final, validación y guía de despliegue Vercel |
 | [`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md) | Contratos que deben respetar los 3 módulos |
 | [`docs/TEAM_TASKS.md`](docs/TEAM_TASKS.md) | Tareas por desarrollador con criterios de aceptación |
 | [`docs/INTEGRATION_GUIDE.md`](docs/INTEGRATION_GUIDE.md) | Git, PRs, resolución de conflictos |
@@ -75,6 +106,21 @@ firebase login
 firebase emulators:start                 # probar reglas de seguridad
 firebase deploy --only firestore:rules,firestore:indexes
 ```
+
+Variables requeridas:
+
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+- `FIREBASE_SERVICE_ACCOUNT_JSON` (solo backend; requerida por la API Vercel)
+
+`VITE_APP_LOCALE` es opcional. Las variables `VITE_FIREBASE_*` forman parte del
+bundle del navegador; las reglas de Firestore y la autenticación, no el secreto
+de la API key, son la barrera de seguridad. `FIREBASE_SERVICE_ACCOUNT_JSON` es
+una credencial privada y debe mantenerse únicamente en el entorno del servidor.
 
 ## Cloud Functions (tutor IA)
 

@@ -19,8 +19,10 @@ evidencia empírica y no debe afirmarse lo contrario.
 | Routing | React Router v7 |
 | Autenticación | Firebase Authentication (email/password) |
 | Datos | Cloud Firestore |
-| Backend privilegiado | Firebase Cloud Functions (Node.js 22) |
-| IA | Gemini, invocado **solo** desde Cloud Functions |
+| Hosting y endpoints HTTP | Vercel (frontend Vite y Vercel Functions) |
+| Backend privado HTTP | `api/` (handlers Vercel) + `server/` (lógica privada) |
+| Backend callable | Firebase Cloud Functions (Node.js 22) |
+| IA | Gemini, invocado **solo** desde Firebase Cloud Functions |
 | Videollamadas | Google Meet (enlaces registrados manualmente en Fase 1) |
 | Pruebas | Vitest + Testing Library |
 
@@ -48,6 +50,12 @@ src/
 ├── services/firebase.js     # Instancias de Firebase
 └── test/setup.js
 
+api/
+└── assessments.js          # Vercel Function HTTP: autenticación y dispatcher
+server/
+├── firebaseAdmin.js        # Admin SDK exclusivo del backend
+└── assessments/            # Dominio y servicio privado de evaluaciones
+
 functions/src/
 ├── index.js        # Punto de entrada (exporta las funciones)
 ├── admin.js        # requireUser / requireTeacher
@@ -67,11 +75,16 @@ firebase.json
    - Firestore (colecciones documentadas en `FIRESTORE_SCHEMA.md`)
    - `src/components/ui/` (primitivas visuales)
 
-2. `services/firebase.js` es la **única** instancia de Firebase. Nadie llama
-   `initializeApp` por su cuenta.
+2. `src/services/firebase.js` es la instancia de Firebase cliente. `firebase-admin`
+   se inicializa por separado y solo dentro de `api/`, `server/` y `functions/`.
 
-3. Las **Cloud Functions** son la única vía para operaciones privilegiadas y para
-   llamar a Gemini.
+3. Las Vercel Functions exponen endpoints HTTP privados; el Admin SDK verifica
+   Firebase ID tokens y aplica la lógica de servidor. Firebase Cloud Functions
+   se usan para operaciones callable, incluido el tutor IA y Gemini.
+
+4. `npm run dev` inicia solo Vite. `npx vercel dev` sirve el frontend y las
+   funciones HTTP de `api/` en local; la API requiere `FIREBASE_SERVICE_ACCOUNT_JSON`
+   como variable privada del servidor.
 
 ## 5. Flujo de datos del MVP
 

@@ -13,7 +13,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
 
-export default function DashboardLayout() {
+export default function DashboardLayout({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const drawerRef = useRef(null)
   const location = useLocation()
@@ -75,7 +75,7 @@ export default function DashboardLayout() {
               tabIndex={-1}
               className="mx-auto min-w-0 w-full max-w-[96rem] px-4 py-5 focus:outline-none sm:px-6 sm:py-7 lg:px-8 lg:py-7"
             >
-              <Outlet />
+              {children ?? <Outlet />}
             </main>
           </div>
         </div>

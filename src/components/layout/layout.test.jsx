@@ -146,6 +146,18 @@ describe('Sidebar', () => {
     expect(active).toEqual(['Principal'])
   })
 
+  it('renderiza el contenido hijo de las rutas protegidas independientes', () => {
+    render(
+      <MemoryRouter initialEntries={['/assessments']}>
+        <DashboardLayout>
+          <h1>Evaluaciones</h1>
+        </DashboardLayout>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Evaluaciones' })).toBeInTheDocument()
+  })
+
   it('muestra la marca y la navegación con fondo verde bosque', () => {
     const { container } = wrap(<Sidebar />)
     expect(screen.getByRole('img', { name: 'KoEduko' })).toBeInTheDocument()
