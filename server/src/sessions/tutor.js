@@ -55,14 +55,14 @@ async function composeWithFallback({ buildPrompt, validate, fallback, generate, 
  * el motor.
  *
  * @param {{
- *   signal: object, problem?: object|null, transcriptTail?: { k: string, x: string }[],
+ *   signal: object, problem?: object|null, transcriptTail?: { k: string, x: string }[], memoryNotes?: string[],
  *   generate?: ((input: { systemInstruction: string, userPrompt: string, timeoutMs: number }) => Promise<string>)|null,
  *   timeoutMs?: number,
  * }} input
  */
-export function composeIntervention({ signal, problem = null, transcriptTail = [], generate = null, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+export function composeIntervention({ signal, problem = null, transcriptTail = [], memoryNotes = [], generate = null, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   return composeWithFallback({
-    buildPrompt: () => buildInterventionPrompt({ signal, problem, transcriptTail }),
+    buildPrompt: () => buildInterventionPrompt({ signal, problem, transcriptTail, memoryNotes }),
     validate: (message) =>
       validateMessage(message, {
         addressee: addresseeOf(signal),

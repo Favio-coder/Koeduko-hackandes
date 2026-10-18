@@ -1,6 +1,7 @@
 import { deterministicId } from './core/ids.js'
 import { addresseeOf } from './core/interventionPolicy.js'
 import { DEFAULT_CONFIG } from './core/signals.js'
+import { memoryScopeOf, studentKeyOf } from './core/studentKey.js'
 import { sendChatMessage } from './adapters/recall.js'
 import { composeIntervention } from './tutor.js'
 
@@ -25,10 +26,17 @@ function publicEvidence(evidence = {}) {
  * deliveredTo ['app', 'meet_chat']. Una intervencion repetida no se reenvia. Si el chat falla, la
  * intervencion igual queda en la app; solo se registra el estado HTTP, nunca el texto.
  *
+ * Con memoria configurada, antes de redactar se recuerda lo que se sabe del destinatario de sesiones
+ * anteriores (memoryNotes). La clave del estudiante sale de su uid o, si no esta enlazado, de un hash
+ * del nombre dentro del aula/docente (ver core/studentKey.js). recall nunca rompe nada: si falla o
+ * tarda mas de 2 s, no hay notas y el tutor habla como siempre. Costo: 1 lectura de la sesion (que el
+ * chat reutiliza, no se lee dos veces) y 1 llamada externa, solo cuando hay una intervencion.
+ *
  * @param {{
  *   getStore: () => { createIntervention: Function },
  *   getGenerate: () => (((input: object) => Promise<string>) | null),
  *   logger: { info: Function },
+ *   getMemory?: () => ({ recall: (studentKey: string, query: string) => Promise<string[]> } | null),
  *   getChat?: () => ({ enabled: boolean, apiKey?: string, region?: string } | null),
  *   sendChat?: typeof sendChatMessage,
  *   cooldownSec?: number,
@@ -40,23 +48,44 @@ export function createAfterLiveEventSaved({
   getStore,
   getGenerate,
   logger,
+  getMemory = () => null,
   getChat = () => null,
   sendChat = sendChatMessage,
   cooldownSec = DEFAULT_CONFIG.cooldownSec,
   logText = false,
   now = () => Date.now(),
 }) {
+  /** Lo que se sabe del destinatario de sesiones anteriores. Nunca lanza: sin memoria o con error, []. */
+  async function recallNotes({ intervention, problem, loadSession }) {
+    const memory = getMemory()
+    if (!memory || !intervention.participantKey) return []
+
+    const loaded = await loadSession()
+    if (loaded.failed) return []
+    const key = studentKeyOf({
+      studentId: intervention.studentId,
+      participantKey: intervention.participantKey,
+      scope: memoryScopeOf(loaded.session),
+    })
+    if (!key) return []
+
+    const query = problem ? `${problem.skillId ?? 'matemática'}: ${problem.text ?? ''}`.trim() : 'resolución de problemas de matemática'
+    try {
+      const notes = await memory.recall(key, query)
+      return Array.isArray(notes) ? notes : []
+    } catch {
+      return []
+    }
+  }
+
   /** Escribe el mensaje en el chat de Meet. Nunca lanza; devuelve que paso para el log. */
-  async function deliverToMeetChat({ sessionId, interventionId, message }) {
+  async function deliverToMeetChat({ sessionId, interventionId, message, loadSession }) {
     const chat = getChat()
     if (!chat?.enabled || !chat.apiKey) return { deliveredTo: ['app'], chat: 'disabled' }
 
-    let bot
-    try {
-      bot = (await getStore().getSession(sessionId))?.bot
-    } catch {
-      return { deliveredTo: ['app'], chat: 'session-read-failed' }
-    }
+    const loaded = await loadSession()
+    if (loaded.failed) return { deliveredTo: ['app'], chat: 'session-read-failed' }
+    const bot = loaded.session?.bot
     if (!bot?.id) return { deliveredTo: ['app'], chat: 'no-bot' }
 
     let sent
@@ -82,10 +111,25 @@ export function createAfterLiveEventSaved({
 
     const startedAt = now()
     const context = result.context ?? {}
+
+    // La sesion se lee como mucho una vez por intervencion y solo si algo la necesita (memoria o chat).
+    let sessionLoad = null
+    const loadSession = () => {
+      sessionLoad ??= getStore()
+        .getSession(sessionId)
+        .then(
+          (session) => ({ session }),
+          () => ({ failed: true }),
+        )
+      return sessionLoad
+    }
+
+    const memoryNotes = await recallNotes({ intervention, problem: context.problem ?? null, loadSession })
     const composed = await composeIntervention({
       signal: intervention,
       problem: context.problem ?? null,
       transcriptTail: context.transcriptTail ?? [],
+      memoryNotes,
       generate: getGenerate(),
     })
 
@@ -110,12 +154,13 @@ export function createAfterLiveEventSaved({
     })
 
     // Solo una intervencion nueva va al chat: si ya existia, ya se entrego (o se intento) antes.
-    const delivery = created ? await deliverToMeetChat({ sessionId, interventionId, message: composed.message }) : { chat: 'duplicate' }
+    const delivery = created ? await deliverToMeetChat({ sessionId, interventionId, message: composed.message, loadSession }) : { chat: 'duplicate' }
 
     logger.info('afterLiveEventSaved: intervencion', {
       sessionId,
       type: intervention.type,
       created,
+      memoryNotes: memoryNotes.length,
       chat: delivery.chat,
       ...(delivery.chatStatus !== undefined ? { chatStatus: delivery.chatStatus } : {}),
       source: composed.source,
