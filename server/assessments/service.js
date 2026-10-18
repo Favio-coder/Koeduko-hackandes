@@ -233,8 +233,10 @@ export function createAssessmentService(db) {
     const profile = await actor(uid);
     const teacher = profile.role === "teacher";
     if (action === "bootstrap") {
-      const courses = rows(
-        await db
+      /* Las dos consultas son independientes: en paralelo el tiempo total es el
+         de la más lenta en lugar de la suma. */
+      const [courseRows, assessmentRows] = await Promise.all([
+        db
           .collection("assessmentCourseAccess")
           .where(
             teacher ? "teacherId" : "studentIds",
@@ -242,9 +244,7 @@ export function createAssessmentService(db) {
             uid,
           )
           .get(),
-      );
-      const assessments = rows(
-        await db
+        db
           .collection(ROOT)
           .where(
             teacher ? "ownerId" : "studentIds",
@@ -252,7 +252,9 @@ export function createAssessmentService(db) {
             uid,
           )
           .get(),
-      ).filter(
+      ]);
+      const courses = rows(courseRows);
+      const assessments = rows(assessmentRows).filter(
         (a) =>
           courses.some((c) => c.id === a.courseId) &&
           (teacher || a.status !== "draft"),
@@ -303,6 +305,8 @@ export function createAssessmentService(db) {
       const id = payload.id || randomUUID();
       requireThat(validId(id), "Identificador inválido.");
       const ref = root(id);
+      let revision = 0;
+      let updatedAt;
       await db.runTransaction(async (tx) => {
         const existing = await tx.get(ref);
         if (existing.exists)
@@ -316,7 +320,8 @@ export function createAssessmentService(db) {
           );
         else requireThat(!payload.id, "Borrador no encontrado.", 404);
         const now = new Date().toISOString();
-        const revision = (existing.data()?.revision || 0) + 1;
+        revision = (existing.data()?.revision || 0) + 1;
+        updatedAt = now;
         const { questions, ...metadata } = data;
         tx.set(ref, {
           ...metadata,
@@ -341,12 +346,21 @@ export function createAssessmentService(db) {
               result: null,
             });
       });
-      return { id };
+      /* La revisión viaja en la respuesta: el cliente actualiza su copia sin
+         pedir `detail` y se ahorra una ida y vuelta completa. */
+      return { id, revision, updatedAt };
+    }
+    if (action === "detail" && teacher) {
+      /* Autorización y definición privada son lecturas independientes. */
+      const [assessment, privateDefinition] = await Promise.all([
+        getAssessment(uid, payload.assessmentId, true),
+        privateAssessment(payload.assessmentId),
+      ]);
+      return { ...assessment, ...privateDefinition };
     }
     const a = await getAssessment(uid, payload.assessmentId, teacher);
     const ref = root(a.id);
     if (action === "detail") {
-      if (teacher) return { ...a, ...(await privateAssessment(a.id)) };
       const assignment = (
         await ref.collection("assignments").doc(uid).get()
       ).data();

@@ -12,7 +12,7 @@ import {
 import Avatar from '@/components/ui/Avatar'
 import Icon from '@/components/ui/Icon'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { assessmentRequest } from '@/features/assessments/services/assessmentService'
+import { loadBootstrap } from '@/features/assessments/services/assessmentService'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '@/services/firebase'
 import { MATH_SKILLS } from '@/shared/constants/contracts'
@@ -46,7 +46,7 @@ import { MATH_SKILLS } from '@/shared/constants/contracts'
  */
 async function loadRoster() {
   const [bootstrap, profiles] = await Promise.all([
-    assessmentRequest('bootstrap'),
+    loadBootstrap(),
     getDocs(collection(db, 'knowledgeProfiles')).catch(() => null),
   ])
   const skillsByStudent = new Map()

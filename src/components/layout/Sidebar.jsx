@@ -33,6 +33,9 @@ function Item({ item, onNavigate, isActive }) {
        (o "Principal" y "Estudiantes"). Aquí lo decide `activeItemTo`. */
     <Link
       to={item.to}
+      /* `koedukoNav` permite que el módulo de curso (editor abierto) vuelva a su
+         listado cuando se vuelve a pulsar su propia entrada de menú. */
+      state={{ koedukoNav: item.to }}
       aria-current={isActive ? 'page' : undefined}
       className={itemClasses(isActive)}
       onClick={onNavigate}

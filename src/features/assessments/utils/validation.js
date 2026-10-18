@@ -151,9 +151,9 @@ export function validateAssessmentForm(form, courses, { publishing = false } = {
     form.maxScore === "" ||
     !Number.isInteger(maxScore) ||
     maxScore < 1 ||
-    maxScore > 60000
+    maxScore > form.scale
   ) {
-    setError("maxScore", "El puntaje máximo debe ser un entero entre 1 y 60000.");
+    setError("maxScore", `El puntaje máximo debe ser un entero entre 1 y ${form.scale}.`);
   }
   if (
     !["none", "after_submit", "after_close", "immediate"].includes(
