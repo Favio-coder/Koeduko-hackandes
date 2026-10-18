@@ -43,6 +43,7 @@ describe('afterLiveEventSaved', () => {
       evidence: intervention.evidence,
       message: 'Estudiante B, ¿cómo explicarías tú el problema con tus palabras?',
       source: 'gemini',
+      style: expect.stringMatching(/^(pregunta|pista|paso)$/),
       deliveredTo: ['app'],
       t: 55,
     })

@@ -6,6 +6,7 @@
  * pregunta socratica sobre el problema actual, y nombrar al destinatario.
  */
 
+import { STYLE_GUIDE } from './learning.js'
 import { extractNumbers } from './spanishNumbers.js'
 import { foldText } from './text.js'
 
@@ -103,10 +104,26 @@ function quotableProblem(problem) {
  * Mensaje determinista para cuando Gemini falla, tarda o responde algo invalido: la demo nunca
  * queda muda. Siempre es una pregunta, nombra al destinatario y no revela nada.
  */
-export function fallbackMessage(signal, { problem = null } = {}) {
+export function fallbackMessage(signal, { problem = null, participants = null } = {}) {
   const name = addresseeOf(signal)
   const quoted = quotableProblem(problem)
   const theProblem = quoted ? `«${quoted}»` : 'el problema'
+
+  // Una sola persona en la reunión: sin "compañero" ni plurales.
+  if (participants === 1) {
+    switch (signal?.type) {
+      case 'STUCK':
+        return `${name}, ¿qué datos de ${theProblem} ya tienes y cuál te falta para avanzar?`
+      case 'GROUP_SILENCE':
+        return `${name}, ¿qué parte de ${theProblem} te gustaría revisar?`
+      case 'WRONG_ANSWER':
+        return `${name}, ¿cómo podrías comprobar ese resultado paso a paso en ${theProblem}?`
+      case 'CORRECT_ANSWER':
+        return `${name}, ¿cómo le explicarías a alguien por qué ese resultado funciona en ${theProblem}?`
+      default:
+        return `${name}, ¿qué piensas de ${theProblem}?`
+    }
+  }
 
   switch (signal?.type) {
     case 'SILENT_PEER':
@@ -186,12 +203,14 @@ const memoryNoteText = (note) => String(note ?? '').replace(/[«»]/g, '').repla
  * @param {{ signal: object, problem?: object|null, transcriptTail?: { k: string, x: string }[], memoryNotes?: string[] }} input
  * @returns {{ systemInstruction: string, userPrompt: string }}
  */
-export function buildInterventionPrompt({ signal, problem = null, transcriptTail = [], memoryNotes = [] }) {
+export function buildInterventionPrompt({ signal, problem = null, transcriptTail = [], memoryNotes = [], style = null, participants = null }) {
   const quoted = quotableProblem(problem)
   const lines = [
     `Señal detectada: ${signal.type}`,
     `Destinatario: ${addresseeOf(signal)}`,
+    participants === 1 ? 'Hay una sola persona en la reunión: háblale solo a ella, sin mencionar compañeros, compañeras ni "chicos".' : '',
     GUIDANCE[signal.type] ? `Qué hacer: ${GUIDANCE[signal.type]}` : '',
+    STYLE_GUIDE[style] ?? '',
     `Problema actual: ${quoted ?? (problem ? '(texto no disponible)' : '(no hay un problema definido)')}`,
     evidenceLine(signal),
   ]

@@ -86,6 +86,25 @@ entra al prompt como contexto para personalizar la pregunta, sin cifras ni porce
 - AtomicMemory es un servicio externo; si falla o tarda más de 2 s el tutor habla sin notas, y lo guardado cae a
   un respaldo en Firestore. Se apaga con `MEMORY_ENABLED=false`.
 
+### 6.1 El tutor aprende de lo que pasó después de cada intervención
+
+Además de la oración de memoria, hay un **perfil por estudiante** (`studentProfiles/{clave}` en Firestore, solo el
+servidor lo lee) con conteos: sesiones, habilidades, señales y, lo nuevo, **qué estilo de intervención le sirvió**.
+
+1. **Estilo.** Cada intervención se redacta con uno de tres estilos: `pregunta` (que explique con sus palabras),
+   `pista` (qué dato mirar) o `paso` (un solo paso concreto). `core/learning.js` lo elige por estudiante y por señal:
+   primero prueba cada estilo, después prefiere el de mejor tasa y a veces explora otro. Lo viejo pesa menos
+   (olvido 0,9). Se guarda en cada intervención (`style`) y en el log.
+2. **Resultado.** Al cerrar, `core/interventionOutcome.js` mira los 60 s posteriores a cada intervención: si el
+   destinatario dio la respuesta o planteó la operación (`WRONG_ANSWER`, `STUCK`), habló (`SILENT_PEER`), habló otra
+   persona (`DOMINANCE`) o hubo una explicación (`CORRECT_ANSWER`). Las señales de grupo no enseñan nada.
+3. **Perfil.** El cierre suma esos resultados al perfil. En la siguiente sesión el perfil entra al prompt («suele
+   participar poco…», «ha funcionado mejor el estilo X»).
+
+Es aprendizaje **por conteos y memoria**, no un modelo entrenado. El resultado es una medida simple y explicable
+(¿pasó algo útil en 60 s?), no un juicio sobre el niño; con pocas sesiones los conteos son ruido, y el selector
+explora a propósito. Un fallo de este paso no rompe el cierre (`steps.learning`).
+
 ## 7. Datos de menores: qué se guarda, quién lo lee
 
 | Dato | Dónde | Quién lo lee |
