@@ -54,6 +54,13 @@ function pickQuotes(entries, max = THRESHOLDS.maxQuotes) {
   return unique.slice(0, max).map(quoteOf)
 }
 
+/** Solo transcripciones validas, en orden de tiempo: la base de TODO lo demas (ids de frase incluidos). */
+const prepare = (transcripts) => [...transcripts].filter((tr) => Number.isFinite(tr?.t) && typeof tr.x === 'string').sort((a, b) => a.t - b.t)
+
+/** Quienes aparecen en el reporte: presentes, quienes hablaron y quienes tienen habla acumulada. */
+export const participantKeysOf = ({ transcripts = [], totals = null, participants = [] }) =>
+  [...new Set([...participants, ...prepare(transcripts).map((tr) => tr.k), ...(totals ?? []).map((t) => t.k)])].sort()
+
 /** Etiqueta cada frase de cada transcripcion: que nombra, si justifica, si responde, si confunde. */
 function annotate(transcripts) {
   return transcripts.map((tr, index) => {
@@ -79,7 +86,7 @@ export function doubtfulSentences({ transcripts, studentKeys }) {
   const keys = new Set(studentKeys)
   const perStudent = new Map()
   const found = []
-  for (const tr of annotate([...transcripts].sort((a, b) => a.t - b.t))) {
+  for (const tr of annotate(prepare(transcripts))) {
     if (!keys.has(tr.k)) continue
     for (const sentence of tr.sentences) {
       const words = sentence.text.split(/\s+/).filter(Boolean)
@@ -122,10 +129,10 @@ const capability = (id, estado, evidencias, señales, nota) => ({
  * }} input
  */
 export function buildCompetencyReport({ transcripts = [], totals = null, participants = [], students = [], problem = null, durationSec = 0, labels = {} }) {
-  const sorted = [...transcripts].filter((tr) => Number.isFinite(tr?.t) && typeof tr.x === 'string').sort((a, b) => a.t - b.t)
+  const sorted = prepare(transcripts)
   const annotated = annotate(sorted)
 
-  const keys = [...new Set([...participants, ...sorted.map((tr) => tr.k), ...(totals ?? []).map((t) => t.k)])].sort()
+  const keys = participantKeysOf({ transcripts, totals, participants })
   const estimated = !Array.isArray(totals) || totals.length === 0
   const talk = Object.fromEntries(
     keys.map((key) => {
