@@ -31,6 +31,8 @@ export default createRecallWebhookHandler({
     getChat: () => readMeetChatConfig(process.env),
     getVoice: () => readMeetVoiceConfig(process.env),
     getJudge: () => readJudgeConfig(process.env),
+    // El observador usa su propio modelo (GEMINI_JUDGE_MODEL) y se calla un rato tras un 429: no le quita cuota a las intervenciones.
+    getJudgeGenerate: () => createGeminiGenerator(process.env, { role: 'judge' }),
     closeSessionFor: (sessionId) =>
       closeSession({
         sessionId,

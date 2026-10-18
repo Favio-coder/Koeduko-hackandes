@@ -122,6 +122,22 @@ export const ENV_MANIFEST = [
     default: 'true',
   },
   {
+    name: 'GEMINI_FALLBACK_MODEL',
+    target: 'server',
+    required: false,
+    secret: false,
+    purpose: 'Modelo de Gemini al que pasa el reintento cuando el principal responde 429 o 5xx (otro modelo suele tener su propia cuota). Sin el, el reintento usa el mismo.',
+    source: 'Google AI Studio (nombre exacto del modelo).',
+  },
+  {
+    name: 'GEMINI_JUDGE_MODEL',
+    target: 'server',
+    required: false,
+    secret: false,
+    purpose: 'Modelo del observador de la conversacion (puede ser uno mas liviano que GEMINI_MODEL para no gastar la cuota de las intervenciones). Sin el usa GEMINI_MODEL.',
+    source: 'Google AI Studio (nombre exacto del modelo).',
+  },
+  {
     name: 'GOOGLE_CLIENT_ID',
     target: 'server',
     required: false,

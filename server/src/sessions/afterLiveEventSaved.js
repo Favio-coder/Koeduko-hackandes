@@ -75,6 +75,7 @@ export function createAfterLiveEventSaved({
   sendChat = sendChatMessage,
   getVoice = () => null,
   getJudge = () => null,
+  getJudgeGenerate = null,
   closeSessionFor = null,
   synthesizeSpeech = synthesize,
   sendAudioToBot = sendAudio,
@@ -261,7 +262,7 @@ export function createAfterLiveEventSaved({
    */
   async function judgeConversation({ sessionId, judge }) {
     if (!getJudge()?.enabled) return
-    const generate = getGenerate()
+    const generate = (getJudgeGenerate ? getJudgeGenerate() : null) ?? getGenerate()
     if (!generate) return
     const humans = (judge.present ?? []).filter((k) => !BOT_KEYS.has(k))
     if (humans.length === 0 || !(judge.transcriptTail?.length > 0)) return

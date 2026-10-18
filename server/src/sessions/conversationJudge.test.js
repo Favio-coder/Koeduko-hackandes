@@ -249,3 +249,24 @@ describe('the tutor does not talk to an empty room, and does not repeat an answe
     expect(evaluateDue({ ...fresh, lastT: 410 }, { problem }).intervention).toMatchObject({ type: 'WRONG_ANSWER' })
   })
 })
+
+describe('the observer uses its own generator when there is one', () => {
+  it('prefers getJudgeGenerate over the tutor generator, and falls back to the tutor generator without it', async () => {
+    const judge = { problem: null, t: 100, transcriptTail: [{ k: 'estudiante a', x: 'no entiendo este tema' }], present: ['estudiante a'] }
+    const silence = '{"speak": false, "reason": "x"}'
+    const own = vi.fn().mockResolvedValue(silence)
+    const shared = vi.fn().mockResolvedValue(silence)
+    const make = (extra) => createAfterLiveEventSaved({ getStore: () => ({}), getGenerate: () => shared, getJudge: () => ({ enabled: true }), logger: { info: vi.fn() }, ...extra })
+
+    await make({ getJudgeGenerate: () => own })({ sessionId: 's1', result: { judge } })
+    expect(own).toHaveBeenCalledTimes(1)
+    expect(shared).not.toHaveBeenCalled()
+
+    await make({})({ sessionId: 's1', result: { judge } })
+    expect(shared).toHaveBeenCalledTimes(1)
+
+    const none = vi.fn().mockResolvedValue(silence)
+    await make({ getJudgeGenerate: () => null, getGenerate: () => none })({ sessionId: 's1', result: { judge } })
+    expect(none).toHaveBeenCalledTimes(1) // sin generador propio usa el del tutor
+  })
+})
