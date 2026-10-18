@@ -116,10 +116,27 @@ service cloud.firestore {
         allow write: if false; // Solo el servidor (afterLiveEventSaved).
       }
 
-      // Estado incremental del motor: reparto de habla, presencia, ultimas transcripciones.
-      match /live/{stateId} {
+      // Lo UNICO de live/ que lee el navegador: reparto de habla y ultimas frases, ya calculados.
+      match /live/view {
         allow read: if canReadSessionData(sessionId);
         allow write: if false; // Solo el servidor (processLiveEvent).
+      }
+
+      // live/state es del servidor: guarda, entre otras cosas, la respuesta esperada del problema
+      // (cacheada desde private/answer). Ningun cliente lo lee.
+      match /live/state {
+        allow read, write: if false;
+      }
+
+      // La respuesta esperada de los problemas. Solo el Admin SDK (que no pasa por estas reglas).
+      match /private/{docId} {
+        allow read, write: if false;
+      }
+
+      // Reporte de cierre (evidencia por competencias): lo lee el docente; lo escribe close-session.
+      match /summary/{docId} {
+        allow read: if isTeacher();
+        allow write: if false;
       }
     }
 
