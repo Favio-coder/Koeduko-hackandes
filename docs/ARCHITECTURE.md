@@ -121,7 +121,9 @@ Emparejamiento (matchingResults/pairs)
    └─> complementariedad        [DEV 2]
 Sesiones (learningSessions, pairId)
    ├─> tutorInteractions/{id}   [DEV 3]  pistas bajo demanda (ask-tutor)
-   └─> live/state, liveEvents, agentInterventions   [DEV 3]  sesión en vivo (ver §5.1)
+   ├─> live/view, liveEvents, agentInterventions   [DEV 3]  sesión en vivo (ver §5.1); lo único que lee el navegador
+   ├─> live/state, private/answer                  [DEV 3]  solo el servidor (estado del motor y respuesta esperada)
+   └─> summary/final                               [DEV 3]  reporte de cierre por competencias (solo el docente)
 ```
 
 ### 5.1 Sesión en vivo con el bot
@@ -138,16 +140,24 @@ Recall → POST /api/recall-webhook?token=...   (eventos en tiempo real)
                  aplica el evento y, como mucho cada 5 s de sesión, evalúa señales
                  escribe el estado y, salvo speech_on/off, el liveEvent crudo (id determinista)
             └─ responde 200 y, con waitUntil, afterLiveEventSaved:
-                 si el motor decidió intervenir → Gemini redacta (o mensaje de respaldo)
-                 → create() en learningSessions/{id}/agentInterventions (id determinista)
+                 si el motor decidió intervenir →
+                   recall de la memoria del destinatario (2 s máx., cacheado por estudiante y sesión)
+                   → Gemini redacta con esas notas (o mensaje de respaldo)
+                   → create() en learningSessions/{id}/agentInterventions (id determinista)
+                   → si la intervención es nueva: mensaje en el chat de Meet (Recall) y deliveredTo ['app','meet_chat']
 Estudiante → POST /api/ask-tutor (Bearer = ID token de Firebase)
             └─ verifica el token; solo el docente o un estudiante de esa sesión (studentIds)
             └─ el mismo adaptador de Gemini y la misma política: nunca devuelve la respuesta
+Docente → POST /api/close-session (Bearer = ID token de Firebase)
+            └─ saca al bot (Recall) → arma el reporte de competencias (reglas; Gemini solo clasifica
+               frases dudosas) → recuerda a cada estudiante (AtomicMemory, con respaldo en Firestore)
+            └─ guarda summary/final y marca la sesión "completed" (un lote). Cada paso externo tiene
+               límite de tiempo y respaldo: ninguno puede romper el cierre; summary.steps dice qué falló
 ```
 
 El motor de señales decide **si** se interviene y a quién; Gemini solo **redacta**. Si Gemini falla, tarda
 más de 6 s, no hay key o responde algo que rompe la política, se usa un mensaje determinista.
-Detalle, costos medidos y límites conocidos en `server/README.md`.
+Detalle, costos medidos y límites conocidos en `server/README.md`; comportamiento del agente en `SESSIONS_AGENT.md`.
 
 ## 6. Roles y autoridad
 
@@ -159,9 +169,10 @@ Detalle, costos medidos y límites conocidos en `server/README.md`.
 - Los endpoints de `server/` **nunca confían en el rol que manda el cliente**: verifican el ID token y
   leen el rol de `users/{uid}`. `start-session-bot` exige docente; `ask-tutor` exige docente o un
   estudiante cuyo `uid` figure en `studentIds` de esa sesión.
-- **Lectura de la sesión en vivo** (`liveEvents`, `transcriptSegments`, `agentInterventions`,
-  `live/state`): solo el docente o un estudiante de **esa** sesión; `write: false` para todos los
-  clientes. CORS: solo el origen del frontend (`ALLOWED_ORIGINS`) y `localhost:5173`.
+- **Lectura de la sesión en vivo** (`liveEvents`, `transcriptSegments`, `agentInterventions`, `live/view`):
+  solo el docente o un estudiante de **esa** sesión; `write: false` para todos los clientes. **`live/state` y
+  `private/answer` no los lee ningún cliente** (ahí está la respuesta esperada). `summary/final` solo lo lee el
+  docente. CORS: solo el origen del frontend (`ALLOWED_ORIGINS`) y `localhost:5173`.
 
 ## 7. Dependencias entre desarrolladores
 
@@ -175,3 +186,21 @@ DEV 3 (sessions/ai)    ──consume──>  pairs de DEV 2
 ```
 
 Ver `INTEGRATION_GUIDE.md` para el orden de merge.
+
+## 8. Decisiones y tradeoffs del módulo de sesiones
+
+| Decisión | Por qué | Lo que cuesta |
+| --- | --- | --- |
+| **Vercel y no Cloud Functions** | Firebase está en el plan Spark; Cloud Functions y sus secretos exigen Blaze. | Un segundo proyecto de despliegue, CORS y verificación manual del ID token. |
+| **Dos proyectos de Vercel desde un repo**: el frontend (raíz) y el backend de sesiones (`server/`, proyecto `ko_eduko`) | Despliegues independientes y secretos separados: el navegador nunca ve las claves de Gemini, Recall ni AtomicMemory. | Dos juegos de variables, `ALLOWED_ORIGINS` que mantener, y `server/` comparte carpeta con código de evaluaciones de otro módulo (conviven sin importarse). |
+| **Bot participante (Recall.ai)** | Funciona con cualquier Meet sin extensión ni permisos del navegador de los niños. | El bot aparece en la reunión y el anfitrión debe admitirlo; la transcripción llega ~1,5 s tarde; Recall cobra por minuto. |
+| **Deepgram vía Recall** (`nova-3`, español) | No se integra ni mantiene un servicio de voz propio. | Errores de transcripción en nombres y números; el idioma que Recall reporta (`en`) es ruido y no se lee. |
+| **Las reglas deciden, el LLM solo redacta** | Es auditable y testeable; Gemini nunca decide, nunca ve la respuesta y su texto se valida (≤ 2 oraciones, nombra al destinatario, sin el resultado). | Solo 5 señales: cuando ninguna salta, el tutor calla. No es un tutor conversacional. |
+| **Estado incremental + vista** (`live/state` para el motor, `live/view` para la pantalla) | La cuota gratuita de Firestore (50 000 lecturas y 20 000 escrituras al día) no permite releer la ventana por evento. | Tope de ~111 minutos de sesión al día (estimado) y dos documentos que mantener coherentes. |
+| **La respuesta esperada fuera del documento de la sesión** (`private/answer`) | Los estudiantes leen ese documento. | Una lectura más por problema y una migración para sesiones viejas. |
+| **AtomicMemory por HTTP directo, sin su SDK** | El SDK arrastra ~277 MB de binarios nativos (límite de Vercel: 250 MB) y 3 vulnerabilidades altas, para llamar a dos endpoints. | Mantener a mano el contrato de esas dos llamadas; si el servicio cambia, se rompe aquí. |
+| **`studentKey` seudónimo** (uid, o `scope:hash(scope + nombre)`) | La memoria termina en un servicio externo: no debe llevar el correo ni el nombre. | Es seudónimo, no anónimo (los nombres son fáciles de adivinar), y solo funciona si el nombre en Meet es el mismo entre sesiones. |
+| **Evidencia formativa, nunca una nota** | La calificación es del docente. Las reglas clasifican primero; Gemini solo etiqueta frases dudosas y su etiqueta nunca basta para «con evidencia». | El reporte es conservador: muchas capacidades salen «sin evidencia suficiente». |
+
+Cada paso que depende de un servicio externo (Gemini, Recall, AtomicMemory) tiene límite de tiempo y respaldo:
+ningún servicio externo puede dejar mudo al tutor ni romper el cierre de la sesión.
