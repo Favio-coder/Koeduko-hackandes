@@ -3,6 +3,7 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button, EmptyState } from '@/components/ui'
 import MatchingGroupList from '../components/MatchingGroupList'
+import PublishGroupRooms from '../components/PublishGroupRooms'
 import { matchesMatchingScope, readMatchingResult, validateSavedMatching } from '../services/matchingResultStorage'
 
 function loadSnapshot(routeResult, scope, routeOwnerId) {
@@ -64,6 +65,7 @@ function SavedResults({ assessmentId, scope }) {
           )}
         </div>
         <MatchingGroupList groups={groups} filter={filter} />
+        {scope?.ownerId && !result.source?.containsSimulatedData && result.courseId && <PublishGroupRooms result={result} />}
       </>}
     </section>
   )

@@ -79,7 +79,7 @@ El resultado es un objeto JavaScript/JSON interno:
 
 groups incluye parejas y tríos con studentIds, members y razones. pairs conserva la estructura Pair del contrato y solo incluye grupos de dos. No se transforma un trío en una pareja ficticia ni se modifica el contrato compartido.
 
-La persistencia e integración del contrato Pair con sesiones siguen fuera de este módulo. Las sesiones que solo soporten parejas necesitarán un acuerdo de contrato para consumir tríos.
+Resultados permite confirmar la propuesta con Crear salas para estos grupos. POST /api/group-sessions comprueba rol, dueño del curso/evaluación, cobertura exacta de asignados y evidencia actual en una transacción. Guarda la confirmación en matchingResults y crea documentos learningSessions compatibles con el módulo de sesión privada. Los tríos conservan sus tres studentIds y groupId, con pairId null; las parejas también tienen pairId. No se inventan enunciados ni respuestas esperadas.
 
 ## Hook y pantalla
 
@@ -94,7 +94,7 @@ En /matching se muestra la cantidad real de estudiantes recibidos y sus habilida
 
 /matching/results es una pantalla distinta: muestra el último agrupamiento generado, con resumen y filtros de parejas/tríos. No ejecuta el algoritmo. Sin una propuesta guardada, invita a volver a Estudiantes.
 
-El último resultado se conserva en sessionStorage de esta pestaña, separado por docente y versión del modelo. Las rutas filtran por curso y evaluación; un docente no recupera la propuesta de otro ni la demo anterior. Se valida al recuperarlo sin recalcular. Si el almacenamiento falla, Ver resultados lleva la propuesta mediante el estado del router, con el identificador del docente, y se avisa que no sobrevivirá a una recarga. No se escribe en Firestore ni se integran sesiones.
+La propuesta aún no confirmada se conserva en sessionStorage de esta pestaña, separada por docente y versión del modelo. Las rutas filtran por curso y evaluación. Se valida al recuperarla sin recalcular. Si el almacenamiento falla, Ver resultados lleva la propuesta mediante el estado del router. La confirmación de salas sí se persiste en Firestore mediante la API; otra petición idéntica devuelve las mismas salas. Una distribución diferente para una evaluación ya confirmada se rechaza para no duplicar grupos.
 
 No hay formulario para pegar JSON ni visor de JSON. Los datos estructurados siguen disponibles dentro del resultado del servicio/hook.
 

@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore'
+import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '@/services/firebase'
 
-const REAL_FIRESTORE = { db, collection, getDocs, limit, orderBy, query, where }
-
-/** Cuantas sesiones se leen para elegir la activa (una sola lectura por visita, no una suscripcion). */
-export const ACTIVE_LOOKUP_LIMIT = 10
+const REAL_FIRESTORE = { db, collection, getDocs, query, where }
 
 const ERROR_MESSAGES = {
   'permission-denied': 'No tienes permiso para ver tus sesiones.',
@@ -34,7 +31,7 @@ export function pickActiveSession(sessions) {
 
 /**
  * La sesion activa del usuario, leida de Firestore una sola vez.
- *  - Docente: las sesiones mas recientes (las reglas le permiten listarlas).
+ *  - Docente: solo sus sesiones, identificadas por createdBy.
  *  - Estudiante: solo aquellas donde su uid esta en studentIds (la consulta lo exige, igual que las reglas).
  *
  * @returns {{ loading: boolean, error: string|null, sessionId: string|null, retry: () => void }}
@@ -49,10 +46,8 @@ export function useActiveSession(uid, isTeacher, deps = REAL_FIRESTORE) {
     if (!uid) return undefined
     let cancelled = false
     const sessions = deps.collection(deps.db, 'learningSessions')
-    // Sin orderBy para el estudiante: array-contains + orderBy pediria un indice compuesto. Se ordena aqui.
-    const request = isTeacher
-      ? deps.query(sessions, deps.orderBy('createdAt', 'desc'), deps.limit(ACTIVE_LOOKUP_LIMIT))
-      : deps.query(sessions, deps.where('studentIds', 'array-contains', uid), deps.limit(ACTIVE_LOOKUP_LIMIT))
+    // Se ordena aquí para no exigir índices compuestos. No se recorta antes de elegir la activa.
+    const request = deps.query(sessions, deps.where(isTeacher ? 'createdBy' : 'studentIds', isTeacher ? '==' : 'array-contains', uid))
 
     deps
       .getDocs(request)

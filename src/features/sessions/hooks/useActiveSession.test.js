@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/services/firebase', () => ({ db: {} }))
 
-import { ACTIVE_LOOKUP_LIMIT, pickActiveSession, useActiveSession } from './useActiveSession'
+import { pickActiveSession, useActiveSession } from './useActiveSession'
 
 const at = (ms) => ({ toMillis: () => ms })
 const session = (id, status, ms) => ({ id, status, createdAt: at(ms) })
@@ -50,7 +50,7 @@ function fakeFirestore({ docs = [], error = null } = {}) {
 }
 
 describe('useActiveSession', () => {
-  it('for a teacher reads the newest sessions, newest first, with a limit (no per-student filter)', async () => {
+  it('for a teacher only reads sessions created by that teacher', async () => {
     const fb = fakeFirestore({ docs: [session('s1', 'scheduled', 1)] })
     const { result } = renderHook(() => useActiveSession('uid-docente', true, fb.deps))
     expect(result.current.loading).toBe(true)
@@ -58,7 +58,7 @@ describe('useActiveSession', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.sessionId).toBe('s1')
     expect(fb.calls[0].ref).toEqual({ name: 'learningSessions' })
-    expect(fb.calls[0].constraints).toEqual([{ orderBy: ['createdAt', 'desc'] }, { limit: ACTIVE_LOOKUP_LIMIT }])
+    expect(fb.calls[0].constraints).toEqual([{ where: ['createdBy', '==', 'uid-docente'] }])
   })
 
   it('for a student only asks for the sessions where their uid is in studentIds (as the rules require)', async () => {

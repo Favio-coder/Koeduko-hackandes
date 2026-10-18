@@ -7,6 +7,7 @@ import { classroomFixture } from './helpers/classroomFixture'
 
 const { session } = vi.hoisted(() => ({ session: {} }))
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => session }))
+vi.mock('@/features/sessions/hooks/useSessions', () => ({ useSessions: () => ({ sessions: [], loading: false, error: null }) }))
 const { bootstrap, fetchProfile } = vi.hoisted(() => ({ bootstrap: vi.fn(), fetchProfile: vi.fn() }))
 vi.mock('@/features/assessments/services/assessmentService', () => ({ loadBootstrap: bootstrap }))
 vi.mock('../services/assessmentProfileService', () => ({ fetchMatchingProfile: fetchProfile }))

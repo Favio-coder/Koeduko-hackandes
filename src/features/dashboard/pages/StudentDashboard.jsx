@@ -1,19 +1,15 @@
 import { Link } from 'react-router-dom'
-import { Button, Card, ProgressBar } from '@/components/ui'
+import { Button, Card, ErrorState, LoadingState } from '@/components/ui'
 import Avatar from '@/components/ui/Avatar'
 import Icon from '@/components/ui/Icon'
 import { useAuth } from '@/contexts/AuthContext'
-import { DEMO_STUDENTS } from '@/shared/lib/demoData'
+import { useSessions } from '@/features/sessions/hooks/useSessions'
 
 export default function StudentDashboard() {
   const { profile } = useAuth()
-  const me = DEMO_STUDENTS[0]
-  const sessions = [
-    { id: 'demo-session-1', title: 'Pareja asignada - Ana y Luis', status: 'scheduled', meetingUrl: null },
-  ]
+  const { sessions, loading, error, reload } = useSessions()
   const firstName = (profile?.displayName || 'estudiante').split(' ')[0]
 
-  const skills = Object.entries(me.skills)
 
   return (
     <div className="space-y-6">
@@ -49,27 +45,15 @@ export default function StudentDashboard() {
         </Button>
       </div>
 
-      {/* Perfil de conocimientos */}
-      <Card
-        title="Mi perfil de conocimientos"
-        description="Datos ficticios de demostración."
-        actions={
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E9F8EA] px-2.5 py-1 text-xs font-semibold text-[#2A7A35]">
-            <Icon name="sparkles" className="h-3.5 w-3.5" />
-            {skills.length} competencias
-          </span>
-        }
-      >
-        <div className="space-y-3.5">
-          {skills.map(([skill, value]) => (
-            <ProgressBar key={skill} value={value} label={skill} />
-          ))}
-        </div>
+      <Card title="Mis evaluaciones" description="Consulta tus evaluaciones y calificaciones en Curso.">
+        <Button to="/assessments" variant="secondary">Ver evaluaciones y resultados</Button>
       </Card>
 
       {/* Sesiones */}
       <Card title="Mis salas" padding="sm">
-        {sessions.length === 0 ? (
+        {loading && <LoadingState label="Cargando mis salas…" />}
+        {error && <ErrorState error={error} onRetry={reload} />}
+        {!loading && !error && (sessions.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-[#5A6B6A]">
             Todavía no tienes sesiones asignadas.
           </p>
@@ -96,7 +80,7 @@ export default function StudentDashboard() {
               </li>
             ))}
           </ul>
-        )}
+        ))}
       </Card>
     </div>
   )
