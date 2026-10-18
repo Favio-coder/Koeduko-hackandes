@@ -15,7 +15,12 @@ export const REMEMBER_TIMEOUT_MS = 4000
 export const SUMMARY_VERSION = 1
 
 /** Un codigo corto de por que fallo un paso: nunca el mensaje, el texto ni datos del estudiante. */
-const reasonOf = (error) => (error?.name === 'TimeoutError' ? 'timeout' : (error?.reason ?? error?.status ?? error?.name ?? 'error'))
+const reasonOf = (error) => {
+  if (error?.name === 'TimeoutError') return 'timeout'
+  // Gemini: "http" no basta para diagnosticar; se agrega el codigo HTTP ("http:400").
+  if (error?.reason) return error.status ? `${error.reason}:${error.status}` : error.reason
+  return error?.status ?? error?.name ?? 'error'
+}
 
 /**
  * Cierra una sesion: saca al bot, arma el reporte de competencias, lo guarda, recuerda a cada estudiante
