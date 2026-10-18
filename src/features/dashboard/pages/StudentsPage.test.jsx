@@ -54,7 +54,7 @@ describe('StudentsPage', () => {
     expect(await screen.findByText('Ana Torres')).toBeInTheDocument()
     expect(screen.getByText('student-real-1')).toBeInTheDocument()
     expect(screen.getByText('Matemática')).toBeInTheDocument()
-    expect(screen.getAllByText('1 estudiantes').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('1 estudiante').length).toBeGreaterThan(0)
     expect(bootstrap).toHaveBeenCalledWith('bootstrap', undefined)
     expect(collection).toHaveBeenCalledWith({ type: 'firestore' }, 'knowledgeProfiles')
   })

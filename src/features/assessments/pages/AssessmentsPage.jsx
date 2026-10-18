@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, Button, Card, LoadingState } from "@/components/ui";
-import { Select } from "@/components/ui/Field";
 import { loadBootstrap } from "../services/assessmentService";
 import { assessmentRequest } from "../services/assessmentService";
 import { useOperation } from "../hooks/useOperation";
@@ -12,6 +11,9 @@ import StudentAttempt from "../components/StudentAttempt";
 import ResultsPanel from "../components/ResultsPanel";
 import AssessmentCompleted from "../components/AssessmentCompleted";
 import GradeHistoryPanel from "../components/GradeHistoryPanel";
+import TeacherCourseOverview, { TeacherCourseHeader } from "../components/TeacherCourseOverview";
+
+import StudentCourseOverview, { StudentCourseHeader } from "../components/StudentCourseOverview";
 
 export default function AssessmentsPage() {
   const { isTeacher, user } = useAuth();
@@ -144,17 +146,7 @@ export default function AssessmentsPage() {
     );
   return (
     <div className="space-y-6">
-      <header>
-        <p className="text-sm font-semibold text-green-800">
-          Aprender y compartir
-        </p>
-        <h1 className="text-3xl font-bold text-[#304744]">Evaluaciones</h1>
-        <p className="mt-2 text-sm text-[#5A6B6A]">
-          {isTeacher
-            ? "Diseña evaluaciones y descubre la evidencia de aprendizaje de tu curso."
-            : "Cada respuesta nos ayuda a conocer cómo aprendes. ¡Vamos paso a paso!"}
-        </p>
-      </header>
+      {isTeacher ? <TeacherCourseHeader /> : <StudentCourseHeader />}
       {error && (
         <Alert tone="danger" title="No pudimos completar la solicitud">
           {error}
@@ -262,107 +254,27 @@ export default function AssessmentsPage() {
           </div>
         </Card>
       ) : (
-        data && (
-          <>
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-0 flex-1">
-                <Select
-                  label="Filtrar por evaluación"
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  options={[
-                    { value: "", label: "Todas las evaluaciones" },
-                    ...data.assessments.map((a) => ({
-                      value: a.id,
-                      label: a.title,
-                    })),
-                  ]}
-                />
-              </div>
-              {isTeacher && (
-                <Button
-                  disabled={!data.courses.length || busy}
-                  onClick={() =>
-                    setView({
-                      kind: "edit",
-                      value: newAssessment(data.courses[0]),
-                    })
-                  }
-                >
-                  Crear evaluación
-                </Button>
-              )}
-              {!isTeacher && (
-                <Button
-                  variant="blue"
-                  disabled={busy}
-                  onClick={() =>
-                    run(async () =>
-                      setView({
-                        kind: "grades",
-                        value: await assessmentRequest("grades"),
-                      }),
-                    )
-                  }
-                >
-                  Mis calificaciones
-                </Button>
-              )}
-              <Button
-                variant="blueSoft"
-                icon="refresh"
-                disabled={busy}
-                onClick={() => refresh({ refresh: true })}
-              >
-                Actualizar
-              </Button>
-            </div>
-            {!data.courses.length && (
-              <Alert tone="info" title="Sin cursos autorizados">
-                Un administrador debe habilitar tu curso y su matrícula en el
-                módulo de evaluaciones.
-              </Alert>
-            )}
-            {!data.assessments.length && (
-              <Card title="Aún no hay evaluaciones">
-                <p>
-                  {isTeacher
-                    ? "Crea tu primera evaluación con preguntas y estudiantes reales."
-                    : "Aquí aparecerán las evaluaciones que tu docente te asigne."}
-                </p>
-              </Card>
-            )}
-            <div className="grid gap-4 lg:grid-cols-2">
-              {data.assessments
-                .filter((a) => !filter || a.id === filter)
-                .map((a) => (
-                  <Card key={a.id} title={a.title}>
-                    <div className="space-y-3">
-                      <p className="text-sm">
-                        {data.courses.find((c) => c.id === a.courseId)?.name} ·{" "}
-                        {statusLabels[a.status]}
-                      </p>
-                      <p className="text-sm">
-                        Cierre: {new Date(a.endsAt).toLocaleString()}
-                      </p>
-                      <Button
-                        variant="blue"
-                        icon="edit"
-                        disabled={busy}
-                        onClick={() => open(a)}
-                      >
-                        {isTeacher
-                          ? a.status === "draft"
-                            ? "Editar borrador"
-                            : "Ver resultados"
-                          : "Abrir evaluación"}
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-            </div>
-          </>
-        )
+        data && (isTeacher ? (
+          <TeacherCourseOverview
+            data={data}
+            filter={filter}
+            onFilterChange={(event) => setFilter(event.target.value)}
+            busy={busy}
+            onCreate={() => setView({ kind: "edit", value: newAssessment(data.courses[0]) })}
+            onRefresh={() => refresh({ refresh: true })}
+            onOpen={open}
+          />
+        ) : (
+          <StudentCourseOverview
+            data={data}
+            filter={filter}
+            onFilterChange={(event) => setFilter(event.target.value)}
+            busy={busy}
+            onGrades={() => run(async () => setView({ kind: "grades", value: await assessmentRequest("grades") }))}
+            onRefresh={() => refresh({ refresh: true })}
+            onOpen={open}
+          />
+        ))
       )}
     </div>
   );
