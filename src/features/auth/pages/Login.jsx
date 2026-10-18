@@ -7,6 +7,7 @@ import AuthLayout from '@/components/layout/AuthLayout'
 import { useAuth } from '@/contexts/AuthContext'
 import DemoAccess from '../components/DemoAccess'
 import { DEMO_TEACHER } from '../demoAccount'
+import PasswordInput from '../components/PasswordInput'
 
 export default function Login() {
   const { login, isAuthenticated, error } = useAuth()
@@ -82,7 +83,7 @@ export default function Login() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        <Input
+        <PasswordInput
           label="Contraseña"
           type="password"
           id="password"

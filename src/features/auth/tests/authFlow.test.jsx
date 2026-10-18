@@ -56,6 +56,30 @@ describe('accesos de demostración', () => {
     ).toHaveAttribute('href', '/register')
   })
 
+  it('rechaza contraseñas cortas antes de crear la cuenta', async () => {
+    renderApp('/register')
+    fireEvent.change(screen.getByLabelText(/^Contraseña/), { target: { value: 'abc' } })
+    fireEvent.change(screen.getByLabelText(/Confirmar contraseña/), { target: { value: 'abc' } })
+    fireEvent.submit(screen.getByRole('button', { name: 'Registrarme' }).closest('form'))
+    expect(await screen.findByText('Usa una contraseña de al menos 8 caracteres.')).toBeInTheDocument()
+    expect(register).not.toHaveBeenCalled()
+    expect(joinDefaultCourse).not.toHaveBeenCalled()
+  })
+
+  it('permite mostrar la contraseña y avisa sobre Bloq Mayús', () => {
+    renderApp()
+    const password = screen.getByLabelText(/^Contraseña/)
+    expect(password).toHaveAttribute('type', 'password')
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
+    expect(password).toHaveAttribute('type', 'text')
+    fireEvent.keyDown(password, { key: 'A', modifierCapsLock: true })
+    expect(screen.getByText('Bloq Mayús está activado.')).toBeInTheDocument()
+    fireEvent.blur(password)
+    expect(screen.queryByText('Bloq Mayús está activado.')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Ocultar contraseña' }))
+    expect(password).toHaveAttribute('type', 'password')
+  })
+
   it('«Ingresa como docente» entra con la cuenta de la demo', async () => {
     login.mockResolvedValue({})
     renderApp()

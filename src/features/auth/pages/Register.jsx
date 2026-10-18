@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Field'
 import AuthLayout from '@/components/layout/AuthLayout'
 import { useAuth } from '@/contexts/AuthContext'
 import { joinDefaultCourse } from '@/features/assessments/services/courseEnrollmentService'
+import PasswordInput from '../components/PasswordInput'
 
 export default function Register() {
   const { register, isAuthenticated } = useAuth()
@@ -21,8 +22,12 @@ export default function Register() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError(null)
+    if (form.password.length < 8) {
+      setError('Usa una contraseña de al menos 8 caracteres.')
+      return
+    }
     if (form.password !== form.confirm) {
-      setError('Las contrasenas no coinciden.')
+      setError('Las contraseñas no coinciden.')
       return
     }
     setSubmitting(true)
@@ -40,7 +45,9 @@ export default function Register() {
       setError(
         err.code === 'auth/email-already-in-use'
           ? 'Ese correo ya esta registrado.'
-          : 'No se pudo crear la cuenta. Intenta nuevamente.',
+          : ['auth/weak-password', 'auth/password-does-not-meet-requirements'].includes(err.code)
+            ? 'La contraseña no cumple los requisitos de seguridad. Prueba una contraseña más larga y combina letras, números y símbolos.'
+            : 'No se pudo crear la cuenta. Intenta nuevamente.',
       )
     } finally {
       setSubmitting(false)
@@ -74,8 +81,9 @@ export default function Register() {
             type: 'password',
             autoComplete: 'new-password',
           },
-        ].map((field) => (
-          <Input
+        ].map((field) => {
+          const Component = field.type === 'password' ? PasswordInput : Input
+          return <Component
             key={field.id}
             id={field.id}
             label={field.label}
@@ -84,8 +92,13 @@ export default function Register() {
             autoComplete={field.autoComplete}
             value={form[field.id]}
             onChange={update(field.id)}
+            hint={field.id === 'password'
+              ? 'Mínimo 8 caracteres. Recomendamos 12 o más; evita tu nombre y contraseñas reutilizadas.'
+              : undefined}
+            error={field.id === 'confirm' && form.confirm && form.password !== form.confirm
+              ? 'Las contraseñas no coinciden.' : undefined}
           />
-        ))}
+        })}
 
         {error && (
           <Alert tone="error" compact>
