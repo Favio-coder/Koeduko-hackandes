@@ -3,6 +3,7 @@ const MEET_URL = /^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/
 
 /**
  * Documento de una sesion de prueba de aceptacion (sesion real, sin estudiantes enlazados todavia).
+ * No incluye la respuesta esperada (ver buildAcceptanceAnswer).
  * Funcion pura: el script solo agrega la marca de tiempo del servidor y lo escribe.
  *
  * @param {{ sessionId: string, teacherUid: string, meetingUrl: string }} input
@@ -24,7 +25,11 @@ export function buildAcceptanceSession({ sessionId, teacherUid, meetingUrl }) {
       activityId: 'p-01',
       skillId: 'multiplication',
       text: 'Hay 6 cajas con 8 lápices cada una. ¿Cuántos lápices hay en total?',
-      expectedAnswer: 48,
     },
   }
+}
+
+/** La respuesta va aparte, en learningSessions/{id}/private/answer: los estudiantes no la leen. */
+export function buildAcceptanceAnswer() {
+  return { activityId: 'p-01', expectedAnswer: 48 }
 }

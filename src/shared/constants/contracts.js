@@ -75,6 +75,8 @@ export const SKILL_IDS = Object.freeze(MATH_SKILLS.map((s) => s.id))
  * @property {string} id
  * @property {string} pairId
  * @property {string[]} studentIds UIDs de Firebase Auth de los estudiantes de la sesion (no ids de la coleccion `students`).
+ * @property {{ activityId: string, skillId: string, text: string }|null} [currentProblem] SOLO el enunciado: la respuesta esperada
+ *   vive en learningSessions/{id}/private/answer, que ningun cliente puede leer.
  * @property {string|null} meetingUrl
  * @property {'scheduled'|'live'|'completed'|'cancelled'} status
  * @property {import('firebase/firestore').Timestamp|null} scheduledAt

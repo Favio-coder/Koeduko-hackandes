@@ -16,7 +16,7 @@ import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { cert, initializeApp } from 'firebase-admin/app'
 import { FieldValue, getFirestore } from 'firebase-admin/firestore'
-import { buildAcceptanceSession } from '../src/sessions/core/acceptanceSession.js'
+import { buildAcceptanceAnswer, buildAcceptanceSession } from '../src/sessions/core/acceptanceSession.js'
 
 const { values } = parseArgs({
   options: {
@@ -50,7 +50,9 @@ const db = getFirestore(initializeApp({ credential: cert(account) }))
 const ref = db.doc(`learningSessions/${values.session}`)
 
 try {
+  // create() falla si la sesion ya existe; la respuesta se guarda aparte, donde ningun estudiante la lee.
   await ref.create({ ...data, createdAt: FieldValue.serverTimestamp() })
+  await ref.collection('private').doc('answer').set(buildAcceptanceAnswer())
 } catch (error) {
   fail(error?.code === 6 ? `learningSessions/${values.session} ya existe; no se sobrescribe.` : `Firestore respondio: ${error?.message ?? 'error'}`)
 }

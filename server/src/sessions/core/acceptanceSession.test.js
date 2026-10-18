@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAcceptanceSession } from './acceptanceSession.js'
+import { buildAcceptanceAnswer, buildAcceptanceSession } from './acceptanceSession.js'
 import { problemFromSession } from './liveEngine.js'
 
 const input = { sessionId: 'accept-001', teacherUid: 'uid-docente', meetingUrl: 'https://meet.google.com/htp-bkeg-oeb' }
@@ -13,8 +13,9 @@ describe('buildAcceptanceSession', () => {
       createdBy: 'uid-docente',
       studentIds: [],
       status: 'scheduled',
-      currentProblem: { activityId: 'p-01', skillId: 'multiplication', expectedAnswer: 48 },
+      currentProblem: { activityId: 'p-01', skillId: 'multiplication' },
     })
+    expect(JSON.stringify(session)).not.toMatch(/48|expectedAnswer/) // la respuesta va en private/answer
     expect(session.currentProblem.text).toBe('Hay 6 cajas con 8 lápices cada una. ¿Cuántos lápices hay en total?')
   })
 
@@ -22,8 +23,9 @@ describe('buildAcceptanceSession', () => {
     expect(buildAcceptanceSession(input).bot).toBeUndefined()
   })
 
-  it('gives the live engine a problem it understands', () => {
-    expect(problemFromSession(buildAcceptanceSession(input))).toEqual({
+  it('gives the live engine a problem it understands, with the answer from private/answer', () => {
+    expect(buildAcceptanceAnswer()).toEqual({ activityId: 'p-01', expectedAnswer: 48 })
+    expect(problemFromSession(buildAcceptanceSession(input), buildAcceptanceAnswer().expectedAnswer)).toEqual({
       activityId: 'p-01',
       skillId: 'multiplication',
       text: 'Hay 6 cajas con 8 lápices cada una. ¿Cuántos lápices hay en total?',
