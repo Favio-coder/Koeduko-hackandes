@@ -6,6 +6,7 @@ import {
   buildCreateBotBody,
   createBot,
   leaveCall,
+  sendChatMessage,
   withToken,
 } from './recall.js'
 
@@ -145,6 +146,50 @@ describe('leaveCall', () => {
     await expect(
       leaveCall({ apiKey: API_KEY, region: 'us-west-2', botId: '../x', fetchImpl }),
     ).rejects.toThrow(TypeError)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+})
+
+describe('sendChatMessage', () => {
+  const chat = { apiKey: API_KEY, region: 'us-west-2', botId: 'bot-123', text: 'Estudiante B, ¿qué opinas?' }
+
+  it('posts { message, to: "everyone" } to the bot chat endpoint with the raw key', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(fakeResponse({ status: 200 }))
+    await expect(sendChatMessage({ ...chat, fetchImpl })).resolves.toEqual({ ok: true, status: 200 })
+
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe('https://us-west-2.recall.ai/api/v1/bot/bot-123/send_chat_message/')
+    expect(init.method).toBe('POST')
+    expect(init.headers.Authorization).toBe(API_KEY)
+    expect(JSON.parse(init.body)).toEqual({ message: 'Estudiante B, ¿qué opinas?', to: 'everyone' })
+  })
+
+  it.each([400, 404, 429, 500])('reports a %i without throwing and without reading the body', async (status) => {
+    const fetchImpl = vi.fn().mockResolvedValue(fakeResponse({ ok: false, status }))
+    await expect(sendChatMessage({ ...chat, fetchImpl })).resolves.toEqual({ ok: false, status })
+  })
+
+  it('gives up after the timeout (status 0) by aborting the request', async () => {
+    const fetchImpl = vi.fn((_url, { signal }) => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('aborted')))))
+    await expect(sendChatMessage({ ...chat, timeoutMs: 20, fetchImpl })).resolves.toEqual({ ok: false, status: 0 })
+  })
+
+  it('reports status 0 when the network fails', async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('ECONNRESET'))
+    await expect(sendChatMessage({ ...chat, fetchImpl })).resolves.toEqual({ ok: false, status: 0 })
+  })
+
+  it('caps the message at the 4096 characters Recall accepts', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(fakeResponse())
+    await sendChatMessage({ ...chat, text: 'x'.repeat(5000), fetchImpl })
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).message).toHaveLength(4096)
+  })
+
+  it('rejects bad input before any request', async () => {
+    const fetchImpl = vi.fn()
+    await expect(sendChatMessage({ ...chat, text: '  ', fetchImpl })).rejects.toThrow(TypeError)
+    await expect(sendChatMessage({ ...chat, botId: '../x', fetchImpl })).rejects.toThrow(TypeError)
+    await expect(sendChatMessage({ ...chat, region: 'evil.com/', fetchImpl })).rejects.toThrow(TypeError)
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 })

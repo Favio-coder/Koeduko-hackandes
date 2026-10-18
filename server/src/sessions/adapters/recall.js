@@ -8,6 +8,8 @@
  *   - auth:   "Authorization: <key>" (sin "Bearer")
  *   - crear:  POST /bot/            -> { id, ... }
  *   - salir:  POST /bot/{id}/leave_call/ (sin body)
+ *   - chat:   POST /bot/{id}/send_chat_message/ con { message (1-4096, obligatorio), to = "everyone", pin = false }
+ *             (bot_send_chat_message_create, SendChatMessageInputRequest). 200 con el Bot; 400 y 404 sin cuerpo.
  */
 
 export const BOT_NAME = 'Tutor KoEduko'
@@ -24,6 +26,7 @@ export const REALTIME_EVENTS = [
 const REGION_PATTERN = /^[a-z]{2}-[a-z]+-\d$/
 const BOT_ID_PATTERN = /^[A-Za-z0-9-]{1,64}$/
 const MAX_ERROR_BODY = 300
+const MAX_CHAT_MESSAGE = 4096
 
 export class RecallApiError extends Error {
   /**
@@ -136,4 +139,41 @@ export async function leaveCall({ apiKey, region, botId, fetchImpl = globalThis.
   requireText(botId, 'botId')
   if (!BOT_ID_PATTERN.test(botId)) throw new TypeError('botId no es valido.')
   await call(fetchImpl, `${apiBase(region)}/bot/${botId}/leave_call/`, { apiKey })
+}
+
+/**
+ * Escribe un mensaje en el chat de la reunion, visible para todos. Nunca lanza: devuelve el estado
+ * HTTP para que quien llama decida (status 0 = sin respuesta: timeout o red caida).
+ * No lee ni registra el texto: el mensaje menciona a un nino por su nombre.
+ *
+ * @returns {Promise<{ ok: boolean, status: number }>}
+ */
+export async function sendChatMessage({
+  apiKey,
+  region,
+  botId,
+  text,
+  timeoutMs = 4000,
+  fetchImpl = globalThis.fetch,
+}) {
+  requireText(botId, 'botId')
+  if (!BOT_ID_PATTERN.test(botId)) throw new TypeError('botId no es valido.')
+  const message = requireText(text, 'text').slice(0, MAX_CHAT_MESSAGE)
+  const url = `${apiBase(region)}/bot/${botId}/send_chat_message/`
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetchImpl(url, {
+      method: 'POST',
+      headers: { Authorization: requireText(apiKey, 'apiKey'), accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ message, to: 'everyone' }),
+      signal: controller.signal,
+    })
+    return { ok: response.ok, status: response.status }
+  } catch {
+    return { ok: false, status: 0 }
+  } finally {
+    clearTimeout(timer)
+  }
 }
