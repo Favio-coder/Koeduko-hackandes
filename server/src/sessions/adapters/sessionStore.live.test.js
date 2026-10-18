@@ -441,3 +441,24 @@ describe('ensureContext: who guides and who learns, from the diagnostic', () => 
     expect(await createSessionStore(none.firebase).ensureContext('s1')).toEqual({ created: false })
   })
 })
+
+describe('roomEmpty and markBotDone: the bot leaves with the last person, the screen must follow', () => {
+  const leave = (key, t) => ({ type: 'leave', participantKey: key, studentId: null, t, tEnd: null, text: null, occurredAt: null })
+
+  it('roomEmpty is true when the last person leaves, even if nobody talked (no automatic close then)', async () => {
+    const { firebase } = fakeFirestore()
+    const store = createSessionStore(firebase)
+    await store.processLiveEvent('s1', 'e0', join('a', 0))
+    const result = await store.processLiveEvent('s1', 'e1', leave('a', 30))
+    expect(result.roomEmpty).toBe(true)
+    expect(result.closeNow).toBe(false)
+  })
+
+  it('roomEmpty stays false while somebody is still in the room', async () => {
+    const { firebase } = fakeFirestore()
+    const store = createSessionStore(firebase)
+    await store.processLiveEvent('s1', 'e0', join('a', 0))
+    await store.processLiveEvent('s1', 'e1', join('b', 0))
+    expect((await store.processLiveEvent('s1', 'e2', leave('a', 30))).roomEmpty).toBe(false)
+  })
+})

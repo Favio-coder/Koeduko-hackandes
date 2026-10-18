@@ -3,6 +3,7 @@ import { anchorOf, tickPlan } from '../core/heartbeat.js'
 import { activityIdOf, emptyState, evaluateDue, ingestEvent, problemFromSession } from '../core/liveEngine.js'
 import { viewOf } from '../core/liveView.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
+import { addReport } from '../core/classInsights.js'
 import { pickProblem } from '../core/problemBank.js'
 import { rolesOf } from '../core/roles.js'
 import { DEFAULT_CONFIG } from '../core/signals.js'
@@ -112,6 +113,7 @@ export function createSessionStore({ db, FieldValue }) {
               memory: state.memory ?? {},
               transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
               present: state.presence.map((p) => p.k),
+              epoch: state.epoch ?? 0,
             }
           } else if (evaluated.judge) {
             // Las reglas no dijeron nada: el observador lee la conversacion reciente (sin lecturas ni escrituras extra).
@@ -121,6 +123,7 @@ export function createSessionStore({ db, FieldValue }) {
               classContext: [session?.courseId, session?.assessmentTitle].filter((x) => typeof x === 'string' && x).join(' · ') || null,
               transcriptTail: state.transcripts.slice(-JUDGE_TAIL).map(({ k, x }) => ({ k, x })),
               present: state.presence.map((p) => p.k),
+              epoch: state.epoch ?? 0,
             }
           }
         }
@@ -148,10 +151,11 @@ export function createSessionStore({ db, FieldValue }) {
         // configuracion) y no queda nadie que cierre. La sesion se cierra sola y genera el reporte y la memoria.
         const humansLeft = state.presence.filter((p) => !BOT_KEYS.has(p.k))
         const humanTalk = state.transcripts.filter((tr) => !BOT_KEYS.has(tr.k))
-        const closeNow = event.type === 'leave' && humansLeft.length === 0 && humanTalk.length >= AUTO_CLOSE_MIN_TRANSCRIPTS
+        const roomEmpty = event.type === 'leave' && humansLeft.length === 0
+        const closeNow = roomEmpty && humanTalk.length >= AUTO_CLOSE_MIN_TRANSCRIPTS
 
         ops.writes = writes // solo cuentan las escrituras del intento que se confirmo
-        return { evaluated: ingested.due, intervention, context, judge, closeNow }
+        return { evaluated: ingested.due, intervention, context, judge, closeNow, roomEmpty }
       })
 
       return { ...outcome, ops }
@@ -209,6 +213,7 @@ export function createSessionStore({ db, FieldValue }) {
             memory: state.memory ?? {},
             transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
             present: state.presence.map((p) => p.k),
+            epoch: state.epoch ?? 0,
           }
         } else if (evaluated.judge) {
           judge = {
@@ -217,6 +222,7 @@ export function createSessionStore({ db, FieldValue }) {
             classContext: [session?.courseId, session?.assessmentTitle].filter((x) => typeof x === 'string' && x).join(' · ') || null,
             transcriptTail: state.transcripts.slice(-JUDGE_TAIL).map(({ k, x }) => ({ k, x })),
             present: state.presence.map((p) => p.k),
+            epoch: state.epoch ?? 0,
           }
         }
 
@@ -253,6 +259,14 @@ export function createSessionStore({ db, FieldValue }) {
      */
     async recordIntervention(sessionId, { type, k = null, t }) {
       await db.doc(`learningSessions/${sessionId}/live/state`).update({ interventions: FieldValue.arrayUnion({ type, k, t }) })
+    },
+
+    /**
+     * El bot ya no esta en la reunion (se fue la ultima persona, el bot sale solo 2 s despues) pero la sesion NO se cerro:
+     * se marca bot.status = 'done' para que la pantalla deje de decir «tutor en la reunion» y se pueda volver a invitar (1 escritura).
+     */
+    async markBotDone(sessionId) {
+      await sessionRef(sessionId).update({ 'bot.status': 'done' })
     },
 
     /** Marca por donde se entrego una intervencion ya creada, p. ej. ['app', 'meet_chat'] (1 escritura). */
@@ -296,6 +310,10 @@ export function createSessionStore({ db, FieldValue }) {
         }
 
         tx.update(ref, { bot: { id: null, status: 'requested', region, requestedAtMs: nowMs } })
+        // Cada bot nuevo empieza su reloj en 0 (los tiempos de Recall son relativos a SU grabacion). Si la sala conserva el estado del bot
+        // anterior, los eventos nuevos quedan en el pasado (el motor no evalua) y los ids de las intervenciones chocan con los de la vez
+        // anterior (se tomarian por duplicadas). Estado limpio y una epoca nueva por bot.
+        tx.set(db.doc(`learningSessions/${sessionId}/live/state`), { ...emptyState(), epoch: nowMs })
         return { meetingUrl: session.meetingUrl.trim() }
       })
     },
@@ -388,6 +406,21 @@ export function createSessionStore({ db, FieldValue }) {
         if (isValidMeetUrl(current)) return { saved: false, meetingUrl: current }
         tx.update(sessionRef(sessionId), { meetingUrl, meetingProvider: 'google-meet', meetingCreatedBy: 'server' })
         return { saved: true, meetingUrl }
+      })
+    },
+
+    /** Acumulado de lo que pasa en las salas de un docente (core/classInsights.js), o null (1 lectura). Solo servidor. */
+    async getInsights(teacherUid) {
+      const snap = await db.doc(`teacherInsights/${teacherUid}`).get()
+      return snap.exists ? snap.data() : null
+    },
+
+    /** Suma el reporte de una sala cerrada al acumulado del docente (transaccion: 1 lectura y 1 escritura). */
+    async updateInsights(teacherUid, report) {
+      const ref = db.doc(`teacherInsights/${teacherUid}`)
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref)
+        tx.set(ref, addReport(snap.exists ? snap.data() : null, report))
       })
     },
 

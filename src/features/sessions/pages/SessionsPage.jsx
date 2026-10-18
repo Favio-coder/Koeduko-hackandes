@@ -5,6 +5,7 @@ import Icon from '@/components/ui/Icon'
 import useToast from '@/components/ui/useToast'
 import { SESSION_STATUS } from '@/shared/constants/contracts'
 import { useAuth } from '@/contexts/AuthContext'
+import ClassInsights from '../components/ClassInsights'
 import ConnectGoogle from '../components/ConnectGoogle'
 import { useSessions } from '../hooks/useSessions'
 import { GOOGLE_RESULT_MESSAGES } from '../services/googleConnectService'
@@ -90,6 +91,7 @@ export default function SessionsPage() {
       </header>
 
       {isTeacher && <ConnectGoogle />}
+      {isTeacher && <ClassInsights />}
 
       {error && <ErrorState error={error} onRetry={reload} compact />}
       {loading && <LoadingState label="Cargando salas..." compact />}

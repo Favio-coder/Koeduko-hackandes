@@ -19,6 +19,16 @@ export const JUDGE_CONFIG = Object.freeze({
   judgeMinWords: 8, // palabras nuevas minimas desde la ultima lectura
 })
 
+/**
+ * Una sola persona en la reunion: el tutor la acompana uno a uno (lee mas seguido y con menos palabras nuevas). Con dos o mas,
+ * lo normal es esperar: ya se ayudan entre ellos y el tutor solo interviene si hace falta.
+ */
+export const SOLO_JUDGE_CONFIG = Object.freeze({
+  judgeEverySec: 12,
+  judgeCooldownSec: 20,
+  judgeMinWords: 5,
+})
+
 export const JUDGE_KINDS = Object.freeze(['confusion', 'atasco', 'error-conceptual', 'fuera-de-tema', 'excluido', 'otro'])
 
 const wordsOf = (text) => String(text ?? '').split(/\s+/).filter(Boolean).length
@@ -31,7 +41,9 @@ const wordsOf = (text) => String(text ?? '').split(/\s+/).filter(Boolean).length
  * @param {object} [cfg]
  */
 export function judgeDue(state, cfg = {}) {
-  const { judgeEverySec, judgeCooldownSec, judgeMinWords, botKeys = [] } = { ...JUDGE_CONFIG, ...cfg }
+  const botKeys = cfg.botKeys ?? []
+  const humans = (state.presence ?? []).filter((p) => !botKeys.includes(p.k))
+  const { judgeEverySec, judgeCooldownSec, judgeMinWords } = { ...JUDGE_CONFIG, ...(humans.length === 1 ? SOLO_JUDGE_CONFIG : {}), ...cfg }
   const now = state.lastT
   const last = Number.isFinite(state.lastJudgeT) ? state.lastJudgeT : null
   if (last !== null && now - last < judgeEverySec) return false
@@ -72,6 +84,9 @@ export function buildJudgePrompt({ transcriptTail = [], humans = [], problem = n
     rolesLine,
     problem?.text ? `Problema que trabajan: ${stripQuotes(problem.text).slice(0, 160)}` : 'No hay un problema definido: puede ser cualquier tema.',
     `Personas en la reunión: ${names.length > 0 ? names.join(', ') : '(nadie)'}${names.length === 1 ? ' (una sola persona)' : ''}`,
+    names.length === 1
+      ? 'Modo uno a uno: acompaña a esta persona como un tutor. Reacciona a lo que acaba de decir; si hace una pregunta, ayúdala con una pista (no con el resultado) y devuélvele una pregunta; si todavía no hay un tema o problema, ayúdala a plantearlo ("¿qué te gustaría trabajar?"). Aquí conviene hablar más seguido que con un grupo.'
+      : '',
     'Conversación reciente (lo último está abajo):',
     ...transcriptTail.map(({ k, x }) => `- ${displayName(k) ?? k}: «${stripQuotes(x)}»`),
     'Decide ahora y responde con el JSON.',

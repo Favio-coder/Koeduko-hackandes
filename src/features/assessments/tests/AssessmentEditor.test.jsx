@@ -15,6 +15,7 @@ vi.mock("../services/assessmentService", () => ({
 }));
 
 vi.mock("@/shared/lib/alerts", () => ({
+  bulletList: vi.fn((items) => (items ?? []).join("|")),
   confirmDestructive: vi.fn(),
   showConfirmation: vi.fn(),
   showError: vi.fn(),
@@ -164,7 +165,8 @@ describe("AssessmentEditor", () => {
     renderEditor(initial({ title: "" }));
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
     await waitFor(() => expect(showWarning).toHaveBeenCalledWith(
-      expect.stringContaining("Escribe un nombre"), "Completa este paso"));
+      expect.objectContaining({ html: expect.stringContaining("Escribe un nombre") }),
+      "Completa este paso"));
     expect(screen.getByRole("heading", { name: "A. Información general" })).toBeVisible();
     expect(assessmentRequest).not.toHaveBeenCalled();
   });

@@ -1,6 +1,7 @@
 import { deterministicId } from './core/ids.js'
 import { addresseeOf } from './core/interventionPolicy.js'
 import { DEFAULT_CONFIG } from './core/signals.js'
+import { describeInsights } from './core/classInsights.js'
 import { buildJudgePrompt, parseJudgeDecision } from './core/conversationJudge.js'
 import { chooseStyle, describeLearning } from './core/learning.js'
 import { memoryQueryOf } from './core/memoryText.js'
@@ -232,14 +233,30 @@ export function createAfterLiveEventSaved({
   }
 
   /** Quien guia y quien aprende segun el diagnostico, como una linea para el prompt. Nunca lanza; sin datos, vacia. */
-  async function rolesLineFor({ sessionId, humans }) {
+  async function rolesLineFor({ sessionId, humans, loadSession = null, skillId = null }) {
     const store = getStore()
-    if (typeof store.getContext !== 'function') return ''
-    try {
-      return describeRoles(await withTimeout(store.getContext(sessionId), PROFILE_TIMEOUT_MS), humans)
-    } catch {
-      return ''
+    const roles = async () => {
+      if (typeof store.getContext !== 'function') return ''
+      try {
+        return describeRoles(await withTimeout(store.getContext(sessionId), PROFILE_TIMEOUT_MS), humans)
+      } catch {
+        return ''
+      }
     }
+    // Lo que mas ha costado en OTRAS salas del mismo docente para esta habilidad (acumulado al cerrar cada sala).
+    const otherRooms = async () => {
+      if (!loadSession || !skillId || typeof store.getInsights !== 'function') return ''
+      try {
+        const loaded = await loadSession()
+        const teacherUid = loaded.session?.createdBy
+        if (typeof teacherUid !== 'string') return ''
+        return describeInsights(await withTimeout(store.getInsights(teacherUid), PROFILE_TIMEOUT_MS), skillId)
+      } catch {
+        return ''
+      }
+    }
+    const parts = await Promise.all([roles(), otherRooms()])
+    return parts.filter(Boolean).join(' ')
   }
 
   /** Lee la sesion una sola vez y recuerda el resultado (o el fallo). */
@@ -268,7 +285,8 @@ export function createAfterLiveEventSaved({
     if (humans.length === 0 || !(judge.transcriptTail?.length > 0)) return
 
     const startedAt = now()
-    const rolesLine = await rolesLineFor({ sessionId, humans })
+    const judgeSession = sessionLoader(sessionId)
+    const rolesLine = await rolesLineFor({ sessionId, humans, loadSession: judgeSession, skillId: judge.problem?.skillId ?? null })
     const { systemInstruction, userPrompt } = buildJudgePrompt({
       rolesLine,
       transcriptTail: judge.transcriptTail,
@@ -298,7 +316,7 @@ export function createAfterLiveEventSaved({
     }
 
     const signal = { type: 'CONVERSATION', participantKey: decision.to, studentId: null, t: judge.t, evidence: { kind: decision.kind } }
-    const interventionId = deterministicId('int', [sessionId, 'CONVERSATION', signal.participantKey ?? 'grupo', `b${Math.floor(judge.t / cooldownSec)}`])
+    const interventionId = deterministicId('int', [sessionId, `e${judge.epoch ?? 0}`, 'CONVERSATION', signal.participantKey ?? 'grupo', `b${Math.floor(judge.t / cooldownSec)}`])
     const { created } = await getStore().createIntervention(sessionId, interventionId, {
       signal: 'CONVERSATION',
       targetStudentId: null,
@@ -320,7 +338,7 @@ export function createAfterLiveEventSaved({
       } catch {
         // solo se pierde el cooldown de esta intervencion
       }
-      delivery = await deliver({ sessionId, interventionId, message: decision.message, loadSession: sessionLoader(sessionId) })
+      delivery = await deliver({ sessionId, interventionId, message: decision.message, loadSession: judgeSession })
     }
     logger.info('afterLiveEventSaved: observador', {
       sessionId,
@@ -355,6 +373,15 @@ export function createAfterLiveEventSaved({
       await autoClose(sessionId)
       return
     }
+    // Se fue la ultima persona pero hubo poca conversacion (no se cierra sola): el bot ya salio, se puede volver a invitar.
+    if (result?.roomEmpty) {
+      try {
+        await getStore().markBotDone?.(sessionId)
+      } catch {
+        // solo se queda el estado viejo: el docente puede cerrar o re-invitar a mano
+      }
+      return
+    }
     if (!result?.intervention) {
       if (result?.judge) await judgeConversation({ sessionId, judge: result.judge })
       return
@@ -373,7 +400,7 @@ export function createAfterLiveEventSaved({
     const [recalled, learned, rolesLine] = await Promise.all([
       recallNotes({ sessionId, intervention, problem: context.problem ?? null, cached: context.memory, loadSession }),
       learnFromProfile({ intervention, problem: context.problem ?? null, sessionId, loadSession }),
-      rolesLineFor({ sessionId, humans }),
+      rolesLineFor({ sessionId, humans, loadSession, skillId: context.problem?.skillId ?? null }),
     ])
     const { cache: memoryCache } = recalled
     // Lo que dice el perfil (patrones y estilo que le ha servido) va primero: es lo mas especifico del estudiante.
@@ -389,9 +416,11 @@ export function createAfterLiveEventSaved({
       generate: getGenerate(),
     })
 
-    // Un id por (sesion, senal, destinatario, ventana de cooldown): create() falla si ya existe.
+    // Un id por (sesion, epoca del bot, senal, destinatario, ventana de cooldown): create() falla si ya existe. La epoca
+    // distingue a un bot nuevo de la misma sala: su reloj vuelve a 0 y sin ella chocaria con las intervenciones de la vez anterior.
     const interventionId = deterministicId('int', [
       sessionId,
+      `e${context.epoch ?? 0}`,
       intervention.type,
       intervention.participantKey ?? 'grupo',
       `b${Math.floor(intervention.t / cooldownSec)}`,

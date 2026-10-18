@@ -281,3 +281,79 @@ describe('the observer logs why Gemini failed (HTTP status included, never the t
     expect(logger.info).toHaveBeenCalledWith('afterLiveEventSaved: observador', expect.objectContaining({ speak: false, why: 'failed:http:429' }))
   })
 })
+
+describe('afterLiveEventSaved: the room is empty but there was little conversation', () => {
+  it('marks the bot as done so the room can be invited again, and never throws', async () => {
+    const markBotDone = vi.fn().mockResolvedValue(undefined)
+    const hook = createAfterLiveEventSaved({ getStore: () => ({ markBotDone }), getGenerate: () => null, logger: { info: vi.fn() }, closeSessionFor: vi.fn() })
+    await hook({ sessionId: 's1', result: { roomEmpty: true, closeNow: false } })
+    expect(markBotDone).toHaveBeenCalledWith('s1')
+
+    const failing = createAfterLiveEventSaved({ getStore: () => ({ markBotDone: vi.fn().mockRejectedValue(new Error('x')) }), getGenerate: () => null, logger: { info: vi.fn() } })
+    await expect(failing({ sessionId: 's1', result: { roomEmpty: true } })).resolves.toBeUndefined()
+  })
+
+  it('does not mark it done when the session is closed automatically (closing already does it)', async () => {
+    const markBotDone = vi.fn()
+    const closeSessionFor = vi.fn().mockResolvedValue({ alreadyClosed: false })
+    const hook = createAfterLiveEventSaved({ getStore: () => ({ markBotDone }), getGenerate: () => null, logger: { info: vi.fn() }, closeSessionFor })
+    await hook({ sessionId: 's1', result: { roomEmpty: true, closeNow: true } })
+    expect(closeSessionFor).toHaveBeenCalledTimes(1)
+    expect(markBotDone).not.toHaveBeenCalled()
+  })
+})
+
+describe('a new bot in the same room must not collide with the interventions of the previous one', () => {
+  const signal = { type: 'STUCK', participantKey: 'estudiante a', studentId: null, t: 20, evidence: {} }
+  const ids = async (epoch) => {
+    const store = { createIntervention: vi.fn().mockResolvedValue({ created: true }) }
+    const hook = createAfterLiveEventSaved({ getStore: () => store, getGenerate: () => null, logger: { info: vi.fn() } })
+    await hook({ sessionId: 's1', result: { intervention: signal, context: { problem: null, transcriptTail: [], present: ['estudiante a'], epoch } } })
+    return store.createIntervention.mock.calls[0][1]
+  }
+
+  it('the same signal at the same session time gets a different id in a different epoch, and the same id within one', async () => {
+    const first = await ids(1000)
+    expect(await ids(1000)).toBe(first)
+    expect(await ids(2000)).not.toBe(first)
+  })
+})
+
+describe('one-to-one mode: alone, the tutor accompanies; with two, it waits', () => {
+  const words = (n) => Array.from({ length: n }, (_, i) => `palabra${i}`).join(' ')
+  const room = (humans, over = {}) => ({
+    lastT: 100,
+    lastJudgeT: null,
+    interventions: [],
+    presence: [...humans.map((k) => ({ k, s: 0 })), { k: 'tutor koeduko', s: 0 }],
+    transcripts: [{ k: humans[0], t: 96, e: 98, x: words(6) }],
+    ...over,
+  })
+  const cfg = { botKeys: ['tutor koeduko'] }
+
+  it('alone it reads with only 5 new words, and 12 s / 20 s after the last reading / intervention', () => {
+    expect(judgeDue(room(['a']), cfg)).toBe(true)
+    expect(judgeDue(room(['a'], { lastJudgeT: 100 - 11 }), cfg)).toBe(false)
+    expect(judgeDue(room(['a'], { lastJudgeT: 100 - 12 }), cfg)).toBe(true)
+    expect(judgeDue(room(['a'], { interventions: [{ type: 'CONVERSATION', k: 'a', t: 100 - 19 }] }), cfg)).toBe(false)
+    expect(judgeDue(room(['a'], { interventions: [{ type: 'CONVERSATION', k: 'a', t: 100 - 20 }] }), cfg)).toBe(true)
+  })
+
+  it('with two people the same situation still waits (6 new words are not enough, nor 12 s since the last reading)', () => {
+    expect(judgeDue(room(['a', 'b']), cfg)).toBe(false)
+    expect(judgeDue(room(['a', 'b'], { transcripts: [{ k: 'a', t: 96, e: 98, x: words(9) }] }), cfg)).toBe(true)
+    expect(judgeDue(room(['a', 'b'], { transcripts: [{ k: 'a', t: 96, e: 98, x: words(9) }], lastJudgeT: 100 - 12 }), cfg)).toBe(false)
+  })
+
+  it('the tutor does not count as a person: alone with the bot is still one-to-one', () => {
+    expect(judgeDue(room(['a']), cfg)).toBe(true)
+    expect(judgeDue(room(['a', 'tutor koeduko']), cfg)).toBe(true)
+  })
+
+  it('the prompt switches to one-to-one mode only when there is a single person', () => {
+    const solo = buildJudgePrompt({ transcriptTail: [], humans: ['ale'] }).userPrompt
+    expect(solo).toContain('Modo uno a uno')
+    expect(solo).toContain('qué te gustaría trabajar')
+    expect(buildJudgePrompt({ transcriptTail: [], humans: ['ale', 'luis'] }).userPrompt).not.toContain('Modo uno a uno')
+  })
+})
