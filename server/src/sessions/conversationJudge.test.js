@@ -318,3 +318,42 @@ describe('a new bot in the same room must not collide with the interventions of 
     expect(await ids(2000)).not.toBe(first)
   })
 })
+
+describe('one-to-one mode: alone, the tutor accompanies; with two, it waits', () => {
+  const words = (n) => Array.from({ length: n }, (_, i) => `palabra${i}`).join(' ')
+  const room = (humans, over = {}) => ({
+    lastT: 100,
+    lastJudgeT: null,
+    interventions: [],
+    presence: [...humans.map((k) => ({ k, s: 0 })), { k: 'tutor koeduko', s: 0 }],
+    transcripts: [{ k: humans[0], t: 96, e: 98, x: words(6) }],
+    ...over,
+  })
+  const cfg = { botKeys: ['tutor koeduko'] }
+
+  it('alone it reads with only 5 new words, and 12 s / 20 s after the last reading / intervention', () => {
+    expect(judgeDue(room(['a']), cfg)).toBe(true)
+    expect(judgeDue(room(['a'], { lastJudgeT: 100 - 11 }), cfg)).toBe(false)
+    expect(judgeDue(room(['a'], { lastJudgeT: 100 - 12 }), cfg)).toBe(true)
+    expect(judgeDue(room(['a'], { interventions: [{ type: 'CONVERSATION', k: 'a', t: 100 - 19 }] }), cfg)).toBe(false)
+    expect(judgeDue(room(['a'], { interventions: [{ type: 'CONVERSATION', k: 'a', t: 100 - 20 }] }), cfg)).toBe(true)
+  })
+
+  it('with two people the same situation still waits (6 new words are not enough, nor 12 s since the last reading)', () => {
+    expect(judgeDue(room(['a', 'b']), cfg)).toBe(false)
+    expect(judgeDue(room(['a', 'b'], { transcripts: [{ k: 'a', t: 96, e: 98, x: words(9) }] }), cfg)).toBe(true)
+    expect(judgeDue(room(['a', 'b'], { transcripts: [{ k: 'a', t: 96, e: 98, x: words(9) }], lastJudgeT: 100 - 12 }), cfg)).toBe(false)
+  })
+
+  it('the tutor does not count as a person: alone with the bot is still one-to-one', () => {
+    expect(judgeDue(room(['a']), cfg)).toBe(true)
+    expect(judgeDue(room(['a', 'tutor koeduko']), cfg)).toBe(true)
+  })
+
+  it('the prompt switches to one-to-one mode only when there is a single person', () => {
+    const solo = buildJudgePrompt({ transcriptTail: [], humans: ['ale'] }).userPrompt
+    expect(solo).toContain('Modo uno a uno')
+    expect(solo).toContain('qué te gustaría trabajar')
+    expect(buildJudgePrompt({ transcriptTail: [], humans: ['ale', 'luis'] }).userPrompt).not.toContain('Modo uno a uno')
+  })
+})

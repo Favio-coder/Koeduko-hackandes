@@ -115,3 +115,19 @@ describe('createGeminiGenerator roles', () => {
     expect(createGeminiGenerator({ GEMINI_API_KEY: 'k' }, { role: 'judge' })).toBeNull()
   })
 })
+
+describe('generateWithRetry: a patient caller waits longer before retrying (the close has no hurry)', () => {
+  it('uses retryDelayMs for the wait and for the remaining budget', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined)
+    const generateImpl = vi.fn().mockRejectedValueOnce(Object.assign(new Error('x'), { reason: 'http', status: 429 })).mockResolvedValueOnce('ok')
+    await expect(generateWithRetry({ timeoutMs: 16000, retryDelayMs: 5000 }, { generateImpl, sleep, now: () => 0 })).resolves.toBe('ok')
+    expect(sleep).toHaveBeenCalledWith(5000)
+    expect(generateImpl.mock.calls[1][0].timeoutMs).toBe(11000)
+  })
+
+  it('gives up when the long wait would leave too little time', async () => {
+    const generateImpl = vi.fn().mockRejectedValue(Object.assign(new Error('x'), { reason: 'http', status: 429 }))
+    await expect(generateWithRetry({ timeoutMs: 6000, retryDelayMs: 5000 }, { generateImpl, sleep: async () => {}, now: () => 0 })).rejects.toMatchObject({ status: 429 })
+    expect(generateImpl).toHaveBeenCalledTimes(1)
+  })
+})

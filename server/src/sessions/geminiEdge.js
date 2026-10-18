@@ -27,9 +27,11 @@ export async function generateWithRetry(
     return await generateImpl(input)
   } catch (error) {
     if (error?.reason !== 'http' || !TRANSIENT_STATUS.has(error.status)) throw error
-    const left = budget - (now() - startedAt) - RETRY_DELAY_MS
+    // Quien no tiene apuro (el clasificador del cierre) pide una espera mas larga: un 429 por minuto no se pasa en 400 ms.
+    const delay = Number.isFinite(input.retryDelayMs) ? input.retryDelayMs : RETRY_DELAY_MS
+    const left = budget - (now() - startedAt) - delay
     if (left < MIN_RETRY_BUDGET_MS) throw error
-    await sleep(RETRY_DELAY_MS)
+    await sleep(delay)
     return generateImpl({ ...input, timeoutMs: left, ...(fallbackModel && fallbackModel !== input.model ? { model: fallbackModel } : {}) })
   }
 }

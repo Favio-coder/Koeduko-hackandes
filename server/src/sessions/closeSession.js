@@ -13,7 +13,9 @@ import { withTimeout } from './timeout.js'
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
 
 export const LEAVE_TIMEOUT_MS = 4000
-export const CLASSIFY_TIMEOUT_MS = 6000
+// El cierre no tiene apuro: si Gemini responde 429 (limite por minuto) se espera unos segundos y se reintenta una vez.
+export const CLASSIFY_TIMEOUT_MS = 16000
+export const CLASSIFY_RETRY_DELAY_MS = 5000
 export const REMEMBER_TIMEOUT_MS = 4000
 export const LEARN_TIMEOUT_MS = 4000
 export const SUMMARY_VERSION = 1
@@ -114,7 +116,7 @@ export async function closeSession({ sessionId, store, memory = null, leaveBot =
     try {
       const { systemInstruction, userPrompt } = buildClassifierPrompt({ problemText: problem?.text ?? '', sentences: doubtful })
       const raw = await withTimeout(
-        generate({ systemInstruction, userPrompt, timeoutMs: limits.classify, generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 800 } }),
+        generate({ systemInstruction, userPrompt, timeoutMs: limits.classify, retryDelayMs: CLASSIFY_RETRY_DELAY_MS, generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 800 } }),
         limits.classify,
       )
       labels = parseClassification(raw, doubtful.map((d) => d.id))
