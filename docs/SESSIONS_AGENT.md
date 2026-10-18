@@ -28,6 +28,15 @@ escucha ─> decide ─> actúa ─> cierra ─> recuerda ─> usa la memoria
 | **El estado de cada capacidad en el reporte** | Reglas (`core/competencyEvidence.js`) | Gemini solo etiqueta frases dudosas y su etiqueta nunca basta para «con evidencia». |
 | **La calificación** | **El docente.** | El sistema no asigna notas (ni AD, A, B o C). |
 
+## 2.1 La cadena automática (de la sala al reporte)
+
+\
+- El docente **monitorea** desde la sala (en vivo: quién habla, conversación, lo que dijo el tutor) y puede cerrar o
+  invitar a mano en cualquier momento: los botones siguen ahí como respaldo.
+- Asignar el problema solo ocurre si la sala no tiene uno; una sala con problema no se toca. Si falla, el bot entra igual.
+- El cierre automático es idempotente (cerrar dos veces no repite nada) y no intenta sacar al bot: él sale solo 2 s después
+  de que se va el último humano.
+
 ## 3. Las señales
 
 Se evalúan como mucho cada 5 s de sesión, sobre una ventana de 3 minutos. Si varias saltan a la vez gana la de
