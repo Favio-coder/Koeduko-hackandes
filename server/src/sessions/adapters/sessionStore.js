@@ -14,6 +14,9 @@ const ALREADY_EXISTS = 6 // codigo gRPC de Firestore cuando create() encuentra e
  */
 const STATE_ONLY_EVENTS = new Set(['speech_on', 'speech_off'])
 
+/** Tope de transcripciones que se leen al cerrar (una sesion de ~100 s tuvo 29; esto cubre horas). */
+const MAX_CLOSE_TRANSCRIPTS = 2000
+
 /** Cuantas transcripciones recientes se le pasan al tutor como contexto. */
 const TRANSCRIPT_TAIL = 8
 
@@ -178,6 +181,52 @@ export function createSessionStore({ db, FieldValue }) {
     /** Guarda lo que le pregunto un estudiante al tutor y lo que se le respondio (1 escritura). */
     async addTutorInteraction(sessionId, data) {
       await db.collection(`learningSessions/${sessionId}/tutorInteractions`).add({ ...data, createdAt: FieldValue.serverTimestamp() })
+    },
+
+    // ---- Cierre de la sesion (close-session) ----
+
+    /** live/state tal como esta guardado (1 lectura), o null. Solo lo usa el servidor. */
+    async getLiveState(sessionId) {
+      const snap = await db.doc(`learningSessions/${sessionId}/live/state`).get()
+      return snap.exists ? snap.data() : null
+    },
+
+    /** Respuesta esperada guardada en private/answer (1 lectura), o null. */
+    async getAnswer(sessionId) {
+      const snap = await db.doc(`learningSessions/${sessionId}/private/answer`).get()
+      return snap.exists ? snap.data() : null
+    },
+
+    /** summary/final (1 lectura), o null si la sesion aun no se cerro. */
+    async getSummary(sessionId) {
+      const snap = await db.doc(`learningSessions/${sessionId}/summary/final`).get()
+      return snap.exists ? snap.data() : null
+    },
+
+    /**
+     * Todas las transcripciones guardadas de la sesion, para armar el reporte (1 lectura por documento,
+     * con tope). Es la unica vez que se lee la ventana completa: una vez, al cerrar, nunca por evento.
+     *
+     * @returns {Promise<{ k: string, t: number, e: number, x: string }[]>}
+     */
+    async getTranscripts(sessionId) {
+      const snap = await db
+        .collection(`learningSessions/${sessionId}/liveEvents`)
+        .where('type', '==', 'transcript')
+        .limit(MAX_CLOSE_TRANSCRIPTS)
+        .get()
+      return snap.docs
+        .map((doc) => doc.data())
+        .filter((event) => typeof event.participantKey === 'string' && Number.isFinite(event.t) && typeof event.text === 'string')
+        .map((event) => ({ k: event.participantKey, t: event.t, e: Number.isFinite(event.tEnd) ? event.tEnd : event.t, x: event.text }))
+    },
+
+    /** Guarda el reporte final y cierra la sesion en un solo lote (2 escrituras). */
+    async saveClosure(sessionId, summary) {
+      const batch = db.batch()
+      batch.set(db.doc(`learningSessions/${sessionId}/summary/final`), { ...summary, closedAt: FieldValue.serverTimestamp() })
+      batch.update(sessionRef(sessionId), { status: 'completed', endedAt: FieldValue.serverTimestamp(), 'bot.status': 'done' })
+      await batch.commit()
     },
 
     async setBotId(sessionId, botId) {
