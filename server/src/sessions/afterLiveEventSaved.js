@@ -77,7 +77,7 @@ export function createAfterLiveEventSaved({
     if (Array.isArray(hit)) return { notes: hit, cache: 'hit' }
 
     const query = problem ? `${problem.skillId ?? 'matemática'}: ${problem.text ?? ''}`.trim() : 'resolución de problemas de matemática'
-    let notes = []
+    let notes
     try {
       const recalled = await memory.recall(key, query)
       notes = Array.isArray(recalled) ? recalled : []

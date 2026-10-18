@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import { SessionBotError } from '../errors.js'
 import { createCloseSessionHandler } from './closeSessionHandler.js'
 
 const FRONT = 'https://koeduko-hackandes.vercel.app'
