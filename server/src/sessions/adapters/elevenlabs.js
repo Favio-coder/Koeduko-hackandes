@@ -22,8 +22,22 @@ const VOICE_ID_PATTERN = /^[A-Za-z0-9]{10,40}$/
 const MODEL_ID_PATTERN = /^[a-z0-9_]{3,64}$/
 
 /**
+ * Codigo corto del error de ElevenLabs (`detail.status`, p. ej. "invalid_uid"), para saber POR QUE fallo un 400 sin
+ * registrar el mensaje completo. Nunca lanza; si el cuerpo no es el esperado devuelve null.
+ */
+async function errorCodeOf(response) {
+  try {
+    const body = await response.json()
+    const code = body?.detail?.status ?? body?.detail?.code
+    return typeof code === 'string' && /^[a-z0-9_]{1,60}$/i.test(code) ? code : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * @param {{ apiKey: string, voiceId?: string, modelId?: string, text: string, timeoutMs?: number, fetchImpl?: typeof fetch }} input
- * @returns {Promise<{ ok: true, status: number, mp3Base64: string } | { ok: false, status: number }>}
+ * @returns {Promise<{ ok: true, status: number, mp3Base64: string } | { ok: false, status: number, code?: string|null }>}
  */
 export async function synthesize({ apiKey, voiceId = DEFAULT_VOICE_ID, modelId = DEFAULT_MODEL_ID, text, timeoutMs = SYNTHESIS_TIMEOUT_MS, fetchImpl = globalThis.fetch }) {
   if (typeof apiKey !== 'string' || !apiKey.trim()) throw new TypeError('apiKey es obligatorio.')
@@ -41,7 +55,10 @@ export async function synthesize({ apiKey, voiceId = DEFAULT_VOICE_ID, modelId =
       body: JSON.stringify({ text: spoken, model_id: modelId }),
       signal: controller.signal,
     })
-    if (!response.ok) return { ok: false, status: response.status }
+    if (!response.ok) {
+      const code = await errorCodeOf(response)
+      return { ok: false, status: response.status, ...(code ? { code } : {}) }
+    }
     const bytes = Buffer.from(await response.arrayBuffer())
     if (bytes.length === 0) return { ok: false, status: response.status }
     return { ok: true, status: response.status, mp3Base64: bytes.toString('base64') }

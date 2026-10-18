@@ -141,7 +141,7 @@ export function createAfterLiveEventSaved({
     } catch {
       return { ok: false, voice: 'invalid' }
     }
-    if (!audio.ok) return { ok: false, voice: 'tts-failed', voiceStatus: audio.status }
+    if (!audio.ok) return { ok: false, voice: 'tts-failed', voiceStatus: audio.status, ...(audio.code ? { voiceError: audio.code } : {}) }
 
     let sent
     try {
@@ -242,6 +242,7 @@ export function createAfterLiveEventSaved({
       ...(delivery.chatStatus !== undefined ? { chatStatus: delivery.chatStatus } : {}),
       voice: delivery.voice,
       ...(delivery.voiceStatus !== undefined ? { voiceStatus: delivery.voiceStatus } : {}),
+      ...(delivery.voiceError ? { voiceError: delivery.voiceError } : {}),
       source: composed.source,
       ...(composed.reason ? { reason: composed.reason } : {}),
       ms: now() - startedAt,
