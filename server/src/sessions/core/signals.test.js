@@ -359,7 +359,7 @@ describe('selectInterventions', () => {
 
   it('drops the same signal inside the cooldown and lets it through after', () => {
     const history = [{ type: 'SILENT_PEER', participantKey: 'b', t: 40 }]
-    expect(selectInterventions([signal('SILENT_PEER', 'b')], history, 100)).toEqual([]) // 60 s despues
+    expect(selectInterventions([signal('SILENT_PEER', 'b')], history, 90)).toEqual([]) // 50 s despues (dentro de los 60 s)
     expect(selectInterventions([signal('SILENT_PEER', 'b')], history, 140)).toHaveLength(1) // 100 s despues
   })
 
@@ -415,7 +415,7 @@ describe('determinism and inputs', () => {
 
   it('exposes frozen defaults', () => {
     expect(Object.isFrozen(DEFAULT_CONFIG)).toBe(true)
-    expect(DEFAULT_CONFIG).toMatchObject({ windowSec: 180, minSpeechInWindowSec: 45, dominanceRatio: 0.7, silentPeerRatio: 0.15, groupSilenceSec: 40, stuckMarkersMin: 2, cooldownSec: 90 })
+    expect(DEFAULT_CONFIG).toMatchObject({ windowSec: 180, minSpeechInWindowSec: 45, dominanceRatio: 0.7, silentPeerRatio: 0.15, groupSilenceSec: 40, stuckMarkersMin: 2, cooldownSec: 60 })
   })
 
   it('re-exports extractNumbers for words and digits', () => {

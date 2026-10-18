@@ -14,9 +14,9 @@ import { foldText } from './text.js'
 import { addresseeOf, displayName, validateMessage } from './interventionPolicy.js'
 
 export const JUDGE_CONFIG = Object.freeze({
-  judgeEverySec: 30, // como maximo una lectura de la conversacion cada 30 s
-  judgeCooldownSec: 60, // y no antes de 60 s despues de cualquier intervencion del tutor
-  judgeMinWords: 12, // palabras nuevas minimas desde la ultima lectura
+  judgeEverySec: 20, // como maximo una lectura de la conversacion cada 20 s
+  judgeCooldownSec: 35, // y no antes de 35 s despues de cualquier intervencion del tutor
+  judgeMinWords: 8, // palabras nuevas minimas desde la ultima lectura
 })
 
 export const JUDGE_KINDS = Object.freeze(['confusion', 'atasco', 'error-conceptual', 'fuera-de-tema', 'excluido', 'otro'])

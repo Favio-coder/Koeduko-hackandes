@@ -22,7 +22,7 @@ escucha ─> decide ─> actúa ─> cierra ─> recuerda ─> usa la memoria
 | Decisión | La toma | Por qué |
 | --- | --- | --- |
 | **Si el tutor interviene, a quién y por qué señal** | Reglas deterministas (`core/signals.js`) | Auditable, testeable y sin costo por evento. |
-| **Cuándo no volver a hablar** | Reglas (enfriamiento de 90 s por señal) | Un tutor que interrumpe todo el tiempo molesta más de lo que ayuda. |
+| **Cuándo no volver a hablar** | Reglas (enfriamiento de 60 s por señal) | Un tutor que interrumpe todo el tiempo molesta más de lo que ayuda. |
 | **Las palabras del mensaje** | Gemini (`gemini-3.6-flash`) | Es lo único para lo que se necesita un modelo de lenguaje. |
 | **Si el mensaje es aceptable** | Reglas (`core/interventionPolicy.js`) | Gemini no tiene la última palabra: si el texto rompe la política se usa un mensaje de respaldo. |
 | **El estado de cada capacidad en el reporte** | Reglas (`core/competencyEvidence.js`) | Gemini solo etiqueta frases dudosas y su etiqueta nunca basta para «con evidencia». |
@@ -54,7 +54,7 @@ Alguien de la sala toca «Entrar» ─────────────┤  a
 ## 3. Las señales
 
 Se evalúan como mucho cada 5 s de sesión, sobre una ventana de 3 minutos. Si varias saltan a la vez gana la de
-mayor prioridad, y la misma señal no se repite antes de 90 s.
+mayor prioridad, y la misma señal no se repite antes de 60 s.
 
 | Prioridad | Señal | Se dispara cuando |
 | --- | --- | --- |
@@ -75,7 +75,7 @@ Las señales por reglas dependen de un problema con respuesta numérica y de pat
 una conversación de otro tema, las dejaba mudas (se vio con dos compañeros reales: `currentProblem: null`, y el tutor
 nunca habló). Para cubrirlo, `core/conversationJudge.js` agrega una capa que **solo corre si las reglas no intervinieron**:
 
-- Cada ~30 s (y no antes de 60 s tras cualquier intervención), si hay al menos 12 palabras nuevas de personas, un modelo
+- Cada ~20 s (y no antes de 35 s tras cualquier intervención), si hay al menos 8 palabras nuevas de personas, un modelo
   lee la conversación reciente (12 frases), con el contexto de la clase y el problema si existe, y responde un JSON:
   **hablar o callar**, tipo (`confusion`, `atasco`, `error-conceptual`, `fuera-de-tema`, `excluido`), destinatario y
   mensaje. Callar es lo normal.

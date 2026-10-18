@@ -73,6 +73,13 @@ export function evaluateDue(state, { problem = null, config = {} } = {}) {
   const tracked = problemId === null ? null : { id: problemId, startedT }
   const engineProblem = problem && { ...problem, startedAtT: problem.startedAtT ?? startedT }
 
+  // Sin ninguna persona en la sala (el evento que acaba de llegar fue la salida de la ultima) el tutor no habla: nadie lo oiria,
+  // y la sesion se cierra sola. Se sigue anotando el tiempo evaluado para no reevaluar enseguida.
+  const roomEmpty = !state.presence.some((p) => !cfg.botKeys.includes(p.k))
+  if (roomEmpty) {
+    return { state: { ...state, lastEvalT: now, problem: tracked }, intervention: null, judge: false }
+  }
+
   const signals = detectSignalsFromState(state, now, { problem: engineProblem, config: cfg })
   const [intervention = null] = selectInterventions(signals, historyOf(state), now, cfg)
 

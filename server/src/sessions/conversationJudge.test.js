@@ -218,3 +218,34 @@ describe('afterLiveEventSaved: automatic close', () => {
     expect(closeSessionFor).not.toHaveBeenCalled()
   })
 })
+
+describe('the tutor does not talk to an empty room, and does not repeat an answer it already handled', () => {
+  const talk = (state, k, t, x) => ingestEvent(state, { type: 'transcript', participantKey: k, studentId: null, t, tEnd: t + 2, text: x }).state
+  const join = (state, k, t) => ingestEvent(state, { type: 'join', participantKey: k, studentId: null, t, tEnd: null, text: null }).state
+  const leave = (state, k, t) => ingestEvent(state, { type: 'leave', participantKey: k, studentId: null, t, tEnd: null, text: null }).state
+  const problem = { activityId: 'p-01', skillId: 'multiplication', text: '¿Cuántos lápices hay en total?', expectedAnswer: 48, startedAtT: 0 }
+
+  it('when the last person leaves there is no intervention and no reading, even if a rule would fire', () => {
+    let state = join(emptyState(), 'a', 0)
+    state = talk(state, 'a', 10, 'creo que son cuarenta y dos')
+    state = leave(state, 'a', 200)
+    const result = evaluateDue(state, { problem })
+    expect(result.intervention).toBeNull()
+    expect(result.judge).toBe(false)
+  })
+
+  it('a wrong answer that was already handled is not handled again once the cooldown ends', () => {
+    let state = join(emptyState(), 'a', 0)
+    state = talk(state, 'a', 10, 'creo que son cuarenta y dos')
+    const first = evaluateDue({ ...state, lastT: 20 }, { problem })
+    expect(first.intervention).toMatchObject({ type: 'WRONG_ANSWER', participantKey: 'a' })
+
+    // mucho despues, sin que la persona diga nada nuevo: la misma respuesta vieja no vuelve a disparar
+    const later = evaluateDue({ ...first.state, lastT: 400 }, { problem })
+    expect(later.intervention?.type).not.toBe('WRONG_ANSWER')
+
+    // si dice una respuesta NUEVA despues, si se atiende
+    const fresh = talk({ ...first.state, lastT: 400 }, 'a', 401, 'entonces son cuarenta y cinco')
+    expect(evaluateDue({ ...fresh, lastT: 410 }, { problem }).intervention).toMatchObject({ type: 'WRONG_ANSWER' })
+  })
+})
