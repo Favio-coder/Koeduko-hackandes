@@ -17,7 +17,7 @@ Qué hace el sistema hoy, quién lo dispara y qué está **verificado** (con qu�
 | 8 | Silencio de grupo (reloj en silencio) | Automático si hay pantalla abierta o cron | Verificado con un replay; **sin cron real configurado** |
 | 9 | Cierre al irse la última persona: reporte, memoria y perfil | Automático | **Verificado** |
 | 10 | Análisis para el docente | El docente lo ve en la sala | **Funciona**, pero ver abajo |
-| 11 | Qué ve el **alumno** al terminar | – | **Nada.** No hay devolución al alumno |
+| 11 | Qué ve el **alumno** al terminar | Automático (`/api/my-summary`, tarjeta «Tu sesión») | **Hecho, con tests; sin probar en vivo con un alumno real.** Solo ve SU parte, en frases amables y fijas: lo que hizo bien y qué probar la próxima vez. Sin notas, porcentajes, citas ni nada de su compañero |
 | 12 | Mapeo a la malla curricular / SIAGIE | – | **No existe.** Solo evidencia formativa por capacidad, con citas |
 
 ## Lo que no se ha probado
@@ -38,7 +38,7 @@ Qué hace el sistema hoy, quién lo dispara y qué está **verificado** (con qu�
 
 ## Lo que sigue (en este orden)
 
-1. Devolución al alumno al cerrar (mensaje breve, sin notas), y aviso de «tu sala está lista».
+1. Aviso de «tu sala está lista» al alumno (correo o notificación) y probar la devolución con un alumno real.
 2. Disparar la creación de salas al finalizar la evaluación, sin el clic del docente.
 3. Exportar la evidencia con ids estables (capacidad/desempeño) para mapearla a la malla y al SIAGIE.
 4. Probar con una sala real, dos alumnos y su docente.

@@ -9,6 +9,7 @@ import CloseSession from '../components/CloseSession'
 import CompetencyReport from '../components/CompetencyReport'
 import InterventionsCard from '../components/InterventionsCard'
 import InviteTutor from '../components/InviteTutor'
+import StudentFeedback from '../components/StudentFeedback'
 import TalkShareCard from '../components/TalkShareCard'
 import TranscriptCard from '../components/TranscriptCard'
 import MeetingLinkForm from '../components/MeetingLinkForm'
@@ -133,6 +134,7 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
       {isTeacher && !isClosed && <InviteTutor sessionId={sessionId} botStatus={botStatus} />}
       {isTeacher && !isClosed && <CloseSession sessionId={sessionId} onClosed={setClosed} />}
       {report && <CompetencyReport report={report} steps={reportSteps} />}
+      {!isTeacher && session?.status === SESSION_STATUS.COMPLETED && <StudentFeedback sessionId={sessionId} />}
 
       {session && !session.meetingUrl && !isClosed && (
         <Card title="Reunión de Google Meet" description="Esta sala todavía no tiene reunión.">
