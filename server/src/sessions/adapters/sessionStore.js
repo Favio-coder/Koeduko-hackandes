@@ -23,6 +23,8 @@ const profileDocId = memoryCacheKey
 
 /** Cuantas transcripciones recientes se le pasan al tutor como contexto. */
 const TRANSCRIPT_TAIL = 8
+/** Frases recientes que lee el observador de la conversacion (un poco mas que el resto: necesita ver el hilo). */
+const JUDGE_TAIL = 12
 
 /**
  * Acceso a Firestore para sesiones. Recibe db y FieldValue ya inicializados
@@ -74,6 +76,7 @@ export function createSessionStore({ db, FieldValue }) {
         let state = ingested.state
         let intervention = null
         let context = null
+        let judge = null
         if (ingested.due) {
           const sessionSnap = await tx.get(sessionRef(sessionId))
           ops.reads += 1
@@ -100,6 +103,15 @@ export function createSessionStore({ db, FieldValue }) {
               transcriptTail: state.transcripts.slice(-TRANSCRIPT_TAIL).map(({ k, x }) => ({ k, x })),
               present: state.presence.map((p) => p.k),
             }
+          } else if (evaluated.judge) {
+            // Las reglas no dijeron nada: el observador lee la conversacion reciente (sin lecturas ni escrituras extra).
+            judge = {
+              problem,
+              t: state.lastT,
+              classContext: [session?.courseId, session?.assessmentTitle].filter((x) => typeof x === 'string' && x).join(' · ') || null,
+              transcriptTail: state.transcripts.slice(-JUDGE_TAIL).map(({ k, x }) => ({ k, x })),
+              present: state.presence.map((p) => p.k),
+            }
           }
         }
 
@@ -117,7 +129,7 @@ export function createSessionStore({ db, FieldValue }) {
         }
 
         ops.writes = writes // solo cuentan las escrituras del intento que se confirmo
-        return { evaluated: ingested.due, intervention, context }
+        return { evaluated: ingested.due, intervention, context, judge }
       })
 
       return { ...outcome, ops }
@@ -139,6 +151,14 @@ export function createSessionStore({ db, FieldValue }) {
         if (error?.code === ALREADY_EXISTS) return { created: false }
         throw error
       }
+    },
+
+    /**
+     * Anota en el historial del estado una intervencion que NO salio de las reglas (la del observador), para que el
+     * cooldown la recuerde. Usa arrayUnion: no pisa el resto del estado (1 escritura, solo cuando el tutor habla).
+     */
+    async recordIntervention(sessionId, { type, k = null, t }) {
+      await db.doc(`learningSessions/${sessionId}/live/state`).update({ interventions: FieldValue.arrayUnion({ type, k, t }) })
     },
 
     /** Marca por donde se entrego una intervencion ya creada, p. ej. ['app', 'meet_chat'] (1 escritura). */

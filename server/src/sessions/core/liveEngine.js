@@ -7,6 +7,7 @@
  * Solo la segunda necesita el problema actual, asi que solo ahi se lee la sesion de Firestore.
  */
 
+import { judgeDue } from './conversationJudge.js'
 import { applyEvent, emptyState, eventTime } from './liveState.js'
 import { DEFAULT_CONFIG, detectSignalsFromState, selectInterventions } from './signals.js'
 
@@ -61,7 +62,7 @@ export function ingestEvent(state, event, { eventId = null, config = {} } = {}) 
  * para que el cooldown la recuerde. Cuando cambia el problema, recuerda desde cuando rige:
  * lo dicho antes no cuenta como respuesta.
  *
- * @returns {{ state: import('./liveState.js').LiveState, intervention: object|null }}
+ * @returns {{ state: import('./liveState.js').LiveState, intervention: object|null, judge: boolean }}
  */
 export function evaluateDue(state, { problem = null, config = {} } = {}) {
   const cfg = mergeConfig(config)
@@ -79,7 +80,12 @@ export function evaluateDue(state, { problem = null, config = {} } = {}) {
     ? [...state.interventions, { type: intervention.type, k: intervention.participantKey ?? null, t: now }].slice(-cfg.maxInterventions)
     : state.interventions
 
-  return { state: { ...state, lastEvalT: now, problem: tracked, interventions }, intervention }
+  // Si las reglas no dijeron nada, a veces toca que el observador lea la conversacion (sea del tema que sea).
+  // La marca de tiempo viaja en la escritura del estado que ya se hace: no suma escrituras.
+  const judge = !intervention && cfg.judgeEnabled !== false && judgeDue(state, cfg)
+  const lastJudgeT = judge ? now : (state.lastJudgeT ?? null)
+
+  return { state: { ...state, lastEvalT: now, lastJudgeT, problem: tracked, interventions }, intervention, judge }
 }
 
 /**

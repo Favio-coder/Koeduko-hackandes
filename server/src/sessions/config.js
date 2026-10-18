@@ -49,6 +49,15 @@ export function readMeetChatConfig(env) {
 }
 
 /**
+ * Observador de la conversacion (ver core/conversationJudge.js): encendido por defecto. CONVERSATION_JUDGE_ENABLED=false
+ * lo apaga y el tutor vuelve a hablar solo por las senales por reglas. Necesita GEMINI_API_KEY (sin ella no hay lectura).
+ */
+export function readJudgeConfig(env) {
+  const flag = (env.CONVERSATION_JUDGE_ENABLED ?? 'true').trim().toLowerCase()
+  return { enabled: !['false', '0', 'off', 'no'].includes(flag) }
+}
+
+/**
  * Voz del tutor en la reunion (EXPERIMENTAL): MEET_VOICE_ENABLED debe ser "true" (por defecto esta APAGADA) y
  * hacen falta ELEVENLABS_API_KEY y la clave de Recall. Voz y modelo son opcionales (ver adapters/elevenlabs.js).
  * Los bots ya creados no cambian: la voz solo funciona en bots creados con el interruptor encendido.

@@ -21,6 +21,7 @@ export const eventTime = (event) => (event.type === 'transcript' ? (event.tEnd ?
  *   v: number,
  *   lastT: number,                       // mayor tiempo de evento visto (s)
  *   lastEvalT: number|null,              // ultima evaluacion de senales (throttle)
+ *   lastJudgeT: number|null,             // ultima vez que se le pidio al observador leer la conversacion (conversationJudge)
  *   lastSpeechT: number|null,            // fin del ultimo habla (para GROUP_SILENCE)
  *   speaker: { k: string, s: number }|null,           // hablante activo
  *   presence: { k: string, s: number }[],             // quien esta en la sala y desde cuando
@@ -43,6 +44,7 @@ export function emptyState() {
     v: STATE_VERSION,
     lastT: 0,
     lastEvalT: null,
+    lastJudgeT: null,
     lastSpeechT: null,
     speaker: null,
     presence: [],

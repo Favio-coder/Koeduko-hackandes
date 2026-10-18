@@ -122,6 +122,15 @@ export const ENV_MANIFEST = [
     default: 'true',
   },
   {
+    name: 'CONVERSATION_JUDGE_ENABLED',
+    target: 'server',
+    required: false,
+    secret: false,
+    purpose: 'Observador de la conversacion: cada ~30 s un modelo lee lo que dicen (de cualquier tema, con o sin problema) y decide hablar o callar cuando las reglas no dicen nada. false lo apaga.',
+    source: 'Decision del equipo.',
+    default: 'true',
+  },
+  {
     name: 'MEET_VOICE_ENABLED',
     target: 'server',
     required: false,
