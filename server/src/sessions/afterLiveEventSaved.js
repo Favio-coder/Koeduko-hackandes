@@ -10,6 +10,14 @@ import { synthesize } from './adapters/elevenlabs.js'
 import { sendAudio, sendChatMessage } from './adapters/recall.js'
 import { composeIntervention } from './tutor.js'
 
+const BOT_KEYS = new Set(DEFAULT_CONFIG.botKeys)
+
+/** Una señal de grupo (sin destinatario) con una sola persona humana en la sala se dirige a esa persona. */
+export function soloAddressee(signal, humans) {
+  if (signal.participantKey || humans.length !== 1) return signal
+  return { ...signal, participantKey: humans[0] }
+}
+
 const PROFILE_TIMEOUT_MS = 1500
 /** Lo que describeProfile devuelve cuando aun no hay nada que decir: no se manda al prompt. */
 const NO_PATTERNS = 'Sin patrones claros aun.'
@@ -218,11 +226,14 @@ export function createAfterLiveEventSaved({
   }
 
   return async function afterLiveEventSaved({ sessionId, result }) {
-    const intervention = result?.intervention
-    if (!intervention) return
+    if (!result?.intervention) return
 
     const startedAt = now()
     const context = result.context ?? {}
+    // Con una sola persona en la sala no hay "chicos" ni "compañero": una señal de grupo se le dirige a ella, y asi tambien
+    // se le aplican su memoria y su perfil (STUCK, por ejemplo, nunca tenia destinatario).
+    const humans = (context.present ?? []).filter((k) => !BOT_KEYS.has(k))
+    const intervention = soloAddressee(result.intervention, humans)
 
     // La sesion se lee como mucho una vez por intervencion y solo si algo la necesita (memoria o chat).
     let sessionLoad = null
@@ -249,6 +260,7 @@ export function createAfterLiveEventSaved({
       transcriptTail: context.transcriptTail ?? [],
       memoryNotes,
       style: learned.style,
+      participants: humans.length,
       generate: getGenerate(),
     })
 
