@@ -77,6 +77,37 @@ function renderEditor(value = initial(), onDone = vi.fn()) {
 }
 
 describe("AssessmentEditor", () => {
+  it("filters names without losing selected students and selects the whole course", () => {
+    const searchCourses = [{ ...courses[0], students: [
+      { id: "student-1", name: "Ana" },
+      { id: "student-2", name: "Lucía" },
+    ] }];
+    render(<AssessmentEditor initial={initial()} courses={searchCourses} onDone={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "2. Configuración" }));
+    const search = screen.getByRole("searchbox", { name: "Buscar estudiante" });
+    fireEvent.change(search, { target: { value: "LUCIA" } });
+    expect(screen.getByRole("checkbox", { name: "Lucía" })).not.toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: "Ana" })).not.toBeInTheDocument();
+    expect(screen.getByText("1 de 2 seleccionados")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Seleccionar todos" }));
+    fireEvent.change(search, { target: { value: "" } });
+    expect(screen.getByRole("checkbox", { name: "Ana" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Lucía" })).toBeChecked();
+    fireEvent.change(search, { target: { value: "inexistente" } });
+    expect(screen.getByText(/No encontramos estudiantes/)).toBeInTheDocument();
+    expect(screen.getByText("2 de 2 seleccionados")).toBeInTheDocument();
+  });
+
+  it("opens advanced settings automatically when their validation fails", async () => {
+    renderEditor(initial({ attemptLimit: 0 }));
+    fireEvent.click(screen.getByRole("button", { name: "2. Configuración" }));
+    const input = document.getElementById("assessment-attemptLimit");
+    expect(input.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: /Siguiente/ }));
+    await waitFor(() => expect(input.closest("details")).toHaveAttribute("open"));
+    expect(assessmentRequest).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.mocked(assessmentRequest).mockReset();
     vi.mocked(confirmDestructive).mockReset();

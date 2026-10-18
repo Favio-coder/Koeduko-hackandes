@@ -69,7 +69,7 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 w-full space-y-6">
       {/* Encabezado de la vista */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -109,9 +109,10 @@ export default function SessionsPage() {
               title="Salas"
               description={`${sessions.length} ${sessions.length === 1 ? 'sala' : 'salas'} registradas`}
               padding="sm"
+              className="min-w-0 max-w-full"
             >
               {/* Grid responsive: 1 columna en móvil, 2 en tablet, 3 en escritorio */}
-              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <ul className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {sessions.map((session) => {
                   const status = STATUS_META[session.status] ?? {
                     label: session.status,
@@ -123,11 +124,11 @@ export default function SessionsPage() {
                   return (
                     <li
                       key={session.id}
-                      className="flex flex-col gap-3 rounded-2xl border border-[#E6EAE3] bg-white p-4 transition-[box-shadow,border-color] duration-200 ease-out hover:border-[#B7E8B5] hover:shadow-[0_12px_32px_rgba(48,71,68,0.14)]"
+                      className="flex min-w-0 flex-col gap-3 rounded-2xl border border-[#E6EAE3] bg-white p-3 sm:p-4 transition-[box-shadow,border-color] duration-200 ease-out hover:border-[#B7E8B5] hover:shadow-[0_12px_32px_rgba(48,71,68,0.14)]"
                     >
                       {/* Encabezado de la tarjeta */}
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="min-w-0 flex-1 text-sm font-bold leading-snug text-[#304744]">
+                      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                        <h3 className="min-w-0 flex-1 basis-32 [overflow-wrap:anywhere] text-sm font-bold leading-snug text-[#304744]">
                           {session.title}
                         </h3>
                         <Badge tone={status.tone} dot={status.dot} className="shrink-0">
@@ -156,13 +157,12 @@ export default function SessionsPage() {
                         <div className="flex items-center gap-2">
                           <Icon name="users" className="h-4 w-4 shrink-0 text-[#7D8C8A]" />
                           <dt className="sr-only">Integrantes</dt>
-                          {/* URL larga: se recorta en lugar de desbordar */}
-                          <dd className="min-w-0 truncate">{session.members?.map((member) => member.displayName).join(' · ') || session.groupId || session.pairId}</dd>
+                          <dd className="min-w-0 [overflow-wrap:anywhere]">{session.members?.map((member) => member.displayName).join(' · ') || session.groupId || session.pairId}</dd>
                         </div>
                       </dl>
 
                       {/* Acciones */}
-                      <div className="mt-auto flex flex-wrap gap-2 border-t border-[#E6EAE3] pt-3">
+                      <div className="mt-auto grid min-w-0 grid-cols-2 gap-2 border-t border-[#E6EAE3] pt-3">
                         <Button
                           size="sm"
                           icon="video"
@@ -184,7 +184,7 @@ export default function SessionsPage() {
 
                         <Link
                           to={`/sessions/${session.id}`}
-                          className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#2A7A35] transition-colors duration-150 hover:bg-[#E9F8EA] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
+                          className="col-span-2 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#2A7A35] transition-colors duration-150 hover:bg-[#E9F8EA] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4CDB59]/45"
                         >
                           Ver detalle
                           <Icon name="chevronRight" className="h-3.5 w-3.5" />

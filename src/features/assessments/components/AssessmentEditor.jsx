@@ -68,8 +68,14 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
   const [step, setStep] = useState(0);
   const [savedAt, setSavedAt] = useState("");
   const [pendingAction, setPendingAction] = useState(null);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [showMoreSettings, setShowMoreSettings] = useState(false);
   const { busy, error, run } = useOperation();
   const course = courses.find((item) => item.id === form.courseId);
+  const normalizeSearch = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const visibleStudents = (course?.students || []).filter((student) =>
+    normalizeSearch(student.name).includes(normalizeSearch(studentSearch)),
+  );
   const questions = form.questions;
   const dirty = JSON.stringify(form) !== baseline;
   const points = questions.reduce(
@@ -523,7 +529,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
           </div>
           </section>
           <section className="mt-5 rounded-2xl border border-[#E6EAE3] bg-white p-4 sm:p-5">
-          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold"><Icon name="calendar" className="h-4 w-4 text-[#2A7A35]" />Tiempo e intentos</h3>
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold"><Icon name="calendar" className="h-4 w-4 text-[#2A7A35]" />Tiempo de la evaluación</h3>
           <div className="grid items-start gap-5 sm:grid-cols-2">
             <div>
             <IntegerInput
@@ -569,6 +575,20 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
               }
               required
             />
+          </div>
+          </section>
+          <details
+            open={showMoreSettings || Boolean(formErrors.attemptLimit || formErrors.feedbackMode)}
+            onToggle={(event) => setShowMoreSettings(event.currentTarget.open)}
+            className="mt-5 rounded-2xl border border-[#E6EAE3] bg-[#F8FAF6] p-4 sm:p-5"
+          >
+          <summary className="cursor-pointer rounded-lg text-sm font-bold text-[#304744] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#2A7A35]">
+            Intentos y retroalimentación
+            <span className="mt-1 block font-normal text-[#5A6B6A]">
+              {form.attemptLimit} {form.attemptLimit === 1 ? "intento" : "intentos"} · {{ none: "Sin respuestas correctas", after_submit: "Corrección después de enviar", after_close: "Corrección al cerrar", immediate: "Corrección inmediata" }[form.feedbackMode] || "Revisa la retroalimentación"}
+            </span>
+          </summary>
+          <div className="mt-5 grid items-start gap-5 sm:grid-cols-2">
             <IntegerInput
               id="assessment-attemptLimit"
               label="Intentos permitidos"
@@ -579,11 +599,6 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
               hint="Se utiliza el último intento enviado."
               required
             />
-          </div>
-          </section>
-          <section className="mt-5 rounded-2xl border border-[#E6EAE3] bg-[#F8FAF6] p-4 sm:p-5">
-          <h3 className="mb-4 text-sm font-bold">Después de responder</h3>
-          <div className="max-w-xl">
             <Select
               id="assessment-feedbackMode"
               label="Política de retroalimentación"
@@ -609,7 +624,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
             />
           </div>
 
-          </section>
+          </details>
 
           <div className="mt-5 rounded-2xl border border-[#B7E8B5] bg-[#E9F8EA]/40 p-4 sm:p-5">
             <div className="mb-4">
@@ -619,6 +634,17 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
               <p className="mt-1 text-sm text-[#5A6B6A]">
                 <strong className="text-[#2A7A35]">{form.studentIds.length} de {course.students.length} seleccionados</strong> · solo ellos recibirán esta evaluación.
               </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <Input
+                id="assessment-studentSearch"
+                label="Buscar estudiante"
+                type="search"
+                placeholder="Escribe su nombre…"
+                value={studentSearch}
+                onChange={(event) => setStudentSearch(event.target.value)}
+              />
             </div>
             <Button
               variant="secondary"
@@ -635,8 +661,10 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
                 ? "Desmarcar todos"
                 : "Seleccionar todos"}
             </Button>
+            </div>
+            {studentSearch.trim() && <p className="mt-2 text-sm text-[#5A6B6A]" role="status">{visibleStudents.length} coincidencias. La selección se conserva; seleccionar o desmarcar todos aplica a todo el curso.</p>}
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {course.students.map((student) => (
+              {visibleStudents.map((student) => (
                 <div key={student.id} className={`rounded-xl border p-3 transition-colors ${form.studentIds.includes(student.id) ? "border-[#B7E8B5] bg-white" : "border-[#E6EAE3] bg-[#F8FAF6]"}`}>
                 <Checkbox
                   label={student.name}
@@ -653,6 +681,7 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
                 </div>
               ))}
             </div>
+            {course.students.length > 0 && visibleStudents.length === 0 && <p className="mt-3 text-sm text-[#5A6B6A]">No encontramos estudiantes con ese nombre. Prueba otra búsqueda.</p>}
             {!course.students.length && (
               <p className="mt-3 text-sm text-[#5A6B6A]">
                 No hay cuentas estudiantiles autorizadas para este curso.
