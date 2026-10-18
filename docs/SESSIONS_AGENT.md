@@ -164,9 +164,15 @@ aceptable para datos de menores. Hasta resolverlas, esto es un prototipo de demo
 
 ## 8. Límites conocidos
 
-- **Dos pasos siguen siendo manuales:** el docente registra el enlace de Meet de cada sala (no se puede crear un Meet
-  desde el servidor sin la API de Google Meet con OAuth) y alguien tiene que **admitir al bot** en la sala de espera
-  de Meet (no hay forma de saltarla sin que el anfitrión abra el acceso del espacio).
+- **Meet automático (opcional):** si el docente conecta su cuenta de Google (tarjeta «Cuenta de Google» en Salas), una sala
+  sin enlace recibe su reunión al tocar «Crear reunión y entrar»: el servidor crea el espacio con la API de Google Meet con
+  `accessType: OPEN` (entra quien tenga el enlace, **sin sala de espera**, así el bot no necesita admisión). Sin esa conexión
+  todo sigue como antes: el docente registra el enlace a mano y alguien admite al bot. El refresh token vive solo en el
+  servidor (`teacherIntegrations/{uid}`) y el flujo usa un `state` firmado con vencimiento (`core/googleOAuth.js`).
+  **Riesgo con menores:** con acceso `OPEN`, cualquiera que tenga el enlace puede entrar. El enlace solo lo ven los
+  integrantes de la sala; se puede cambiar a `TRUSTED` con `GOOGLE_MEET_ACCESS`.
+- Mientras la app de Google esté en modo «Pruebas», solo entran los usuarios de prueba y el permiso permanente puede
+  caducar a los 7 días (a verificar): hay que volver a conectar.
 - El cierre automático se dispara cuando se va la última persona; si alguien se desconecta un instante y vuelve, el
   bot ya salió (se va 2 s después) y la sesión queda cerrada.
 - Las señales por reglas son 5; cuando ninguna salta, el observador de la conversación decide si hablar (§3.1).
