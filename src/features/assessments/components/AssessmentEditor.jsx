@@ -3,6 +3,7 @@ import { Alert, Badge, Button, Card, LoadingState } from "@/components/ui";
 import { Checkbox, Input, Select, Textarea } from "@/components/ui/Field";
 import Modal from "@/components/ui/Modal";
 import {
+  bulletList,
   confirmDestructive,
   showConfirmation,
   showError,
@@ -137,7 +138,10 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
           ? Object.entries(value).flatMap(([id, fields]) => Object.values(fields).map(message =>
             `Pregunta ${questions.findIndex(q => q.questionId === id) + 1}: ${message}`))
           : [value]);
-      await showWarning(messages.map(message => `• ${message}`).join("\n"), "Revisa antes de continuar");
+      await showWarning(
+        { html: bulletList(messages) },
+        `Revisa antes de continuar · ${messages.length} ${messages.length === 1 ? "campo" : "campos"}`,
+      );
       focusFirstError(errors);
       return false;
     }
@@ -151,13 +155,17 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
     run(async () => {
       try {
         if (publishing && similarQuestions.length) {
-          const pairs = similarQuestions
-            .map(([first, second]) => `Preguntas ${first} y ${second}`)
-            .join("; ");
+          const pairs = similarQuestions.map(
+            ([first, second]) => `Pregunta ${first} y pregunta ${second}`,
+          );
           const continueWithSimilar = await showConfirmation({
             title: "Revisa posibles preguntas similares",
-            text: `${pairs}. No se bloquearán automáticamente; confirma si deseas continuar.`,
+            html: bulletList([
+              ...pairs,
+              "No se bloquearán automáticamente; confirma si deseas continuar.",
+            ]),
             icon: "warning",
+            variant: "warning",
             confirmButtonText: "Continuar con la revisión",
             cancelButtonText: "Volver a editar",
           });
@@ -169,7 +177,10 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
         if (publishing) {
           const confirmed = await showConfirmation({
             title: "Publicar evaluación",
-            text: `Se asignará a ${form.studentIds.length} estudiantes. Después de publicar, no podrás editar la evaluación.`,
+            html: bulletList([
+              `Se asignará a ${form.studentIds.length} ${form.studentIds.length === 1 ? "estudiante" : "estudiantes"}`,
+              "Después de publicar ya no podrás editar la evaluación",
+            ]),
             icon: "warning",
             confirmButtonText: "Publicar evaluación",
             cancelButtonText: "Seguir editando",
@@ -231,7 +242,10 @@ export default function AssessmentEditor({ initial, courses, onDone, exitRef }) 
     const currentErrors = Object.fromEntries(Object.entries(errors).filter(([key]) => fields.includes(key)));
     if (Object.keys(currentErrors).length) {
       setFieldErrors(currentErrors);
-      await showWarning(Object.values(currentErrors).map(message => `• ${message}`).join("\n"), "Completa este paso");
+      await showWarning(
+        { html: bulletList(Object.values(currentErrors)) },
+        "Completa este paso",
+      );
       focusFirstError(currentErrors);
       return;
     }

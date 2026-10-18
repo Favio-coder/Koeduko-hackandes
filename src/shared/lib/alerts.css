@@ -1,0 +1,454 @@
+/**
+ * alerts.css — tema KoEduko para SweetAlert2.
+ * ---------------------------------------------------------------------------
+ * Se aplica únicamente a los diálogos que `shared/lib/alerts.js` abre con
+ * `buttonsStyling: false` y las clases `koeduko-swal*`. Al desactivar el
+ * estilado nativo, SweetAlert2 deja los botones como `<button>` nativos del
+ * navegador: aquí se reconstruyen con los mismos tokens que `ui/Button.jsx`
+ * (marca #4CDB59, texto #263D48/#304744, bordes #E6EAE3, radios grandes).
+ *
+ * Sin Tailwind: SweetAlert2 inyecta sus nodos fuera del árbol de React, así que
+ * las utilidades del escáner no aplican de forma fiable. Por eso este archivo
+ * escribe el CSS a mano y se importa desde `alerts.js`.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* Fondo (contenedor)                                                         */
+/* -------------------------------------------------------------------------- */
+
+.koeduko-swal-backdrop {
+  /* El color lo fija `Swal.fire({ backdrop })` en línea; aquí va el desenfoque. */
+  backdrop-filter: blur(3px) saturate(1.1);
+  -webkit-backdrop-filter: blur(3px) saturate(1.1);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Superficie del diálogo                                                     */
+/* -------------------------------------------------------------------------- */
+
+.koeduko-swal.swal2-popup {
+  width: min(30rem, calc(100vw - 1.5rem));
+  max-width: 100%;
+  padding: 1.75rem 1.5rem 1.5rem;
+  border: 1px solid #e6eae3;
+  border-radius: 1.25rem;
+  background: #ffffff;
+  color: #263d48;
+  font-family: inherit;
+  font-size: 1rem;
+  overflow: hidden;
+  box-shadow:
+    0 24px 64px rgba(38, 61, 72, 0.26),
+    0 2px 8px rgba(38, 61, 72, 0.08);
+}
+
+/* Franja de acento según el tono del diálogo. */
+.koeduko-swal.swal2-popup::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: var(--koeduko-accent, #e6eae3);
+}
+
+.koeduko-swal--primary {
+  --koeduko-accent: #4cdb59;
+}
+
+.koeduko-swal--success {
+  --koeduko-accent: #4cdb59;
+}
+
+.koeduko-swal--danger {
+  --koeduko-accent: #d64545;
+}
+
+.koeduko-swal--warning {
+  --koeduko-accent: #e8b33c;
+}
+
+.koeduko-swal--info {
+  --koeduko-accent: #2f7f8f;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Encabezado y cuerpo                                                        */
+/* -------------------------------------------------------------------------- */
+
+.koeduko-swal.swal2-popup .swal2-title {
+  margin: 0 0 0.5rem;
+  padding: 0;
+  color: #304744;
+  font-size: 1.1875rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+.koeduko-swal.swal2-popup .swal2-html-container {
+  margin: 0;
+  padding: 0;
+  color: #5a6b6a;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  text-align: center;
+  overflow-wrap: break-word;
+  justify-content: center;
+}
+
+.koeduko-swal.swal2-popup .swal2-footer {
+  margin-top: 1rem;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid #e6eae3;
+  color: #7d8c8a;
+  font-size: 0.8125rem;
+}
+
+/* Lista con viñeta para varios mensajes (`bulletList`). */
+.koeduko-swal.swal2-popup .koeduko-swal__list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__list > li {
+  position: relative;
+  padding: 0.625rem 0.75rem 0.625rem 2rem;
+  border: 1px solid #e6eae3;
+  border-radius: 0.75rem;
+  background: #f8faf6;
+  color: #304744;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__list > li::before {
+  content: '';
+  position: absolute;
+  left: 0.875rem;
+  top: 1.05rem;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--koeduko-accent, #abb1ab);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Iconos                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.koeduko-swal.swal2-popup .swal2-icon {
+  /* La caja del icono y sus trazos se miden en `em`: se deja el tamaño de
+     SweetAlert2 y solo se ajusta el aire y la escala. */
+  margin: 0 auto 1rem;
+  zoom: 0.9;
+}
+
+.koeduko-swal.swal2-popup .swal2-error {
+  border-color: #d64545;
+  color: #d64545;
+}
+
+.koeduko-swal.swal2-popup .swal2-error [class^='swal2-x-mark-line'] {
+  background-color: #d64545;
+}
+
+.koeduko-swal.swal2-popup .swal2-warning,
+.koeduko-swal.swal2-popup .swal2-question {
+  border-color: #e8b33c;
+  color: #e8b33c;
+}
+
+.koeduko-swal.swal2-popup .swal2-info {
+  border-color: #2f7f8f;
+  color: #2f7f8f;
+}
+
+.koeduko-swal.swal2-popup .swal2-success {
+  border-color: #4cdb59;
+  color: #4cdb59;
+}
+
+.koeduko-swal.swal2-popup .swal2-success [class^='swal2-success-line'] {
+  background-color: #2a7a35;
+}
+
+.koeduko-swal.swal2-popup .swal2-success .swal2-success-ring {
+  border-color: rgba(76, 219, 89, 0.28);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Botones                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.koeduko-swal.swal2-popup .swal2-actions {
+  /* `row-reverse`: SweetAlert2 inserta confirmar → cancelar, y el sistema
+     visual deja la acción principal a la derecha (igual que `ui/Modal`). */
+  flex-direction: row-reverse;
+  justify-content: center;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  width: 100%;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  background: transparent;
+}
+
+.koeduko-swal.swal2-popup .swal2-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex: 1 1 9rem;
+  min-height: 2.75rem;
+  margin: 0;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid transparent;
+  border-radius: 0.875rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #263d48;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out,
+    color 150ms ease-out,
+    box-shadow 150ms ease-out,
+    transform 100ms ease-out;
+}
+
+.koeduko-swal.swal2-popup .swal2-actions button:hover {
+  transform: translateY(-1px);
+}
+
+.koeduko-swal.swal2-popup .swal2-actions button:active {
+  transform: translateY(0);
+}
+
+.koeduko-swal.swal2-popup .swal2-actions button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(76, 219, 89, 0.45);
+}
+
+.koeduko-swal.swal2-popup .swal2-actions button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
+/* Un único botón (diálogo informativo) estira a todo el ancho gracias a `flex`. */
+.koeduko-swal.swal2-popup .koeduko-swal__btn--primary {
+  background: #4cdb59;
+  color: #263d48;
+  box-shadow: 0 1px 2px rgba(48, 71, 68, 0.12);
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--primary:hover {
+  background: #3fc94d;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--primary:active {
+  background: #35b645;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--danger {
+  background: #d64545;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(214, 69, 69, 0.28);
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--danger:hover {
+  background: #bc3a3a;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--danger:active {
+  background: #a53232;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--danger:focus-visible {
+  box-shadow: 0 0 0 3px rgba(214, 69, 69, 0.4);
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--info {
+  background: #1d63d6;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(29, 99, 214, 0.28);
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--info:hover {
+  background: #1753b4;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--info:active {
+  background: #14479a;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--warning {
+  background: #e8b33c;
+  color: #3a2c05;
+  box-shadow: 0 1px 2px rgba(232, 179, 60, 0.3);
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--warning:hover {
+  background: #d9a52e;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--warning:active {
+  background: #c8952a;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--secondary {
+  background: #ffffff;
+  border-color: #abb1ab;
+  color: #304744;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--secondary:hover {
+  background: #f8faf6;
+  border-color: #4cdb59;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--secondary:active {
+  background: #e9f8ea;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--ghost {
+  background: transparent;
+  color: #5a6b6a;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--ghost:hover {
+  background: #f8faf6;
+  color: #304744;
+}
+
+.koeduko-swal.swal2-popup .koeduko-swal__btn--ghost:active {
+  background: #e9f8ea;
+}
+
+/* Botón de cierre (cuando un diálogo lo expone). */
+.koeduko-swal.swal2-popup .swal2-close {
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  color: #5a6b6a;
+  font-size: 1.5rem;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.koeduko-swal.swal2-popup .swal2-close:hover {
+  background: #f8faf6;
+  color: #304744;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Móvil: los botones se apilan a ancho completo (acción principal abajo)      */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+  .koeduko-swal.swal2-popup {
+    padding: 1.5rem 1.125rem 1.25rem;
+    border-radius: 1rem;
+  }
+
+  .koeduko-swal.swal2-popup .swal2-title {
+    font-size: 1.0625rem;
+  }
+
+  .koeduko-swal.swal2-popup .swal2-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .koeduko-swal.swal2-popup .swal2-actions button {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  /* Cancelar arriba, confirmar abajo (al alcance del pulgar). */
+  .koeduko-swal.swal2-popup .swal2-actions button.swal2-cancel {
+    order: -1;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Movimiento                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.koeduko-swal--animate-in {
+  animation: koeduko-swal-in 200ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.koeduko-swal--animate-out {
+  animation: koeduko-swal-out 140ms ease-in forwards;
+}
+
+.koeduko-swal--backdrop-in {
+  animation: koeduko-swal-fade 200ms ease-out;
+}
+
+.koeduko-swal--backdrop-out {
+  animation: koeduko-swal-fade 140ms ease-in forwards;
+}
+
+@keyframes koeduko-swal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes koeduko-swal-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes koeduko-swal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .koeduko-swal--animate-in,
+  .koeduko-swal--animate-out,
+  .koeduko-swal--backdrop-in,
+  .koeduko-swal--backdrop-out {
+    animation: none;
+  }
+
+  .koeduko-swal.swal2-popup .swal2-actions button {
+    transition: none;
+  }
+
+  .koeduko-swal.swal2-popup .swal2-actions button:hover {
+    transform: none;
+  }
+}
