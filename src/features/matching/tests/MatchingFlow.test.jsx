@@ -36,10 +36,10 @@ describe('agrupamiento explícito por contrato', () => {
   })
 
   it('muestra los cinco estudiantes compartidos y una propuesta de pareja y trío tras el clic', async () => {
-    renderPage()
+    renderPage({ knowledgeProfiles: prepareDemoProfiles(5) })
     const roster = screen.getByRole('list', { name: 'Estudiantes recibidos' })
     expect(within(roster).getAllByRole('listitem')).toHaveLength(5)
-    expect(within(roster).getByText('Ana Torres')).toHaveProperty('tagName', 'SUMMARY')
+    expect(within(roster).getByText('Ana Torres').closest('summary')).toBeInTheDocument()
     expect(within(roster).getAllByText('Adicion')).toHaveLength(5)
     expect(screen.queryByRole('heading', { name: 'Propuesta de grupos' })).not.toBeInTheDocument()
     group()
@@ -120,8 +120,8 @@ describe('agrupamiento explícito por contrato', () => {
   it('permite revisar Resultados por navegación aunque el almacenamiento no esté disponible', async () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota') })
     render(<MemoryRouter initialEntries={['/matching']}><Routes>
-      <Route path="/matching" element={<MatchingPage />} />
-      <Route path="/matching/results" element={<MatchingResultsPage />} />
+      <Route path="/matching" element={<MatchingPage knowledgeProfiles={prepareDemoProfiles(5)} />} />
+      <Route path="/matching/results" element={<MatchingResultsPage demoMode />} />
     </Routes></MemoryRouter>)
     group()
     await screen.findByRole('heading', { name: 'Propuesta de grupos' })

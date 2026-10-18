@@ -1,11 +1,9 @@
-import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, Icon, LoadingState, PageHeader, ProgressBar } from '@/components/ui'
 import { focusRing } from '@/components/ui/tokens'
 import { MATH_SKILLS } from '@/shared/constants/contracts'
 import MatchingGroupList from '../components/MatchingGroupList'
 import { MIN_HELPER_SCORE, MIN_SUPPORT_GAP } from '../data/matchingConfig'
-import { fetchMatchingProfile } from '../services/assessmentProfileService'
+import MatchingClassroom from '../components/MatchingClassroom'
 import { useMatchingPreview } from '../hooks/useMatchingPreview'
 
 const STEPS = [
@@ -81,88 +79,24 @@ function StudentCard({ student }) {
 }
 
 /** Recibe datos por contrato y espera la acción del docente para agrupar. */
-export default function MatchingPage({ assessmentResults, knowledgeProfiles, assessmentId, forbiddenPairs }) {
-  const [searchParams] = useSearchParams()
-  const courseIdFromUrl = searchParams.get('courseId')
-  const assessmentIdFromUrl = searchParams.get('assessmentId')
-  const [profileRequest, setProfileRequest] = useState(null)
-  const requestKey = courseIdFromUrl || assessmentIdFromUrl
-    ? `${courseIdFromUrl ?? ''}:${assessmentIdFromUrl ?? ''}`
-    : null
-  const selectingAssessment = requestKey !== null
+export default function MatchingPage(props) {
+  if (props.assessmentResults !== undefined || props.knowledgeProfiles !== undefined) {
+    return <MatchingWorkspace {...props} />
+  }
+  return <MatchingClassroom>{({ data, scope }) =>
+    <MatchingWorkspace {...props} assessmentResults={data} storageScope={scope} />
+  }</MatchingClassroom>
+}
 
-  useEffect(() => {
-    if (!requestKey) return undefined
-
-    let active = true
-    Promise.resolve()
-      .then(() => {
-        if (active) {
-          setProfileRequest({
-            key: requestKey,
-            loading: true,
-            error: null,
-            data: null,
-          })
-        }
-        if (!courseIdFromUrl || !assessmentIdFromUrl) {
-          throw new Error(
-            'Selecciona un curso y una evaluación finalizada para cargar perfiles.',
-          )
-        }
-        return fetchMatchingProfile(assessmentIdFromUrl, courseIdFromUrl)
-      })
-      .then((data) => {
-        if (active) {
-          setProfileRequest({
-            key: requestKey,
-            loading: false,
-            error: null,
-            data,
-          })
-        }
-      })
-      .catch((error) => {
-        if (active) {
-          setProfileRequest({
-            key: requestKey,
-            loading: false,
-            error: error.message || 'No se pudieron cargar los perfiles.',
-            data: null,
-          })
-        }
-      })
-    return () => {
-      active = false
-    }
-  }, [assessmentIdFromUrl, courseIdFromUrl, requestKey])
-
-  const currentProfileRequest =
-    profileRequest?.key === requestKey ? profileRequest : null
-  const input = assessmentResults !== undefined
-    ? assessmentResults
-    : selectingAssessment
-    ? currentProfileRequest?.data ?? null
-    : knowledgeProfiles
-  const selectedAssessmentId = assessmentId ?? assessmentIdFromUrl ?? undefined
-  const { students, usingDemo, result, loading, error, storageWarning, generate } = useMatchingPreview(input, { assessmentId: selectedAssessmentId, forbiddenPairs })
+function MatchingWorkspace({ assessmentResults, knowledgeProfiles, assessmentId, forbiddenPairs, storageScope }) {
+  const input = assessmentResults === undefined ? knowledgeProfiles : assessmentResults
+  const selectedAssessmentId = assessmentId ?? assessmentResults?.assessmentId
+  const { students, usingDemo, result, loading, error, storageWarning, generate } = useMatchingPreview(input, { assessmentId: selectedAssessmentId, forbiddenPairs, storageScope })
+  const query = storageScope ? '?' + new URLSearchParams({ courseId: storageScope.courseId, assessmentId: storageScope.assessmentId }) : ''
+  const resultsUrl = '/matching/results' + query
+  const skillCount = MATH_SKILLS.filter(({ id }) => students.length > 0 && students.every((student) => Number.isFinite(student.skills?.[id]))).length
   const grouped = result?.status === 'optimal'
   const currentStep = grouped ? 2 : students.length >= 2 ? 1 : 0
-
-  if (
-    selectingAssessment &&
-    (!currentProfileRequest || currentProfileRequest.loading)
-  ) {
-    return <LoadingState label="Preparando perfiles de la evaluación…" />
-  }
-  if (selectingAssessment && currentProfileRequest?.error) {
-    return (
-      <div className="space-y-4">
-        <PageHeader eyebrow="Herramientas docentes" title="Emparejamiento" />
-        <ErrorState error={currentProfileRequest.error} />
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">
@@ -176,7 +110,7 @@ export default function MatchingPage({ assessmentResults, knowledgeProfiles, ass
           </Badge>
         }
         actions={
-          <Button to="/matching/results" variant="secondary" icon="chart" iconPosition="right">
+          <Button to={resultsUrl} variant="secondary" icon="chart" iconPosition="right">
             Ver último resultado
           </Button>
         }
@@ -241,9 +175,9 @@ export default function MatchingPage({ assessmentResults, knowledgeProfiles, ass
         />
         <StatCard
           label="Habilidades"
-          value={MATH_SKILLS.length}
+          value={skillCount}
           icon="clipboard"
-          hint="Variables por estudiante"
+          hint="Habilidades comparables de la evaluación"
         />
         <StatCard
           label="Grupos propuestos"
@@ -307,7 +241,7 @@ export default function MatchingPage({ assessmentResults, knowledgeProfiles, ass
               <h2 id="proposal-title" className="mt-1 text-lg font-bold tracking-tight text-[#304744]">Propuesta de grupos</h2>
               <p className="mt-0.5 text-sm text-[#5A6B6A]">{result.groups.length} grupos · {students.length} estudiantes</p>
             </div>
-            <Button to="/matching/results" state={{ matchingResult: result }} icon="chart">
+            <Button to={resultsUrl} state={{ matchingResult: result, resultOwnerId: storageScope?.ownerId }} icon="chart">
               Ver resultados
             </Button>
           </header>
