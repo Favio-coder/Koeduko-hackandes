@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { signState } from '../sessions/core/googleOAuth.js'
+import { STATE_TTL_MS, signState } from '../sessions/core/googleOAuth.js'
 import { createGoogleCallbackHandler } from './googleCallbackHandler.js'
 import { createGoogleConnectHandler } from './googleConnectHandler.js'
 
@@ -122,7 +122,7 @@ describe('google-callback', () => {
   it('does nothing with a forged, expired or missing state', async () => {
     const { handler, store } = setup()
     const forged = Buffer.from(JSON.stringify({ uid: 'attacker', ret: null, exp: 9e15 })).toString('base64url') + '.AAAA'
-    for (const state of [forged, undefined, '', 'x.y', signState({ uid: 'teacher-1', nowMs: -10 * 60 * 1000 - 1, secret })]) {
+    for (const state of [forged, undefined, '', 'x.y', signState({ uid: 'teacher-1', nowMs: -STATE_TTL_MS - 1, secret })]) {
       const res = fakeRes()
       await handler(get({ code: 'c1', state }), res)
       expect(res.statusCode).toBe(400)

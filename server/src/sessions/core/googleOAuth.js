@@ -12,7 +12,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 export const MEET_SCOPE = 'https://www.googleapis.com/auth/meetings.space.created'
-export const STATE_TTL_MS = 10 * 60 * 1000
+export const STATE_TTL_MS = 30 * 60 * 1000
 
 const b64 = (value) => Buffer.from(value).toString('base64url')
 
