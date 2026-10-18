@@ -7,13 +7,15 @@ import { askTutor } from '../services/tutorService'
 
 /**
  * PUNTO DE EXTENSION - DESARROLLADOR 3 (feature/sessions-ai)
- * Debe llamar a la Cloud Function `askTutor` (Gemini en el servidor).
- * Nunca invocar la API de Gemini directamente desde el navegador.
+ * Llama a `POST /api/ask-tutor` del backend de sesiones (`server/`, Vercel) con el ID token del usuario;
+ * Gemini corre allí. Nunca invocar la API de Gemini directamente desde el navegador.
  *
  * Solo presentación: mismo envío, mismos mensajes, mismo servicio.
  */
-export default function TutorPage() {
-  const { sessionId } = useParams()
+export default function TutorPage({ sessionId: resolvedId }) {
+  const params = useParams()
+  // `sessionId` por prop lo usa "Tutor IA" del menú (ya resolvió el id); por la ruta /sessions/:sessionId/tutor sale de la URL.
+  const sessionId = resolvedId ?? params.sessionId
   const [question, setQuestion] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)

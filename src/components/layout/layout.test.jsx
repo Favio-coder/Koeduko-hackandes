@@ -44,8 +44,8 @@ describe('navegación (navConfig)', () => {
         '/matching',
         '/matching/results',
         '/sessions',
-        '/sessions/demo-session-1',
-        '/sessions/demo-session-1/tutor',
+        '/sessions/active',
+        '/sessions/active/tutor',
       ]),
     )
   })
@@ -78,8 +78,8 @@ describe('navegación (navConfig)', () => {
     expect(activeItemTo('/matching')).toBe('/matching')
     expect(activeItemTo('/matching/results')).toBe('/matching/results')
     expect(activeItemTo('/sessions')).toBe('/sessions')
-    expect(activeItemTo('/sessions/demo-session-1')).toBe('/sessions/demo-session-1')
-    expect(activeItemTo('/sessions/demo-session-1/tutor')).toBe('/sessions/demo-session-1/tutor')
+    expect(activeItemTo('/sessions/active')).toBe('/sessions/active')
+    expect(activeItemTo('/sessions/active/tutor')).toBe('/sessions/active/tutor')
     expect(activeItemTo('/ruta-inexistente')).toBeNull()
   })
 
@@ -96,7 +96,7 @@ describe('navegación (navConfig)', () => {
 
   it('resuelve el título de sección por ruta', () => {
     expect(sectionTitleFor('/dashboard/teacher')).toBe('Panel docente')
-    expect(sectionTitleFor('/sessions/demo-session-1/tutor')).toBe('Tutor IA')
+    expect(sectionTitleFor('/sessions/active/tutor')).toBe('Tutor IA')
     expect(sectionTitleFor('/matching/results')).toBe('Resultados de emparejamiento')
     expect(sectionTitleFor('/sessions')).toBe('Salas')
   })
@@ -114,8 +114,8 @@ describe('Sidebar', () => {
     ['/matching', 'Emparejamiento'],
     ['/matching/results', 'Resultados'],
     ['/sessions', 'Salas'],
-    ['/sessions/demo-session-1', 'Sesión activa'],
-    ['/sessions/demo-session-1/tutor', 'Tutor IA'],
+    ['/sessions/active', 'Sesión activa'],
+    ['/sessions/active/tutor', 'Tutor IA'],
   ])('marca solo "%s" como activo', (path, activeLabel) => {
     render(
       <MemoryRouter initialEntries={[path]}>

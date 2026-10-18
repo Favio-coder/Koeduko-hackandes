@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:env": "node server/scripts/checkEnv.js --target all",
+    "env:example": "npm --prefix server run env:example",
     "test:assessments:integration": "npx --yes firebase-tools@13.35.1 emulators:exec --project demo-koeduko-assessments --config firebase.assessments.json --only firestore,auth \"node --test server/assessments/integration.test.js\""
   },
   "dependencies": {

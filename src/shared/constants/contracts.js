@@ -26,6 +26,28 @@ export const COMPETENCY_ID = Object.freeze({
   RESOLVE_QUANTITY_PROBLEMS: 'resuelve-problemas-cantidad',
 })
 
+export const COMPETENCY_NAME = 'Resuelve problemas de cantidad'
+
+/**
+ * Capacidades de la competencia (Curriculo Nacional, primaria), en su orden oficial.
+ * El servidor tiene la misma lista en server/src/sessions/core/competencies.js; un test las compara.
+ */
+export const QUANTITY_CAPABILITIES = Object.freeze([
+  { id: 'traduce', nombre: 'Traduce cantidades a expresiones numéricas' },
+  { id: 'comunica', nombre: 'Comunica su comprensión sobre los números y las operaciones' },
+  { id: 'usa-estrategias', nombre: 'Usa estrategias y procedimientos de estimación y cálculo' },
+  { id: 'argumenta', nombre: 'Argumenta afirmaciones sobre las relaciones numéricas y las operaciones' },
+])
+
+/** Estado de una capacidad en el reporte de cierre. Es evidencia formativa: NUNCA una nota AD/A/B/C. */
+export const EVIDENCE_STATE = Object.freeze({
+  WITH: 'con evidencia',
+  PARTIAL: 'evidencia parcial',
+  NONE: 'sin evidencia suficiente',
+})
+
+export const FORMATIVE_NOTE = 'Evidencia formativa: la calificación la decide el docente.'
+
 /**
  * Habilidades matematicas evaluadas en la competencia inicial.
  * Los valores son mastery scores normalizados en [0, 1].
@@ -74,6 +96,9 @@ export const SKILL_IDS = Object.freeze(MATH_SKILLS.map((s) => s.id))
  * @typedef {Object} LearningSession
  * @property {string} id
  * @property {string} pairId
+ * @property {string[]} studentIds UIDs de Firebase Auth de los estudiantes de la sesion (no ids de la coleccion `students`).
+ * @property {{ activityId: string, skillId: string, text: string }|null} [currentProblem] SOLO el enunciado: la respuesta esperada
+ *   vive en learningSessions/{id}/private/answer, que ningun cliente puede leer.
  * @property {string|null} meetingUrl
  * @property {'scheduled'|'live'|'completed'|'cancelled'} status
  * @property {import('firebase/firestore').Timestamp|null} scheduledAt

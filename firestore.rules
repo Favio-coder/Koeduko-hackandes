@@ -20,6 +20,19 @@ service cloud.firestore {
       return isSignedIn() && userRole() == 'student';
     }
 
+    // ---- Datos de la sesion en vivo ----
+    // Legibles SOLO por el docente o por un estudiante que figure en studentIds de ESA sesion
+    // (no por cualquier estudiante). Nadie escribe desde el cliente: escribe el servidor (server/ en
+    // Vercel, con firebase-admin, que no pasa por estas reglas). Cada get() cuenta como una lectura.
+    function isSessionMember(sessionId) {
+      return isSignedIn()
+             && request.auth.uid in get(/databases/$(database)/documents/learningSessions/$(sessionId)).data.studentIds;
+    }
+
+    function canReadSessionData(sessionId) {
+      return isTeacher() || isSessionMember(sessionId);
+    }
+
     function myClassroom() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classroomId;
     }
@@ -29,7 +42,8 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == userId || isTeacher());
       allow create: if isSignedIn()
                     && request.auth.uid == userId
-                    && request.resource.data.role == 'student';
+                    && request.resource.data.role == 'student'
+                    && request.resource.data.classroomId == null;
       allow update: if isSignedIn() && (
                        (request.auth.uid == userId
                         && request.resource.data.role == resource.data.role
@@ -72,15 +86,57 @@ service cloud.firestore {
     }
 
     match /learningSessions/{sessionId} {
-      allow read: if isTeacher() || isStudent();
+      // studentIds guarda UIDs de Firebase Auth (no ids de la coleccion students).
+      allow read: if isTeacher() || request.auth.uid in resource.data.studentIds;
       allow create, delete: if isTeacher();
       allow update: if isTeacher()
-                    || (isStudent() && request.resource.data.diff(resource.data)
-                        .affectedKeys().hasOnly(['status', 'joinedAt', 'participation']));
+                    || (request.auth.uid in resource.data.studentIds
+                        && request.resource.data.diff(resource.data)
+                           .affectedKeys().hasOnly(['status', 'joinedAt', 'participation']));
 
       match /tutorInteractions/{interactionId} {
         allow read: if isTeacher() || (isStudent() && resource.data.studentId == request.auth.uid);
-        allow write: if false; // Solo Cloud Functions escriben aqui.
+        allow write: if false; // Solo el servidor (server/api/ask-tutor) escribe aqui.
+      }
+
+      // Transcript, join y leave de la sesion en vivo. El habla cruda no se guarda: vive en live/state.
+      match /liveEvents/{eventId} {
+        allow read: if canReadSessionData(sessionId);
+        allow write: if false; // Solo el servidor (server/api/recall-webhook).
+      }
+
+      match /transcriptSegments/{segmentId} {
+        allow read: if canReadSessionData(sessionId);
+        allow write: if false; // Solo el servidor.
+      }
+
+      // Lo que dice el tutor en vivo (mensaje, senal y evidencia).
+      match /agentInterventions/{interventionId} {
+        allow read: if canReadSessionData(sessionId);
+        allow write: if false; // Solo el servidor (afterLiveEventSaved).
+      }
+
+      // Lo UNICO de live/ que lee el navegador: reparto de habla y ultimas frases, ya calculados.
+      match /live/view {
+        allow read: if canReadSessionData(sessionId);
+        allow write: if false; // Solo el servidor (processLiveEvent).
+      }
+
+      // live/state es del servidor: guarda, entre otras cosas, la respuesta esperada del problema
+      // (cacheada desde private/answer). Ningun cliente lo lee.
+      match /live/state {
+        allow read, write: if false;
+      }
+
+      // La respuesta esperada de los problemas. Solo el Admin SDK (que no pasa por estas reglas).
+      match /private/{docId} {
+        allow read, write: if false;
+      }
+
+      // Reporte de cierre (evidencia por competencias): lo lee el docente; lo escribe close-session.
+      match /summary/{docId} {
+        allow read: if isTeacher();
+        allow write: if false;
       }
     }
 

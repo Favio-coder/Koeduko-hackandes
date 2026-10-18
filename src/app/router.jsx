@@ -29,6 +29,7 @@ const MatchingResultsPage = lazy(() => import('@/features/matching/pages/Matchin
 const SessionsPage = lazy(() => import('@/features/sessions/pages/SessionsPage'))
 const SessionDetailPage = lazy(() => import('@/features/sessions/pages/SessionDetailPage'))
 const TutorPage = lazy(() => import('@/features/ai/pages/TutorPage'))
+const ActiveSessionPage = lazy(() => import('@/features/sessions/pages/ActiveSessionPage'))
 
 const routes = [
   { path: '/', element: <Navigate to="/dashboard" replace /> },
@@ -38,6 +39,9 @@ const routes = [
   { path: '/students', element: <StudentsPage />, roles: [USER_ROLES.TEACHER] },
   { path: '/assessments', element: <AssessmentsPage />, roles: ['teacher', 'student'] },
   { path: '/sessions', element: <SessionsPage />, roles: ['teacher', 'student'] },
+  // "Sesión activa" y "Tutor IA" del menú: resuelven la sesión real del usuario sin cambiar la URL.
+  { path: '/sessions/active', element: <ActiveSessionPage render={(id) => <SessionDetailPage sessionId={id} />} />, roles: ['teacher', 'student'] },
+  { path: '/sessions/active/tutor', element: <ActiveSessionPage render={(id) => <TutorPage sessionId={id} />} />, roles: ['teacher', 'student'] },
   { path: '/sessions/:sessionId', element: <SessionDetailPage />, roles: ['teacher', 'student'] },
   { path: '/sessions/:sessionId/tutor', element: <TutorPage />, roles: ['teacher', 'student'] },
 ]
