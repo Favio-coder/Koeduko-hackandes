@@ -396,3 +396,48 @@ describe('processLiveEvent: closeNow when the last person leaves a room where pe
     expect((await run([...talk, join('tutor koeduko', 1), leave('tutor koeduko', 40)])).closeNow).toBe(false)
   })
 })
+
+describe('ensureContext: who guides and who learns, from the diagnostic', () => {
+  const CONTEXT = 'learningSessions/s1/private/context'
+  const assignment = (mastery) => ({ result: { skills: [{ skillId: 'multiplication', mastery }, { skillId: 'addition', mastery: 0.99 }] } })
+  const docs = (extra = {}) => ({
+    [SESSION]: {
+      assessmentId: 'ev1',
+      members: [{ studentId: 'u1', displayName: 'Ana Torres' }, { studentId: 'u2', displayName: 'Luis Pérez' }],
+      currentProblem: { skillId: 'multiplication' },
+    },
+    'assessmentModules/ev1/assignments/u1': assignment(0.9),
+    'assessmentModules/ev1/assignments/u2': assignment(0.4),
+    ...extra,
+  })
+
+  it('reads the mastery of each member in the skill of the session and saves the roles in private/context only', async () => {
+    const { firebase, committed } = fakeFirestore({ docs: docs() })
+    const result = await createSessionStore(firebase).ensureContext('s1')
+
+    expect(result).toEqual({ created: true })
+    expect(committed.map((w) => w.path)).toEqual([CONTEXT])
+    expect(committed[0].data).toMatchObject({
+      topic: 'multiplication',
+      createdFrom: 'assessment',
+      roles: { 'ana torres': { role: 'guia' }, 'luis perez': { role: 'aprendiz' } },
+    })
+  })
+
+  it('does nothing when the context already exists, the room has no evaluation, or someone has no result', async () => {
+    const exists = fakeFirestore({ docs: docs({ [CONTEXT]: { topic: 'x' } }) })
+    expect(await createSessionStore(exists.firebase).ensureContext('s1')).toEqual({ created: false })
+    expect(exists.committed).toEqual([])
+
+    const base = docs()
+    const noEvaluation = fakeFirestore({ docs: { ...base, [SESSION]: { ...base[SESSION], assessmentId: undefined } } })
+    expect(await createSessionStore(noEvaluation.firebase).ensureContext('s1')).toEqual({ created: false })
+
+    const missing = fakeFirestore({ docs: { ...base, 'assessmentModules/ev1/assignments/u2': undefined } })
+    delete missing.docs['assessmentModules/ev1/assignments/u2']
+    expect(await createSessionStore(missing.firebase).ensureContext('s1')).toEqual({ created: false })
+
+    const none = fakeFirestore({ docs: {} })
+    expect(await createSessionStore(none.firebase).ensureContext('s1')).toEqual({ created: false })
+  })
+})

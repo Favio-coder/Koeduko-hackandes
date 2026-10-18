@@ -3,6 +3,7 @@ import { activityIdOf, emptyState, evaluateDue, ingestEvent, problemFromSession 
 import { viewOf } from '../core/liveView.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
 import { pickProblem } from '../core/problemBank.js'
+import { rolesOf } from '../core/roles.js'
 import { DEFAULT_CONFIG } from '../core/signals.js'
 import { memoryCacheKey } from '../core/studentKey.js'
 import { SessionBotError } from '../errors.js'
@@ -249,6 +250,45 @@ export function createSessionStore({ db, FieldValue }) {
         tx.set(db.doc(`learningSessions/${sessionId}/private/answer`), { activityId: problem.activityId, expectedAnswer: problem.expectedAnswer })
         return { assigned: true, skillId: problem.skillId }
       })
+    },
+
+    /**
+     * Calcula quien guia y quien aprende en la sala segun el diagnostico (dominio de cada integrante en la habilidad de la
+     * sesion) y lo guarda en `private/context`: solo el servidor lo lee, porque es una pista para el tutor y no una etiqueta
+     * que un nino deba ver. Idempotente: si ya existe no hace nada. Sin evaluacion o sin dominio de alguien, no guarda nada.
+     *
+     * @returns {Promise<{ created: boolean }>}
+     */
+    async ensureContext(sessionId) {
+      const ref = db.doc(`learningSessions/${sessionId}/private/context`)
+      return db.runTransaction(async (tx) => {
+        const [contextSnap, sessionSnap] = await Promise.all([tx.get(ref), tx.get(sessionRef(sessionId))])
+        if (contextSnap.exists || !sessionSnap.exists) return { created: false }
+
+        const session = sessionSnap.data()
+        const members = Array.isArray(session.members) ? session.members.filter((m) => typeof m?.studentId === 'string') : []
+        const skillId = session.currentProblem?.skillId ?? null
+        if (!session.assessmentId || !skillId || members.length < 2) return { created: false }
+
+        const snaps = await Promise.all(members.map((m) => tx.get(db.doc(`assessmentModules/${session.assessmentId}/assignments/${m.studentId}`))))
+        const mastery = {}
+        snaps.forEach((snap, i) => {
+          const skills = snap.exists ? snap.data()?.result?.skills : null
+          const found = Array.isArray(skills) ? skills.find((skill) => skill?.skillId === skillId) : null
+          mastery[members[i].studentId] = found?.mastery
+        })
+
+        const context = rolesOf({ members, mastery, skillId })
+        if (!context) return { created: false }
+        tx.set(ref, { ...context, createdFrom: 'assessment' })
+        return { created: true }
+      })
+    },
+
+    /** Contexto de la sala (roles segun el diagnostico), o null (1 lectura). */
+    async getContext(sessionId) {
+      const snap = await db.doc(`learningSessions/${sessionId}/private/context`).get()
+      return snap.exists ? snap.data() : null
     },
 
     /** La sesion tal como esta guardada (1 lectura), o null si no existe. */

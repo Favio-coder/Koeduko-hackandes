@@ -5,6 +5,7 @@ import { buildJudgePrompt, parseJudgeDecision } from './core/conversationJudge.j
 import { chooseStyle, describeLearning } from './core/learning.js'
 import { memoryQueryOf } from './core/memoryText.js'
 import { memoryCacheKey, memoryScopeOf, studentKeyOf } from './core/studentKey.js'
+import { describeRoles } from './core/roles.js'
 import { describeProfile } from './core/studentProfile.js'
 import { withTimeout } from './timeout.js'
 import { synthesize } from './adapters/elevenlabs.js'
@@ -229,6 +230,17 @@ export function createAfterLiveEventSaved({
     }
   }
 
+  /** Quien guia y quien aprende segun el diagnostico, como una linea para el prompt. Nunca lanza; sin datos, vacia. */
+  async function rolesLineFor({ sessionId, humans }) {
+    const store = getStore()
+    if (typeof store.getContext !== 'function') return ''
+    try {
+      return describeRoles(await withTimeout(store.getContext(sessionId), PROFILE_TIMEOUT_MS), humans)
+    } catch {
+      return ''
+    }
+  }
+
   /** Lee la sesion una sola vez y recuerda el resultado (o el fallo). */
   function sessionLoader(sessionId) {
     let sessionLoad = null
@@ -255,7 +267,9 @@ export function createAfterLiveEventSaved({
     if (humans.length === 0 || !(judge.transcriptTail?.length > 0)) return
 
     const startedAt = now()
+    const rolesLine = await rolesLineFor({ sessionId, humans })
     const { systemInstruction, userPrompt } = buildJudgePrompt({
+      rolesLine,
       transcriptTail: judge.transcriptTail,
       humans,
       problem: judge.problem ?? null,
@@ -355,9 +369,10 @@ export function createAfterLiveEventSaved({
     // La sesion se lee como mucho una vez por intervencion y solo si algo la necesita (memoria o chat).
     const loadSession = sessionLoader(sessionId)
 
-    const [recalled, learned] = await Promise.all([
+    const [recalled, learned, rolesLine] = await Promise.all([
       recallNotes({ sessionId, intervention, problem: context.problem ?? null, cached: context.memory, loadSession }),
       learnFromProfile({ intervention, problem: context.problem ?? null, sessionId, loadSession }),
+      rolesLineFor({ sessionId, humans }),
     ])
     const { cache: memoryCache } = recalled
     // Lo que dice el perfil (patrones y estilo que le ha servido) va primero: es lo mas especifico del estudiante.
@@ -369,6 +384,7 @@ export function createAfterLiveEventSaved({
       memoryNotes,
       style: learned.style,
       participants: humans.length,
+      rolesLine,
       generate: getGenerate(),
     })
 

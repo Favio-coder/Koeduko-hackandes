@@ -64,7 +64,7 @@ describe('start-session-bot handler', () => {
     await handler(request(), res)
 
     expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual({ botId: 'bot-1', status: 'requested', problemAssigned: false })
+    expect(res.body).toEqual({ botId: 'bot-1', status: 'requested', problemAssigned: false, rolesAssigned: false })
     expect(verifyIdToken).toHaveBeenCalledWith('good-token')
     expect(store.getUserRole).toHaveBeenCalledWith('teacher-1')
     expect(deps.createBot).toHaveBeenCalledWith(
@@ -116,7 +116,7 @@ describe('start-session-bot handler', () => {
     const res = fakeRes()
     await handler(request(), res)
     expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual({ botId: 'bot-1', status: 'requested', problemAssigned: true })
+    expect(res.body).toEqual({ botId: 'bot-1', status: 'requested', problemAssigned: true, rolesAssigned: false })
     expect(ensureProblem).toHaveBeenCalledWith('smoke-001')
     expect(deps.createBot).toHaveBeenCalledTimes(1)
   })

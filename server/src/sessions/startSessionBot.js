@@ -42,6 +42,14 @@ export async function startSessionBot({ sessionId, nowMs, config, store, createB
     problem = { assigned: false, failed: true }
   }
 
+  // Quien guia y quien aprende segun el diagnostico (solo servidor). Tampoco bloquea al bot si falla.
+  let rolesAssigned
+  try {
+    rolesAssigned = (await store.ensureContext?.(sessionId))?.created === true
+  } catch {
+    rolesAssigned = false
+  }
+
   let botId
   try {
     ;({ botId } = await createBot({
@@ -65,5 +73,5 @@ export async function startSessionBot({ sessionId, nowMs, config, store, createB
     throw new SessionBotError('internal', 'El bot se creo pero no se pudo guardar su id.', { botId })
   }
 
-  return { botId, status: 'requested', problemAssigned: problem.assigned === true }
+  return { botId, status: 'requested', problemAssigned: problem.assigned === true, rolesAssigned }
 }

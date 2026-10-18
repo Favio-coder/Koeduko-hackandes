@@ -32,7 +32,7 @@ describe('startSessionBot', () => {
   it('claims, creates the bot with the stored Meet link and saves its id', async () => {
     const deps = setup()
 
-    await expect(startSessionBot(deps)).resolves.toEqual({ botId: 'bot-1', status: 'requested', problemAssigned: false })
+    await expect(startSessionBot(deps)).resolves.toEqual({ botId: 'bot-1', status: 'requested', problemAssigned: false, rolesAssigned: false })
 
     expect(deps.store.claimBot).toHaveBeenCalledWith('smoke-001', { region: 'us-west-2', nowMs: 1000 })
     expect(deps.createBot).toHaveBeenCalledWith({
@@ -113,7 +113,7 @@ describe('startSessionBot: problem assignment', () => {
     const createBot = vi.fn().mockImplementation(async () => { order.push('bot'); return { botId: 'b1' } })
     const result = await startSessionBot({ sessionId: 's1', nowMs: 1, config, store, createBot })
     expect(order).toEqual(['problem', 'bot'])
-    expect(result).toEqual({ botId: 'b1', status: 'requested', problemAssigned: true })
+    expect(result).toEqual({ botId: 'b1', status: 'requested', problemAssigned: true, rolesAssigned: false })
   })
 
   it('never blocks the bot: a failure assigning the problem is swallowed', async () => {
