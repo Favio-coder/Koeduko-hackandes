@@ -18,7 +18,9 @@ Recall y AtomicMemory.
 
 **Los 7 fallos de la raíz ya existen en `main`** (se comprobaron en un árbol limpio de `main`) y son de otros módulos:
 tests de matching y de dashboard que esperan 5 estudiantes de demostración cuando los datos tienen 8, y una suite que
-no carga sin las llaves de Firebase. No son de este módulo y no se tocaron.
+no carga sin las llaves de Firebase. No son de este módulo y no se tocaron. Con la máquina muy cargada (navegador,
+servidor de desarrollo) algunas suites de otros módulos fallan además por tiempo (límite de 5 s por test); los tests
+de este módulo pasaron estables en cada repetición.
 
 ## 2. Pruebas con datos reales
 
