@@ -2,6 +2,7 @@ import { canRequestBot } from '../core/botRequest.js'
 import { activityIdOf, emptyState, evaluateDue, ingestEvent, problemFromSession } from '../core/liveEngine.js'
 import { viewOf } from '../core/liveView.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
+import { pickProblem } from '../core/problemBank.js'
 import { DEFAULT_CONFIG } from '../core/signals.js'
 import { memoryCacheKey } from '../core/studentKey.js'
 import { SessionBotError } from '../errors.js'
@@ -25,6 +26,9 @@ const profileDocId = memoryCacheKey
 const TRANSCRIPT_TAIL = 8
 /** Frases recientes que lee el observador de la conversacion (un poco mas que el resto: necesita ver el hilo). */
 const JUDGE_TAIL = 12
+const BOT_KEYS = new Set(DEFAULT_CONFIG.botKeys)
+/** Frases de personas que debe haber para cerrar sola una sala: una sala donde nadie hablo no genera reporte. */
+const AUTO_CLOSE_MIN_TRANSCRIPTS = 3
 
 /**
  * Acceso a Firestore para sesiones. Recibe db y FieldValue ya inicializados
@@ -136,8 +140,14 @@ export function createSessionStore({ db, FieldValue }) {
           writes += 1
         }
 
+        // Se fue la ultima persona de una sala en la que de verdad se hablo: el bot sale solo (2 s despues, por su propia
+        // configuracion) y no queda nadie que cierre. La sesion se cierra sola y genera el reporte y la memoria.
+        const humansLeft = state.presence.filter((p) => !BOT_KEYS.has(p.k))
+        const humanTalk = state.transcripts.filter((tr) => !BOT_KEYS.has(tr.k))
+        const closeNow = event.type === 'leave' && humansLeft.length === 0 && humanTalk.length >= AUTO_CLOSE_MIN_TRANSCRIPTS
+
         ops.writes = writes // solo cuentan las escrituras del intento que se confirmo
-        return { evaluated: ingested.due, intervention, context, judge }
+        return { evaluated: ingested.due, intervention, context, judge, closeNow }
       })
 
       return { ...outcome, ops }
@@ -211,6 +221,33 @@ export function createSessionStore({ db, FieldValue }) {
 
         tx.update(ref, { bot: { id: null, status: 'requested', region, requestedAtMs: nowMs } })
         return { meetingUrl: session.meetingUrl.trim() }
+      })
+    },
+
+    /**
+     * Si la sala no tiene problema (las crea el algoritmo de emparejamiento sin actividad), le asigna uno segun la
+     * habilidad en foco de su grupo (matchingResults/{id}/groups/{groupId}.focusSkillIds). El enunciado va en la sesion
+     * y la respuesta aparte, en private/answer. Una sala que ya tiene problema no se toca. Todo en una transaccion.
+     *
+     * @returns {Promise<{ assigned: boolean, skillId?: string }>}
+     */
+    async ensureProblem(sessionId) {
+      return db.runTransaction(async (tx) => {
+        const ref = sessionRef(sessionId)
+        const snap = await tx.get(ref)
+        if (!snap.exists) return { assigned: false }
+        const session = snap.data()
+        if (session.currentProblem) return { assigned: false }
+
+        let skillIds = null
+        if (session.matchingResultId && session.groupId) {
+          const groupSnap = await tx.get(db.doc(`matchingResults/${session.matchingResultId}/groups/${session.groupId}`))
+          skillIds = groupSnap.exists ? groupSnap.data().focusSkillIds : null
+        }
+        const problem = pickProblem({ skillIds, seed: sessionId })
+        tx.update(ref, { currentProblem: { activityId: problem.activityId, skillId: problem.skillId, text: problem.text, auto: true } })
+        tx.set(db.doc(`learningSessions/${sessionId}/private/answer`), { activityId: problem.activityId, expectedAnswer: problem.expectedAnswer })
+        return { assigned: true, skillId: problem.skillId }
       })
     },
 

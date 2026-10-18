@@ -33,6 +33,15 @@ export async function startSessionBot({ sessionId, nowMs, config, store, createB
 
   const { meetingUrl } = await store.claimBot(sessionId, { region: config.region, nowMs })
 
+  // La sala puede haber nacido sin problema (la crea el algoritmo): se le asigna uno segun la habilidad en foco del grupo.
+  // Si falla, el bot entra igual y el observador de la conversacion sigue funcionando sin problema.
+  let problem = { assigned: false }
+  try {
+    problem = (await store.ensureProblem?.(sessionId)) ?? problem
+  } catch {
+    problem = { assigned: false, failed: true }
+  }
+
   let botId
   try {
     ;({ botId } = await createBot({
@@ -56,5 +65,5 @@ export async function startSessionBot({ sessionId, nowMs, config, store, createB
     throw new SessionBotError('internal', 'El bot se creo pero no se pudo guardar su id.', { botId })
   }
 
-  return { botId, status: 'requested' }
+  return { botId, status: 'requested', problemAssigned: problem.assigned === true }
 }

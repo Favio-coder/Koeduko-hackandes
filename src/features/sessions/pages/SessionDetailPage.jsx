@@ -15,7 +15,8 @@ import MeetingLinkForm from '../components/MeetingLinkForm'
 import { useLiveSession } from '../hooks/useLiveSession'
 import { useNow } from '../hooks/useNow'
 import { useSessionSummary } from '../hooks/useSessionSummary'
-import { botStatusMeta } from '../lib/describeIntervention'
+import { botStatusMeta, canInvite } from '../lib/describeIntervention'
+import { inviteTutor } from '../services/sessionBotService'
 
 /**
  * Sesion en vivo: quien habla, la conversacion y lo que dijo el tutor, todo por onSnapshot.
@@ -55,6 +56,13 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
   const report = closed?.report ?? summary?.report ?? null
   const reportSteps = closed?.steps ?? summary?.steps
   const isClosed = Boolean(report) || session?.status === SESSION_STATUS.COMPLETED
+
+  // Quien entra al Meet de la sala (docente o integrante) trae al tutor sin pasos extra. El servidor no duplica el bot
+  // (lo reserva en una transaccion); si algo falla, el docente conserva el boton «Invitar tutor».
+  const handleEnter = () => {
+    window.open(session.meetingUrl, '_blank', 'noreferrer')
+    if (!isClosed && canInvite(botStatus)) inviteTutor({ sessionId }).catch(() => {})
+  }
 
   const handleCopy = async () => {
     try {
@@ -117,7 +125,7 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
               <Button variant="secondary" icon="link" onClick={handleCopy}>
                 Copiar
               </Button>
-              <Button icon="external" onClick={() => window.open(session.meetingUrl, '_blank', 'noreferrer')}>
+              <Button icon="external" onClick={handleEnter}>
                 Entrar
               </Button>
             </div>

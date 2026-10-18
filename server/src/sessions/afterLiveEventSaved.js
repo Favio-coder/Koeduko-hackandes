@@ -74,6 +74,7 @@ export function createAfterLiveEventSaved({
   sendChat = sendChatMessage,
   getVoice = () => null,
   getJudge = () => null,
+  closeSessionFor = null,
   synthesizeSpeech = synthesize,
   sendAudioToBot = sendAudio,
   cooldownSec = DEFAULT_CONFIG.cooldownSec,
@@ -320,7 +321,25 @@ export function createAfterLiveEventSaved({
     })
   }
 
+  /**
+   * Se fue la ultima persona: cierra la sesion sola (reporte, memoria, aprendizaje). closeSession es idempotente, asi que
+   * un evento repetido no cierra dos veces. Nunca lanza; si falla, el docente puede cerrarla a mano como siempre.
+   */
+  async function autoClose(sessionId) {
+    const startedAt = now()
+    try {
+      const closed = await closeSessionFor(sessionId)
+      logger.info('afterLiveEventSaved: cierre automatico', { sessionId, alreadyClosed: closed?.alreadyClosed === true, ms: now() - startedAt })
+    } catch (error) {
+      logger.info('afterLiveEventSaved: cierre automatico', { sessionId, failed: true, why: error?.code ?? error?.name ?? 'error', ms: now() - startedAt })
+    }
+  }
+
   return async function afterLiveEventSaved({ sessionId, result }) {
+    if (result?.closeNow && closeSessionFor) {
+      await autoClose(sessionId)
+      return
+    }
     if (!result?.intervention) {
       if (result?.judge) await judgeConversation({ sessionId, judge: result.judge })
       return

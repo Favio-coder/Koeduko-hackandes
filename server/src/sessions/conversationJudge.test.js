@@ -188,3 +188,33 @@ describe('afterLiveEventSaved: the conversation observer', () => {
     expect(generate).not.toHaveBeenCalled()
   })
 })
+
+describe('afterLiveEventSaved: automatic close', () => {
+  function setup(closeSessionFor) {
+    const logger = { info: vi.fn() }
+    const hook = createAfterLiveEventSaved({ getStore: () => ({}), getGenerate: () => null, logger, closeSessionFor })
+    return { hook, logger }
+  }
+
+  it('closes the session when the last person left, and logs only codes', async () => {
+    const closeSessionFor = vi.fn().mockResolvedValue({ status: 'completed', alreadyClosed: false })
+    const { hook, logger } = setup(closeSessionFor)
+    await hook({ sessionId: 's1', result: { closeNow: true } })
+    expect(closeSessionFor).toHaveBeenCalledWith('s1')
+    expect(logger.info).toHaveBeenCalledWith('afterLiveEventSaved: cierre automatico', expect.objectContaining({ sessionId: 's1', alreadyClosed: false }))
+  })
+
+  it('never throws: a failing close is logged and the teacher can still close by hand', async () => {
+    const { hook, logger } = setup(vi.fn().mockRejectedValue(Object.assign(new Error('secreto'), { code: 'unavailable' })))
+    await expect(hook({ sessionId: 's1', result: { closeNow: true } })).resolves.toBeUndefined()
+    expect(logger.info).toHaveBeenCalledWith('afterLiveEventSaved: cierre automatico', expect.objectContaining({ failed: true, why: 'unavailable' }))
+    expect(JSON.stringify(logger.info.mock.calls)).not.toContain('secreto')
+  })
+
+  it('does nothing when it is not configured or there is no closeNow', async () => {
+    const closeSessionFor = vi.fn()
+    await setup(closeSessionFor).hook({ sessionId: 's1', result: { closeNow: false } })
+    await setup(null).hook({ sessionId: 's1', result: { closeNow: true } })
+    expect(closeSessionFor).not.toHaveBeenCalled()
+  })
+})

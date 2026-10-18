@@ -32,7 +32,7 @@ describe('startSessionBot', () => {
   it('claims, creates the bot with the stored Meet link and saves its id', async () => {
     const deps = setup()
 
-    await expect(startSessionBot(deps)).resolves.toEqual({ botId: 'bot-1', status: 'requested' })
+    await expect(startSessionBot(deps)).resolves.toEqual({ botId: 'bot-1', status: 'requested', problemAssigned: false })
 
     expect(deps.store.claimBot).toHaveBeenCalledWith('smoke-001', { region: 'us-west-2', nowMs: 1000 })
     expect(deps.createBot).toHaveBeenCalledWith({
@@ -96,5 +96,35 @@ describe('startSessionBot', () => {
     expect(error.code).toBe('internal')
     expect(error.botId).toBe('bot-1')
     expect(deps.store.markBotFailed).not.toHaveBeenCalled()
+  })
+})
+
+describe('startSessionBot: problem assignment', () => {
+  const config = { apiKey: 'k', region: 'us-west-2', webhookUrl: 'https://x.test/api/recall-webhook', webhookToken: 't', language: 'es' }
+  const base = () => ({
+    claimBot: vi.fn().mockResolvedValue({ meetingUrl: 'https://meet.google.com/abc-defg-hij' }),
+    setBotId: vi.fn().mockResolvedValue(undefined),
+    markBotFailed: vi.fn().mockResolvedValue(undefined),
+  })
+
+  it('assigns the problem after the bot is claimed and before it is created, and reports it', async () => {
+    const order = []
+    const store = { ...base(), ensureProblem: vi.fn().mockImplementation(async () => { order.push('problem'); return { assigned: true } }) }
+    const createBot = vi.fn().mockImplementation(async () => { order.push('bot'); return { botId: 'b1' } })
+    const result = await startSessionBot({ sessionId: 's1', nowMs: 1, config, store, createBot })
+    expect(order).toEqual(['problem', 'bot'])
+    expect(result).toEqual({ botId: 'b1', status: 'requested', problemAssigned: true })
+  })
+
+  it('never blocks the bot: a failure assigning the problem is swallowed', async () => {
+    const store = { ...base(), ensureProblem: vi.fn().mockRejectedValue(new Error('firestore')) }
+    const result = await startSessionBot({ sessionId: 's1', nowMs: 1, config, store, createBot: vi.fn().mockResolvedValue({ botId: 'b1' }) })
+    expect(result.problemAssigned).toBe(false)
+  })
+
+  it('does not assign anything if the bot cannot be claimed', async () => {
+    const store = { ...base(), claimBot: vi.fn().mockRejectedValue(new Error('ya invitado')), ensureProblem: vi.fn() }
+    await expect(startSessionBot({ sessionId: 's1', nowMs: 1, config, store, createBot: vi.fn() })).rejects.toThrow()
+    expect(store.ensureProblem).not.toHaveBeenCalled()
   })
 })
