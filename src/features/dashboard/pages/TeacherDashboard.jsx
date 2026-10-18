@@ -241,19 +241,52 @@ export default function TeacherDashboard() {
   return (
     <div className="space-y-6">
       {/* Saludo */}
-      <header className="flex flex-col gap-4 rounded-2xl border border-[#E6EAE3] bg-white p-4 shadow-[0_1px_3px_rgba(48,71,68,0.08)] sm:flex-row sm:items-center sm:p-5">
-        <div className="flex items-center gap-4">
-          <Avatar name={profile?.displayName || 'Docente'} size="md" />
-          <div className="min-w-0">
-            <h2 className="truncate text-xl font-bold tracking-tight text-[#304744] sm:text-2xl">
-              ¡Hola, {firstName}! 
+      <header className="relative isolate overflow-hidden rounded-[1.75rem] border border-[#CFE9D1] bg-gradient-to-br from-[#E5FBE7] via-[#F5FFF5] to-[#E6F4FF] p-4 shadow-[0_10px_28px_rgba(48,71,68,0.10)] sm:p-6">
+        <div aria-hidden="true" className="absolute -right-8 -top-12 -z-10 h-40 w-40 rounded-full bg-[#B7E8B5]/55 blur-2xl sm:h-56 sm:w-56" />
+        <div aria-hidden="true" className="absolute bottom-0 right-28 -z-10 h-24 w-24 rounded-full bg-[#BBDDE3]/50 blur-2xl" />
+        <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+          <Avatar
+            name={profile?.displayName || 'Docente'}
+            size="lg"
+            className="rounded-2xl bg-white p-1 shadow-md ring-2 ring-white sm:rounded-3xl"
+          />
+          <div className="min-w-0 flex-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/80 bg-white/75 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#2A7A35] shadow-sm sm:text-xs">
+              <Icon name="sparkles" className="h-3.5 w-3.5" />
+              Panel docente
+            </span>
+            <h2 className="mt-2 break-words text-xl font-extrabold leading-tight tracking-tight text-[#304744] sm:text-3xl">
+              ¡Hola, {firstName}!
             </h2>
-            <p className="mt-1 text-sm text-[#5A6B6A]">
-              Gestiona tus estudiantes y acompaña su aprendizaje.
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-[#526865] sm:text-sm">
+              Gestiona tus estudiantes y acompaña cada paso de su aprendizaje.
             </p>
           </div>
+          <div aria-hidden="true" className="hidden shrink-0 items-center justify-center rounded-full border-4 border-white/80 bg-white/60 p-2 shadow-sm sm:flex">
+            <img
+              src="/logo/koeduko-512.png"
+              alt=""
+              width="512"
+              height="512"
+              className="h-16 w-16 object-contain lg:h-20 lg:w-20"
+            />
+          </div>
         </div>
-
+        <div className="mt-4 flex flex-wrap items-center gap-2.5 sm:mt-5">
+          <span className="inline-flex items-center gap-2 rounded-xl border border-white/80 bg-white/85 px-3 py-2 text-xs font-semibold text-[#304744] shadow-sm sm:text-sm">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#E9F8EA] text-[#2A7A35]">
+              <Icon name="users" className="h-4 w-4" />
+            </span>
+            {loaded ? students.length : '—'} {students.length === 1 ? 'estudiante' : 'estudiantes'}
+          </span>
+          <Link
+            to="/students"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#2A7A35] px-4 py-2 text-xs font-bold text-white shadow-[0_4px_12px_rgba(42,122,53,0.24)] transition-colors hover:bg-[#22632C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A7A35] focus-visible:ring-offset-2 motion-reduce:transition-none sm:text-sm"
+          >
+            Explorar mi aula
+            <Icon name="arrowRight" className="h-4 w-4" />
+          </Link>
+        </div>
       </header>
 
       {/* Métricas */}
@@ -329,30 +362,87 @@ export default function TeacherDashboard() {
         </div>
       </Card>
 
-      <Card
-        title="Estudiantes registrados"
-        description="Listado real de tus cursos, sin contar dos veces al mismo alumno."
-        padding="sm"
-        actions={<>
-          <Button onClick={retry} variant="secondary" size="sm">Actualizar estudiantes</Button>
-          <Button to="/students" variant="ghost" size="sm">Ver estudiantes</Button>
-        </>}
-      >
-        {!uid && <ErrorState error="Inicia sesión para consultar tus estudiantes." />}
-        {uid && !current && <LoadingState label="Cargando estudiantes…" />}
-        {current?.error && <ErrorState error={current.error} onRetry={retry} />}
-        {loaded && students.length === 0 && <EmptyState title="No hay estudiantes asignados" description="Los alumnos aparecerán cuando estén registrados en tus cursos." />}
-        {loaded && students.length > 0 && <ul aria-label="Estudiantes registrados" className="divide-y divide-[#E6EAE3]">
-          {students.map((student) => (
-            <li key={student.id} className="flex min-w-0 items-center gap-3 py-3">
-              <Avatar name={student.name || student.id} size="sm" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[#304744]">{student.name || student.id}</p>
-                <p className="truncate text-xs text-[#7D8C8A]">{student.courses.join(' · ')}</p>
-              </div>
-            </li>
-          ))}
-        </ul>}
+      <Card padding="none" className="overflow-hidden border-[#DCE9DB] shadow-[0_8px_26px_rgba(48,71,68,0.09)]">
+        <div className="flex min-w-0 items-start gap-3 bg-gradient-to-r from-[#E9F8EA] via-[#F3FBF1] to-[#EAF5FF] px-4 py-4 sm:px-5 sm:py-5">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-[#2A7A35] shadow-sm ring-1 ring-[#D7EDD6] sm:h-12 sm:w-12">
+            <Icon name="users" className="h-5 w-5 sm:h-6 sm:w-6" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-base font-extrabold leading-snug tracking-tight text-[#304744] sm:text-lg">
+                Estudiantes registrados
+              </h2>
+              {loaded && (
+                <span className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-bold tabular-nums text-[#2A7A35] shadow-sm ring-1 ring-[#D7EDD6]">
+                  {students.length}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[#526865] sm:text-sm">
+              Listado real de tus cursos, sin contar dos veces al mismo alumno.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 border-b border-[#E6EAE3] bg-white px-4 py-3 min-[390px]:flex-row sm:justify-end sm:px-5">
+          <Button
+            onClick={retry}
+            variant="secondary"
+            size="sm"
+            icon="refresh"
+            className="w-full border-[#CDE5CC] bg-[#F4FFF4] text-[#286F32] min-[390px]:w-auto"
+          >
+            Actualizar estudiantes
+          </Button>
+          <Button
+            to="/students"
+            variant="blueSoft"
+            size="sm"
+            icon="arrowRight"
+            iconPosition="right"
+            className="w-full min-[390px]:w-auto"
+          >
+            Ver estudiantes
+          </Button>
+        </div>
+        <div className="p-3 sm:p-5">
+          {!uid && <ErrorState error="Inicia sesión para consultar tus estudiantes." />}
+          {uid && !current && <LoadingState label="Cargando estudiantes…" />}
+          {current?.error && <ErrorState error={current.error} onRetry={retry} />}
+          {loaded && students.length === 0 && <EmptyState title="No hay estudiantes asignados" description="Los alumnos aparecerán cuando estén registrados en tus cursos." />}
+          {loaded && students.length > 0 && <ul aria-label="Estudiantes registrados" className="grid gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
+            {students.map((student, index) => (
+              <li
+                key={student.id}
+                className={[
+                  'flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3.5 shadow-[0_2px_8px_rgba(48,71,68,0.04)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_8px_18px_rgba(48,71,68,0.10)] motion-reduce:transform-none motion-reduce:transition-none sm:px-4',
+                  index % 3 === 0
+                    ? 'border-[#D7EDD6] bg-gradient-to-r from-[#F0FFF1] to-white'
+                    : index % 3 === 1
+                      ? 'border-[#D8E8F8] bg-gradient-to-r from-[#EFF7FF] to-white'
+                      : 'border-[#F0E4B9] bg-gradient-to-r from-[#FFF9E8] to-white',
+                ].join(' ')}
+              >
+                <Avatar name={student.name || student.id} size="md" className="ring-4 ring-white shadow-sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-bold leading-snug text-[#304744]">
+                    {student.name || student.id}
+                  </p>
+                  <div className="mt-1 flex min-w-0 flex-wrap gap-1">
+                    {student.courses.map((course) => (
+                      <span
+                        key={course}
+                        className="max-w-full break-words rounded-md bg-white/85 px-2 py-0.5 text-[11px] font-medium leading-snug text-[#61736F] ring-1 ring-[#E5ECE4]"
+                      >
+                        {course}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <Icon name="chevronRight" className="h-4 w-4 shrink-0 text-[#91A19A]" />
+              </li>
+            ))}
+          </ul>}
+        </div>
       </Card>
 
     </div>

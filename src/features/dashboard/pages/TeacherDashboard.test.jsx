@@ -53,6 +53,22 @@ describe('TeacherDashboard con estudiantes reales', () => {
     expect(screen.getByRole('link', { name: 'Ver estudiantes' })).toHaveAttribute('href', '/students')
   })
 
+  it('mantiene legible el encabezado del roster y adapta sus acciones al ancho disponible', async () => {
+    const { container } = renderDashboard()
+    await screen.findByText('Alumno 6')
+
+    const roster = screen.getByRole('list', { name: 'Estudiantes registrados' })
+    expect(roster).toHaveClass('sm:grid-cols-2', 'xl:grid-cols-3')
+    expect(screen.getByRole('heading', { name: 'Estudiantes registrados' })).toBeInTheDocument()
+    expect(screen.getByText('Listado real de tus cursos, sin contar dos veces al mismo alumno.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Actualizar estudiantes' }).parentElement).toHaveClass(
+      'flex-col',
+      'min-[390px]:flex-row',
+    )
+    expect(screen.getByRole('link', { name: 'Explorar mi aula' })).toHaveAttribute('href', '/students')
+    expect(container.querySelectorAll('li.rounded-2xl')).toHaveLength(6)
+  })
+
   it('actualiza la cantidad cuando cambia el roster', async () => {
     renderDashboard()
     await screen.findByText('Alumno 6')
