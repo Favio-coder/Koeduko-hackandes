@@ -99,6 +99,7 @@ Firebase Authentication. `competencies` es opcional: cuando se omite, se usa
   name: "Matemática 5A",
   teacherId: "uid-docente",
   studentIds: ["uid-estudiante-1", "uid-estudiante-2"],
+  areas: [{ id: "matematica", label: "Matemática" }],
   competencyId: "resuelve-problemas-cantidad",
   competencyLabel: "Resuelve problemas de cantidad",
   competencies: [
@@ -108,9 +109,12 @@ Firebase Authentication. `competencies` es opcional: cuando se omite, se usa
 }
 ```
 
-La API deriva el docente, la matrícula, las competencias y las habilidades
-permitidas de esta ACL. No confía en la matrícula, el rol ni el curso enviados
-por el navegador.
+La API deriva el docente, la matrícula, las áreas, competencias y habilidades
+permitidas de esta ACL. `areas` es un catálogo independiente de
+`competencies`; su ausencia o un `areaId` no autorizado impide guardar o
+publicar una evaluación nueva. No se infiere una relación entre un área y una
+competencia. La API no confía en la matrícula, rol, área ni curso enviados por
+el navegador.
 
 ### assessmentModules/{assessmentId}
 
@@ -120,7 +124,9 @@ Documento de metadatos consultable por backend, sin preguntas ni claves.
 {
   id: "uuid",
   title: "Diagnóstico inicial",
+  description: "Evaluación de inicio de unidad",
   courseId: "matematica-5a",
+  areaId: "matematica",
   competencyId: "resuelve-problemas-cantidad",
   type: "diagnostic", // diagnostic | exam | practice | homework
   scale: 20, // 20 | 100
@@ -128,6 +134,7 @@ Documento de metadatos consultable por backend, sin preguntas ni claves.
   durationMinutes: 30, // 0 = sin límite
   attemptLimit: 1,
   weightPercent: 0,
+  academicWeightPercent: null, // opcional y relativo; distinto de weightPercent
   feedbackMode: "after_close",
   startsAt: "2026-10-17T12:00:00.000Z",
   endsAt: "2026-10-18T12:00:00.000Z",
@@ -152,14 +159,22 @@ assessmentModules/{id}/public/questions
 
 assessmentModules/{id}/assignments/{studentUid}
   studentId, count, activeAttemptId, resultStatus, result, scaledScore,
-  gradedAt y lastAttemptId. `result.overallScore` y los resultados por
-  conocimiento contienen puntajes brutos; `scaledScore` es la nota convertida
-  a `assessmentModules/{id}.scale`. Solo la API/Admin SDK puede acceder.
+academicGrade, gradedAt y lastAttemptId. `result.overallScore` y los
+resultados por conocimiento contienen puntajes brutos; `scaledScore` es la
+nota convertida a `assessmentModules/{id}.scale`. `academicGrade.score20`
+conserva la nota normalizada sin redondear, junto con puntaje bruto, máximo,
+estado, fecha e intento fuente. Solo la API/Admin SDK puede acceder.
 
 assessmentModules/{id}/assignments/{studentUid}/attempts/{attemptId}
-  status, startedAt, expiresAt, answers, revision, savedAt, result,
-  scaledScore y gradedAt. Las respuestas y resultados no son legibles desde
-  el cliente; el endpoint devuelve solo lo autorizado para esa identidad.
+status, startedAt, expiresAt, answers, revision, savedAt, result,
+scaledScore, academicGrade y gradedAt. Las respuestas y resultados no son
+legibles desde el cliente; el endpoint devuelve solo lo autorizado para esa
+identidad.
+
+assessmentModules/{id}/assignments/{studentUid}/gradeChanges/{changeId}
+assessmentId, studentId, changedBy, changedAt, previous y next. Se crea
+únicamente cuando una recalificación docente autorizada cambia el resultado
+calculado desde respuestas guardadas y definición privada.
 ```
 
 La API omite claves y explicaciones en `start`; la retroalimentación se entrega
@@ -167,10 +182,22 @@ La API omite claves y explicaciones en `start`; la retroalimentación se entrega
 asignación dentro de la misma transacción que cambia el estado. El contrato de
 exportación JSON `1.0` permanece sin cambios.
 
+La acción `grades` deriva historial y promedios desde las evaluaciones y la
+asignación actual de cada estudiante; no crea una colección duplicada de notas
+ni acumula intentos viejos. Solo el último intento enviado de cada evaluación
+se refleja, de acuerdo con la política existente. Las notas se normalizan a
+0–20 antes del promedio. Si no hay `academicWeightPercent`, se usa media
+aritmética. Si algún resultado corregido de un área tiene peso explícito, todos
+los resultados corregidos de esa área deben tenerlo; los pesos se normalizan
+entre ellos para calcular el promedio. La propiedad legacy `weightPercent` no
+se usa. Pendientes, intentos abiertos e incompletos se muestran en el historial
+pero se excluyen de la media. La UI redondea a dos decimales; la API persiste y
+devuelve precisión completa.
+
 La exportación solo está disponible cuando el estado es `finalized`, cada
 estudiante asignado tiene un resultado validado y no queda ningún intento
 activo. No se exportan habilidades sin evidencia. Ver
-[Fase 4: calificación y contrato de matching](./assessments-phase-4.md).
+[Fase 4: calificación y contrato de matching](./assessments-redesign-phase-4.md).
 
 ## knowledgeProfiles/{profileId}
 

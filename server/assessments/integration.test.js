@@ -14,7 +14,7 @@ const db = getFirestore(app)
 const execute = createAssessmentService(db)
 let student1, student2, token
 const teacher = 'teacher-1', courseId = 'course-1'
-const definition = () => ({ title: 'Diagnóstico integración', courseId, competencyId: 'resuelve-problemas-cantidad', type: 'diagnostic', scale: 20, maxScore: 10, attemptLimit: 1, durationMinutes: 30, weightPercent: 0, feedbackMode: 'after_close', startsAt: new Date(Date.now() - 10000).toISOString(), endsAt: new Date(Date.now() + 3600000).toISOString(), studentIds: [student1, student2], questions: [
+const definition = () => ({ title: 'Diagnóstico integración', courseId, areaId: 'math', competencyId: 'resuelve-problemas-cantidad', type: 'diagnostic', scale: 20, maxScore: 10, attemptLimit: 1, durationMinutes: 30, weightPercent: 0, feedbackMode: 'after_close', startsAt: new Date(Date.now() - 10000).toISOString(), endsAt: new Date(Date.now() + 3600000).toISOString(), studentIds: [student1, student2], questions: [
   { questionId: 'q1', prompt: '2 + 3', type: 'multiple_choice', options: ['5', '6'], correctAnswer: 0, skillId: 'addition', maxScore: 5, explanation: 'Sumamos.' },
   { questionId: 'q2', prompt: '4 - 1 = 3', type: 'true_false', options: ['Verdadero', 'Falso'], correctAnswer: 0, skillId: 'subtraction', maxScore: 3, explanation: '' },
   { questionId: 'q3', prompt: '1/2 equivale a 2/4', type: 'true_false', options: ['Verdadero', 'Falso'], correctAnswer: 0, skillId: 'fraction', maxScore: 2, explanation: '' },
@@ -31,7 +31,7 @@ before(async () => {
   for (const uid of [student1, student2]) await db.doc(`users/${uid}`).set({ role: 'student', classroomId: courseId, displayName: uid })
   for (const uid of [teacher, 'teacher-other']) await db.doc(`users/${uid}`).set({ role: 'teacher', classroomId: null })
   await db.doc('users/outsider').set({ role: 'student', classroomId: courseId })
-  await db.doc(`assessmentCourseAccess/${courseId}`).set({ name: 'Matemática 5A', teacherId: teacher, studentIds: [student1, student2] })
+  await db.doc(`assessmentCourseAccess/${courseId}`).set({ name: 'Matemática 5A', teacherId: teacher, studentIds: [student1, student2], areas: [{ id: 'math', label: 'Matemática' }] })
 })
 after(async () => { await db.terminate(); await deleteApp(app) })
 
@@ -42,6 +42,10 @@ test('creación, edición con revisión, publicación, permisos y asignación', 
   await assert.rejects(execute(student1, 'detail', { assessmentId: saved.id }), { status: 403 })
   await assert.rejects(execute('teacher-other', 'save', definition()), { status: 403 })
   await assert.rejects(execute(student1, 'publish', definition()), { status: 403 })
+  await assert.rejects(
+    execute(teacher, 'save', { ...definition(), areaId: 'unauthorized-area', questions: [] }),
+    { status: 403 },
+  )
   await assert.rejects(execute(teacher, 'publish', { ...detail, questions: [] }), { status: 400 })
   await execute(teacher, 'publish', { ...definition(), id: saved.id, revision: detail.revision })
   await assert.rejects(execute(teacher, 'save', { ...definition(), id: saved.id, revision: detail.revision }), { status: 409 })
@@ -71,6 +75,7 @@ test('el endpoint HTTP verifica ID tokens, rol docente y JSON de entrada', async
   })
   assert.equal(bootstrap.statusCode, 200)
   assert.equal(bootstrap.body.courses[0].competencies[0].id, 'resuelve-problemas-cantidad')
+  assert.deepEqual(bootstrap.body.courses[0].areas, [{ id: 'math', label: 'Matemática' }])
 
   const teacherAuth = await signup()
   const endpointCourseId = 'endpoint-course'
@@ -83,6 +88,7 @@ test('el endpoint HTTP verifica ID tokens, rol docente y JSON de entrada', async
     name: 'Curso endpoint',
     teacherId: teacherAuth.localId,
     studentIds: [student1, student2],
+    areas: [{ id: 'math', label: 'Matemática' }],
   })
   const apiPayload = { ...definition(), courseId: endpointCourseId }
   const draft = await invoke({
@@ -241,9 +247,12 @@ test('el endpoint HTTP verifica ID tokens, rol docente y JSON de entrada', async
 test('dos estudiantes, persistencia real, envíos concurrentes idempotentes y contrato oficial', async () => {
   const { id } = await execute(teacher, 'publish', definition())
   const start = await execute(student1, 'start', { assessmentId: id })
+  assert.ok(Number.isFinite(Date.parse(start.serverNow)))
+  assert.ok(Date.parse(start.serverNow) <= Date.parse(start.attempt.expiresAt))
   assert.equal(start.assessment.questions[0].correctAnswer, undefined)
   assert.equal(start.assessment.questions[0].explanation, undefined)
   const repeatedStart = await execute(student1, 'start', { assessmentId: id })
+  assert.ok(Number.isFinite(Date.parse(repeatedStart.serverNow)))
   assert.equal(repeatedStart.attempt.id, start.attempt.id)
   const saved = await execute(student1, 'saveAnswers', { assessmentId: id, attemptId: start.attempt.id, revision: 0, answers: { q1: 0 } })
   assert.deepEqual(saved.feedback, [])
@@ -282,6 +291,140 @@ test('dos estudiantes, persistencia real, envíos concurrentes idempotentes y co
   assert.deepEqual(stored.answers, allCorrect)
 })
 
+test('historial y promedio por área normalizan notas, respetan intentos y permisos', async () => {
+  const gradeCourseId = 'gradebook-course'
+  const gradeStudentId = 'gradebook-student'
+  await db.doc(`users/${gradeStudentId}`).set({
+    role: 'student',
+    classroomId: gradeCourseId,
+    displayName: 'Jelibeth',
+  })
+  await db.doc(`assessmentCourseAccess/${gradeCourseId}`).set({
+    name: 'Curso de calificaciones',
+    teacherId: teacher,
+    studentIds: [gradeStudentId],
+    areas: [{ id: 'math', label: 'Matemática' }],
+  })
+  const gradeDefinition = { ...definition(), courseId: gradeCourseId, studentIds: [gradeStudentId] }
+  const questionSet = (prefix, maxA, maxB) => [
+    { questionId: `${prefix}-a`, prompt: `${prefix} pregunta A`, type: 'multiple_choice', options: ['Sí', 'No'], correctAnswer: 0, skillId: 'addition', maxScore: maxA, explanation: '' },
+    { questionId: `${prefix}-b`, prompt: `${prefix} pregunta B`, type: 'multiple_choice', options: ['Sí', 'No'], correctAnswer: 0, skillId: 'addition', maxScore: maxB, explanation: '' },
+  ]
+  const first = await execute(teacher, 'publish', {
+    ...gradeDefinition,
+    maxScore: 20,
+    attemptLimit: 2,
+    questions: questionSet('first', 10, 10),
+  })
+  const firstAttempt = await execute(gradeStudentId, 'start', { assessmentId: first.id })
+  await execute(gradeStudentId, 'submit', {
+    assessmentId: first.id,
+    attemptId: firstAttempt.attempt.id,
+    revision: 0,
+    answers: { 'first-a': 1, 'first-b': 1 },
+  })
+  const latestAttempt = await execute(gradeStudentId, 'start', { assessmentId: first.id })
+  const latestGrade = await execute(gradeStudentId, 'submit', {
+    assessmentId: first.id,
+    attemptId: latestAttempt.attempt.id,
+    revision: 0,
+    answers: { 'first-a': 0, 'first-b': 1 },
+  })
+  assert.equal(latestGrade.result.overallScore, 10)
+
+  const second = await execute(teacher, 'publish', {
+    ...gradeDefinition,
+    maxScore: 40,
+    questions: questionSet('second', 32, 8),
+  })
+  const secondAttempt = await execute(gradeStudentId, 'start', { assessmentId: second.id })
+  await execute(gradeStudentId, 'submit', {
+    assessmentId: second.id,
+    attemptId: secondAttempt.attempt.id,
+    revision: 0,
+    answers: { 'second-a': 0, 'second-b': 1 },
+  })
+  const pending = await execute(teacher, 'publish', gradeDefinition)
+
+  const studentHistory = await execute(gradeStudentId, 'grades', {
+    studentId: student2,
+  })
+  assert.equal(studentHistory.records.length, 3)
+  assert.ok(studentHistory.records.every((record) => record.studentId === gradeStudentId))
+  const studentAverage = studentHistory.averages.find((average) => average.areaId === 'math')
+  assert.equal(studentAverage.average20, 13)
+  assert.equal(studentAverage.gradedCount, 2)
+  assert.equal(studentAverage.pendingCount, 1)
+
+  const teacherHistory = await execute(teacher, 'grades', { courseId: gradeCourseId })
+  const teacherAverage = teacherHistory.averages.find(
+    (average) => average.studentId === gradeStudentId && average.areaId === 'math',
+  )
+  assert.equal(teacherAverage.average20, 13)
+  assert.equal(
+    teacherHistory.records.filter(
+      (record) => record.studentId === gradeStudentId && record.assessmentId === first.id,
+    ).length,
+    1,
+  )
+  assert.equal(
+    teacherHistory.records.find(
+      (record) => record.assessmentId === first.id && record.studentId === gradeStudentId,
+    ).score20,
+    10,
+  )
+  assert.equal(
+    teacherHistory.records.find(
+      (record) => record.assessmentId === second.id && record.studentId === gradeStudentId,
+    ).score20,
+    16,
+  )
+  assert.ok(
+    teacherHistory.records.some(
+      (record) => record.assessmentId === pending.id && record.gradeStatus === 'pending',
+    ),
+  )
+  const stored = (
+    await db.doc(`assessmentModules/${first.id}/assignments/${gradeStudentId}`).get()
+  ).data()
+  assert.equal(stored.academicGrade.score20, 10)
+  assert.equal(stored.academicGrade.status, 'graded')
+  assert.equal(stored.academicGrade.attemptId, latestAttempt.attempt.id)
+
+  const definitionRef = db.doc(`assessmentModules/${first.id}/private/definition`)
+  const changedDefinition = (await definitionRef.get()).data()
+  changedDefinition.questions[0].correctAnswer = 1
+  await definitionRef.set(changedDefinition)
+  const recalculations = await Promise.all([
+    execute(teacher, 'regrade', { assessmentId: first.id, studentId: gradeStudentId }),
+    execute(teacher, 'regrade', { assessmentId: first.id, studentId: gradeStudentId }),
+  ])
+  assert.equal(recalculations.filter((result) => result.changed).length, 1)
+  assert.equal(recalculations.filter((result) => !result.changed).length, 1)
+  const audit = await db
+    .collection(`assessmentModules/${first.id}/assignments/${gradeStudentId}/gradeChanges`)
+    .get()
+  assert.equal(audit.size, 1)
+  assert.equal(audit.docs[0].data().changedBy, teacher)
+  const recalculatedHistory = await execute(gradeStudentId, 'grades')
+  assert.equal(
+    recalculatedHistory.averages.find((average) => average.areaId === 'math')
+      .average20,
+    8,
+  )
+  await assert.rejects(
+    execute('teacher-other', 'grades', { courseId: gradeCourseId }),
+    { status: 403 },
+  )
+  await assert.rejects(
+    execute(teacher, 'regrade', {
+      assessmentId: first.id,
+      studentId: student1,
+    }),
+    { status: 403 },
+  )
+})
+
 test('endpoint matching-profile autoriza, rechaza incompletos y devuelve StudentKnowledgeProfile v1.0 exacto', async () => {
   const teacherAuth = await signup()
   const matchingCourseId = 'matching-profile-course'
@@ -291,6 +434,7 @@ test('endpoint matching-profile autoriza, rechaza incompletos y devuelve Student
     name: 'Curso de matching',
     teacherId: teacherAuth.localId,
     studentIds: [student1, student2],
+    areas: [{ id: 'math', label: 'Matemática' }],
   })
   const teacherExecute = createAssessmentService(db)
   const payload = {
@@ -385,6 +529,16 @@ test('endpoint matching-profile autoriza, rechaza incompletos y devuelve Student
   ])
   assert.equal(contract.students[0].overallScore, 5)
   assert.equal(contract.students[0].maxScore, 10)
+  for (const profile of contract.students) {
+    for (const skill of profile.skills) {
+      assert.equal(skill.mastery, skill.score / skill.maxScore)
+      assert.ok(skill.evidenceCount > 0)
+    }
+    assert.equal(
+      profile.skills.reduce((count, skill) => count + skill.evidenceCount, 0),
+      3,
+    )
+  }
 
   const unauthorized = await invoke({
     authorization: `Bearer ${token}`,
@@ -408,6 +562,22 @@ test('endpoint matching-profile autoriza, rechaza incompletos y devuelve Student
   })
   assert.equal(wrongMethod.statusCode, 405)
   assert.equal(wrongMethod.headers.Allow, 'GET')
+
+  const definitionRef = db
+    .doc(`assessmentModules/${id}/private/definition`)
+  const updatedDefinition = (await definitionRef.get()).data()
+  updatedDefinition.questions[0].correctAnswer = 1
+  await definitionRef.set(updatedDefinition)
+  await teacherExecute(teacherAuth.localId, 'regrade', {
+    assessmentId: id,
+    studentId: student1,
+  })
+  const refreshedProfile = await invoke({
+    authorization: `Bearer ${teacherAuth.idToken}`,
+    query: { courseId: matchingCourseId, assessmentId: id },
+  })
+  assert.equal(refreshedProfile.statusCode, 200)
+  assert.equal(refreshedProfile.body.students[0].overallScore, 10)
 })
 
 test('cierre con pendientes nunca finaliza y conserva respuestas sin fabricar notas', async () => {
@@ -438,6 +608,7 @@ test('fechas, duración e intentos adicionales se validan en servidor', async ()
   const current = await execute(teacher, 'publish', definition())
   const start = await execute(student1, 'start', { assessmentId: current.id })
   await db.doc(`assessmentModules/${current.id}/assignments/${student1}/attempts/${start.attempt.id}`).update({ expiresAt: new Date(Date.now() - 1000).toISOString() })
+  await assert.rejects(execute(student1, 'saveAnswers', { assessmentId: current.id, attemptId: start.attempt.id, revision: 0, answers: { q1: 0 } }), { status: 409 })
   await assert.rejects(execute(student1, 'submit', { assessmentId: current.id, attemptId: start.attempt.id, revision: 0, answers: allCorrect }), { status: 409 })
   await assert.rejects(execute(student1, 'start', { assessmentId: current.id }), { status: 409 })
 })

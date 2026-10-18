@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, Icon, LoadingState, PageHeader, ProgressBar } from '@/components/ui'
 import { focusRing } from '@/components/ui/tokens'
 import { MATH_SKILLS } from '@/shared/constants/contracts'
 import MatchingGroupList from '../components/MatchingGroupList'
 import { MIN_HELPER_SCORE, MIN_SUPPORT_GAP } from '../data/matchingConfig'
+import { fetchMatchingProfile } from '../services/assessmentProfileService'
 import { useMatchingPreview } from '../hooks/useMatchingPreview'
 
 const STEPS = [
@@ -79,10 +82,87 @@ function StudentCard({ student }) {
 
 /** Recibe datos por contrato y espera la acción del docente para agrupar. */
 export default function MatchingPage({ assessmentResults, knowledgeProfiles, assessmentId, forbiddenPairs }) {
-  const input = assessmentResults === undefined ? knowledgeProfiles : assessmentResults
-  const { students, usingDemo, result, loading, error, storageWarning, generate } = useMatchingPreview(input, { assessmentId, forbiddenPairs })
+  const [searchParams] = useSearchParams()
+  const courseIdFromUrl = searchParams.get('courseId')
+  const assessmentIdFromUrl = searchParams.get('assessmentId')
+  const [profileRequest, setProfileRequest] = useState(null)
+  const requestKey = courseIdFromUrl || assessmentIdFromUrl
+    ? `${courseIdFromUrl ?? ''}:${assessmentIdFromUrl ?? ''}`
+    : null
+  const selectingAssessment = requestKey !== null
+
+  useEffect(() => {
+    if (!requestKey) return undefined
+
+    let active = true
+    Promise.resolve()
+      .then(() => {
+        if (active) {
+          setProfileRequest({
+            key: requestKey,
+            loading: true,
+            error: null,
+            data: null,
+          })
+        }
+        if (!courseIdFromUrl || !assessmentIdFromUrl) {
+          throw new Error(
+            'Selecciona un curso y una evaluación finalizada para cargar perfiles.',
+          )
+        }
+        return fetchMatchingProfile(assessmentIdFromUrl, courseIdFromUrl)
+      })
+      .then((data) => {
+        if (active) {
+          setProfileRequest({
+            key: requestKey,
+            loading: false,
+            error: null,
+            data,
+          })
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setProfileRequest({
+            key: requestKey,
+            loading: false,
+            error: error.message || 'No se pudieron cargar los perfiles.',
+            data: null,
+          })
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [assessmentIdFromUrl, courseIdFromUrl, requestKey])
+
+  const currentProfileRequest =
+    profileRequest?.key === requestKey ? profileRequest : null
+  const input = assessmentResults !== undefined
+    ? assessmentResults
+    : selectingAssessment
+    ? currentProfileRequest?.data ?? null
+    : knowledgeProfiles
+  const selectedAssessmentId = assessmentId ?? assessmentIdFromUrl ?? undefined
+  const { students, usingDemo, result, loading, error, storageWarning, generate } = useMatchingPreview(input, { assessmentId: selectedAssessmentId, forbiddenPairs })
   const grouped = result?.status === 'optimal'
   const currentStep = grouped ? 2 : students.length >= 2 ? 1 : 0
+
+  if (
+    selectingAssessment &&
+    (!currentProfileRequest || currentProfileRequest.loading)
+  ) {
+    return <LoadingState label="Preparando perfiles de la evaluación…" />
+  }
+  if (selectingAssessment && currentProfileRequest?.error) {
+    return (
+      <div className="space-y-4">
+        <PageHeader eyebrow="Herramientas docentes" title="Emparejamiento" />
+        <ErrorState error={currentProfileRequest.error} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

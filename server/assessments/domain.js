@@ -56,6 +56,45 @@ export function courseCompetencies(course) {
   return competencies;
 }
 
+export function courseAreas(course) {
+  const source = course.areas || [];
+  requireThat(
+    Array.isArray(source) &&
+      source.length <= 30 &&
+      source.every(
+        (area) => area && validId(area.id) && text(area.label, 200),
+      ),
+    "Catálogo de áreas del curso inválido.",
+  );
+  const areas = source.map(({ id, label }) => ({ id, label: label.trim() }));
+  requireThat(
+    new Set(areas.map(({ id }) => id)).size === areas.length,
+    "El curso contiene áreas duplicadas.",
+  );
+  return areas;
+}
+
+export function courseSkills(course) {
+  const source = course.skills?.length ? course.skills : defaultSkills;
+  requireThat(
+    Array.isArray(source) &&
+      source.length <= 100 &&
+      source.every(
+        (skill) => skill && validId(skill.id) && text(skill.label, 200),
+      ),
+    "Catálogo de habilidades del curso inválido.",
+  );
+  const skills = source.map(({ id, label }) => ({ id, label: label.trim() }));
+  requireThat(
+    new Set(skills.map(({ id }) => id)).size === skills.length,
+    "El curso contiene habilidades duplicadas.",
+  );
+  return skills;
+}
+
+const normalizedText = (value) =>
+  value.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+
 // Integer points avoid floating-point drift in contract invariants.
 export function validateAssessment(input, course, publish = false) {
   requireThat(
@@ -74,6 +113,18 @@ export function validateAssessment(input, course, publish = false) {
     "Selecciona una competencia autorizada para este curso.",
     403,
   );
+  requireThat(
+    validId(input.areaId) &&
+      courseAreas(course).some((area) => area.id === input.areaId),
+    "Selecciona un área autorizada para este curso.",
+    403,
+  );
+  requireThat(
+    input.description === undefined ||
+      (typeof input.description === "string" &&
+        input.description.length <= 3000),
+    "La descripción admite hasta 3000 caracteres.",
+  );
   requireThat([20, 100].includes(input.scale), "Escala inválida.");
   requireThat(
     Number.isInteger(input.maxScore) &&
@@ -89,15 +140,31 @@ export function validateAssessment(input, course, publish = false) {
   );
   requireThat(
     Number.isInteger(input.durationMinutes) &&
-      input.durationMinutes >= 0 &&
+      (input.durationMinutes >= 1 || (input.id && input.durationMinutes === 0)) &&
       input.durationMinutes <= 1440,
-    "Duración inválida (0 = sin límite).",
+    "La duración debe ser positiva y no superar 1440 minutos.",
   );
   requireThat(
-    Number.isFinite(input.weightPercent) &&
-      input.weightPercent >= 0 &&
-      input.weightPercent <= 100,
+    typeof input.startsAt === "string" && typeof input.endsAt === "string",
+    "Las fechas de disponibilidad deben ser textos de fecha válidos.",
+  );
+  const weightPercent = input.weightPercent ?? 0;
+  requireThat(
+    Number.isFinite(weightPercent) &&
+      weightPercent >= 0 &&
+      weightPercent <= 100,
     "Ponderación entre 0 y 100%.",
+  );
+  const academicWeightPercent =
+    input.academicWeightPercent == null || input.academicWeightPercent === ""
+      ? null
+      : input.academicWeightPercent;
+  requireThat(
+    academicWeightPercent === null ||
+      (Number.isFinite(academicWeightPercent) &&
+        academicWeightPercent > 0 &&
+        academicWeightPercent <= 100),
+    "El peso académico debe ser un porcentaje mayor que 0 y hasta 100.",
   );
   requireThat(
     ["none", "after_submit", "after_close", "immediate"].includes(
@@ -122,12 +189,13 @@ export function validateAssessment(input, course, publish = false) {
       studentIds.every((id) => validId(id) && course.studentIds.includes(id)),
     "Asignación fuera del curso o superior a 200 estudiantes.",
   );
-  const catalog = course.skills || defaultSkills;
+  const catalog = courseSkills(course);
   requireThat(
     Array.isArray(input.questions) && input.questions.length <= 60,
     "Máximo 60 preguntas.",
   );
   const ids = new Set();
+  const prompts = new Set();
   const questions = input.questions.map((q, order) => {
     requireThat(
       q && validId(q.questionId) && !ids.has(q.questionId),
@@ -135,9 +203,18 @@ export function validateAssessment(input, course, publish = false) {
     );
     ids.add(q.questionId);
     requireThat(
-      text(q.prompt, 2000),
-      "Todas las preguntas necesitan un enunciado.",
+      typeof q.prompt === "string" &&
+        q.prompt.length <= 2000 &&
+        (!publish || q.prompt.trim().length > 0),
+      publish
+        ? "Todas las preguntas necesitan un enunciado de hasta 2000 caracteres."
+        : "El enunciado admite hasta 2000 caracteres.",
     );
+    const promptKey = normalizedText(q.prompt);
+    if (promptKey) {
+      requireThat(!prompts.has(promptKey), "Hay preguntas duplicadas.");
+      prompts.add(promptKey);
+    }
     requireThat(
       ["multiple_choice", "true_false"].includes(q.type),
       "Las preguntas abiertas requieren revisión docente y aún no están habilitadas.",
@@ -154,9 +231,20 @@ export function validateAssessment(input, course, publish = false) {
       Array.isArray(q.options) &&
         q.options.length >= 2 &&
         q.options.length <= 6 &&
-        q.options.every((o) => text(o, 500)) &&
-        new Set(q.options.map((o) => o.trim())).size === q.options.length,
+        q.options.every(
+          (o) =>
+            typeof o === "string" &&
+            o.length <= 500 &&
+            (!publish || o.trim().length > 0),
+        ),
       "Alternativas inválidas o duplicadas.",
+    );
+    const normalizedOptions = q.options
+      .map(normalizedText)
+      .filter(Boolean);
+    requireThat(
+      new Set(normalizedOptions).size === normalizedOptions.length,
+      "Las alternativas no pueden estar vacías o duplicadas.",
     );
     requireThat(
       q.type !== "true_false" ||
@@ -166,9 +254,17 @@ export function validateAssessment(input, course, publish = false) {
       "Verdadero/falso requiere sus dos opciones estándar.",
     );
     requireThat(
-      Number.isInteger(q.correctAnswer) &&
-        q.correctAnswer >= 0 &&
-        q.correctAnswer < q.options.length,
+      (publish || q.correctAnswer === null || q.correctAnswer === -1) ||
+        (Number.isInteger(q.correctAnswer) &&
+          q.correctAnswer >= 0 &&
+          q.correctAnswer < q.options.length),
+      "Respuesta correcta inválida.",
+    );
+    requireThat(
+      !publish ||
+        (Number.isInteger(q.correctAnswer) &&
+          q.correctAnswer >= 0 &&
+          q.correctAnswer < q.options.length),
       "Selecciona una respuesta correcta.",
     );
     requireThat(
@@ -205,12 +301,15 @@ export function validateAssessment(input, course, publish = false) {
     title: input.title.trim(),
     courseId: input.courseId,
     competencyId: input.competencyId,
+    areaId: input.areaId,
+    description: input.description?.trim() || "",
     type: input.type,
     scale: input.scale,
     maxScore: input.maxScore,
     durationMinutes: input.durationMinutes,
     attemptLimit: input.attemptLimit,
-    weightPercent: input.weightPercent,
+    weightPercent,
+    academicWeightPercent,
     feedbackMode: input.feedbackMode,
     startsAt: new Date(starts).toISOString(),
     endsAt: new Date(ends).toISOString(),

@@ -106,15 +106,21 @@ colecciones de evaluaciones.
 
 ```javascript
 assessmentRequest(action, payload?): Promise<object>
-getMatchingContract(assessmentId, courseId): Promise<MatchingContractV1>
 ```
 
 Acciones docentes: `bootstrap`, `save`, `detail`, `publish`, `results`, `close`,
 `finalize` y `export`. El servidor obtiene rol, matrícula, competencias y
 habilidades autorizadas desde Firestore; nunca confía en permisos enviados por
-React. `export` conserva el contrato JSON `1.0` y también está disponible en
+React. `export` conserva el contrato `StudentKnowledgeProfile v1.0` y también está disponible en
 `GET /api/assessments/matching-profile?courseId=...&assessmentId=...`, autenticado
-y autorizado para el docente responsable.
+y autorizado para el docente responsable. La pantalla de matching obtiene el
+perfil directamente al abrirse con los parámetros `courseId` y `assessmentId`;
+no se descarga JSON manualmente ni se inicia el agrupamiento sin confirmación
+docente.
+
+El adaptador `src/features/matching/services/assessmentProfileService.js`
+expone `fetchMatchingProfile(assessmentId, courseId, getIdToken)` y consume ese
+endpoint con el token de Firebase Auth.
 
 Ver [Fase 2: gestión docente de evaluaciones](./assessments-phase-2.md) y
 [esquema de Firestore](./FIRESTORE_SCHEMA.md) para los payloads y el detalle de
@@ -125,7 +131,7 @@ preguntas públicas, `saveAnswers` guarda respuestas con control de revisión y
 `submit` persiste el envío final de forma idempotente. Los permisos y la
 disponibilidad se vuelven a validar en servidor en cada operación. Ver
 [Fase 3: examen interactivo del estudiante](./assessments-phase-3.md) y
-[Fase 4: calificación y contrato de matching](./assessments-phase-4.md).
+[Fase 4: calificación y contrato de matching](./assessments-redesign-phase-4.md).
 
 ## 6. Matching — DEV 2
 

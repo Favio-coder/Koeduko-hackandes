@@ -1,17 +1,21 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Alert, Button, Card } from "@/components/ui";
 import Modal from "@/components/ui/Modal";
-import {
-  assessmentRequest,
-  downloadContract,
-  getMatchingContract,
-} from "../services/assessmentService";
+import { assessmentRequest } from "../services/assessmentService";
 import { useOperation } from "../hooks/useOperation";
 import { statusLabels } from "../utils/forms";
+import GradeHistoryPanel from "./GradeHistoryPanel";
+import {
+  showConfirmation,
+  showSuccess,
+} from "@/shared/lib/alerts";
 
 export default function ResultsPanel({ initial, course, onDone }) {
+  const navigate = useNavigate();
   const [data, setData] = useState(initial);
   const [confirm, setConfirm] = useState("");
+  const [gradeHistory, setGradeHistory] = useState(null);
   const { busy, error, run } = useOperation();
   const { assessment: a, assignments } = data;
   const pending = assignments.filter((r) => !r.result).length;
@@ -26,6 +30,33 @@ export default function ResultsPanel({ initial, course, onDone }) {
       setData(await assessmentRequest("results", { assessmentId: a.id }));
       setConfirm("");
     });
+  const regrade = async (studentId) => {
+    const confirmed = await showConfirmation({
+      title: "Recalcular calificación",
+      text: "Se volverá a calificar el último intento usando las respuestas almacenadas y la clave vigente del servidor. Si cambia, quedará un registro de auditoría.",
+      confirmButtonText: "Recalcular",
+      cancelButtonText: "Cancelar",
+      icon: "warning",
+    });
+    if (!confirmed) return;
+    await run(async () => {
+      const result = await assessmentRequest("regrade", {
+        assessmentId: a.id,
+        studentId,
+      });
+      setData(await assessmentRequest("results", { assessmentId: a.id }));
+      if (gradeHistory) {
+        setGradeHistory(
+          await assessmentRequest("grades", { courseId: a.courseId }),
+        );
+      }
+      await showSuccess(
+        result.changed
+          ? "La calificación se actualizó y el promedio del área se recalculó."
+          : "La calificación ya estaba actualizada; no hubo cambios.",
+      );
+    });
+  };
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap justify-between gap-3">
@@ -66,6 +97,12 @@ export default function ResultsPanel({ initial, course, onDone }) {
                 <th scope="col" className="p-3">
                   Nota / {a.scale}
                 </th>
+                <th scope="col" className="p-3">
+                  Nota académica / 20
+                </th>
+                <th scope="col" className="p-3">
+                  Corrección
+                </th>
                 {skills.map((id) => (
                   <th key={id} scope="col" className="p-3">
                     {course.skills.find((s) => s.id === id)?.label || id}
@@ -95,6 +132,24 @@ export default function ResultsPanel({ initial, course, onDone }) {
                   </td>
                   <td className="p-3">
                     {r.result ? `${r.scaledScore} / ${a.scale}` : "—"}
+                  </td>
+                  <td className="p-3 font-semibold tabular-nums">
+                    {r.result
+                      ? `${((r.result.overallScore / r.result.maxScore) * 20).toFixed(2).replace(/\.?0+$/, "")} / 20`
+                      : "—"}
+                  </td>
+                  <td className="p-3">
+                    {r.result ? (
+                      <Button
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => void regrade(r.studentId)}
+                      >
+                        Recalificar
+                      </Button>
+                    ) : (
+                      "Pendiente"
+                    )}
                   </td>
                   {skills.map((id) => {
                     const s = r.result?.skills.find((s) => s.skillId === id);
@@ -130,6 +185,19 @@ export default function ResultsPanel({ initial, course, onDone }) {
       <div className="flex flex-wrap gap-3">
         <Button
           variant="secondary"
+          disabled={busy}
+          onClick={() =>
+            run(async () =>
+              setGradeHistory(
+                await assessmentRequest("grades", { courseId: a.courseId }),
+              ),
+            )
+          }
+        >
+          Historial y promedios por área
+        </Button>
+        <Button
+          variant="secondary"
           loading={busy}
           onClick={() =>
             run(async () =>
@@ -151,21 +219,31 @@ export default function ResultsPanel({ initial, course, onDone }) {
             Finalizar resultados
           </Button>
         )}
-        <Button
-          disabled={a.status !== "finalized" || busy}
-          onClick={() =>
-            run(async () =>
-              downloadContract(await getMatchingContract(a.id, a.courseId)),
-            )
-          }
-        >
-          Exportar JSON matching v1.0
-        </Button>
+        {a.status === "finalized" && (
+          <Button
+            disabled={busy}
+            icon="users"
+            onClick={() =>
+              navigate(
+                `/matching?courseId=${encodeURIComponent(a.courseId)}&assessmentId=${encodeURIComponent(a.id)}`,
+              )
+            }
+          >
+            Preparar perfiles para matching
+          </Button>
+        )}
       </div>
+      {gradeHistory && (
+        <GradeHistoryPanel
+          initial={gradeHistory}
+          teacher
+          onDone={() => setGradeHistory(null)}
+        />
+      )}
       {pending > 0 && (
         <Alert tone="info" title="Resultados parciales">
           Hay {pending} estudiantes sin una entrega corregida. Esta evaluación
-          no puede declararse finalizada ni exportarse como contrato final.
+          no puede declararse finalizada ni estar disponible para matching.
         </Alert>
       )}
       <Modal
