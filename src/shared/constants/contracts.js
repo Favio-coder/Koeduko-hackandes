@@ -74,6 +74,7 @@ export const SKILL_IDS = Object.freeze(MATH_SKILLS.map((s) => s.id))
  * @typedef {Object} LearningSession
  * @property {string} id
  * @property {string} pairId
+ * @property {string[]} studentIds UIDs de Firebase Auth de los estudiantes de la sesion (no ids de la coleccion `students`).
  * @property {string|null} meetingUrl
  * @property {'scheduled'|'live'|'completed'|'cancelled'} status
  * @property {import('firebase/firestore').Timestamp|null} scheduledAt

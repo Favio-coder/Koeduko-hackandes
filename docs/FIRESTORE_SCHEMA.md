@@ -140,7 +140,7 @@ Reglas en `firestore.rules`. Índices en `firestore.indexes.json`.
   pairId: "pair-001",
   matchingResultId: "result-001",
   title: "Sesion 1 - Ana y Luis",
-  studentIds: ["student-001", "student-002"],
+  studentIds: ["uid-firebase-ana", "uid-firebase-luis"], // UIDs de Firebase Auth, NO ids de la coleccion students
   meetingUrl: null,
   meetingProvider: "google-meet",
   status: "scheduled" | "live" | "completed" | "cancelled",
@@ -148,15 +148,17 @@ Reglas en `firestore.rules`. Índices en `firestore.indexes.json`.
   startedAt: Timestamp | null,
   endedAt: Timestamp | null,
   participation: {
-    "student-001": { "joinedAt": Timestamp, "messagesCount": 0 },
-    "student-002": { "joinedAt": Timestamp, "messagesCount": 0 }
+    "uid-firebase-ana": { "joinedAt": Timestamp, "messagesCount": 0 },
+    "uid-firebase-luis": { "joinedAt": Timestamp, "messagesCount": 0 }
   },
   createdBy: "uid-del-docente",
   createdAt: Timestamp
 }
 ```
 
-- Un estudiante solo puede modificar `status`, `joinedAt` y `participation` (regla acotada).
+- Lectura y actualización: el docente o un estudiante cuyo UID esté en `studentIds`. Crear y borrar: solo el docente.
+- Un estudiante de la sesión solo puede modificar `status`, `joinedAt` y `participation` (regla acotada).
+- `server/` (`auth.js`) y las reglas de `live/*` comparan `studentIds` contra `request.auth.uid`.
 - El docente gestiona el resto, incluido `meetingUrl`.
 
 ### learningSessions/{sessionId}/tutorInteractions/{interactionId}
