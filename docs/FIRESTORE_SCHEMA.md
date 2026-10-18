@@ -99,6 +99,7 @@ Firebase Authentication. `competencies` es opcional: cuando se omite, se usa
   name: "Matemática 5A",
   teacherId: "uid-docente",
   studentIds: ["uid-estudiante-1", "uid-estudiante-2"],
+  selfEnrollment: true,
   areas: [{ id: "matematica", label: "Matemática" }],
   competencyId: "resuelve-problemas-cantidad",
   competencyLabel: "Resuelve problemas de cantidad",
@@ -108,6 +109,13 @@ Firebase Authentication. `competencies` es opcional: cuando se omite, se usa
   skills: [{ id: "addition", label: "Adición" }]
 }
 ```
+
+`selfEnrollment: true` (opcional) abre el curso al registro: la acción
+`selfEnroll` de `POST /api/assessments` —que el navegador llama tras crear una
+cuenta— añade el UID del estudiante nuevo a `studentIds`. Es idempotente y no
+otorga rol. Si ningún curso está marcado y el catálogo tiene un único curso, ese
+curso es el de registro abierto; con varios y ninguno marcado, no se matrícula a
+nadie (`409`) y el docente decide a quién autoriza.
 
 La API deriva el docente, la matrícula, las áreas, competencias y habilidades
 permitidas de esta ACL. `areas` es un catálogo independiente de
