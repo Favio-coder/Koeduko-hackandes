@@ -46,8 +46,9 @@ solo del backend: no debe llevar prefijo `VITE_`, copiarse al cliente ni
 versionarse. En Vercel se configura como variable de entorno del proyecto.
 
 El frontend sin backend Vercel puede arrancar con `npm run dev`, pero las
-operaciones de evaluaciones que llaman a `/api/assessments` no funcionarán. La
-función callable del tutor se despliega por separado desde `functions/`.
+operaciones de evaluaciones que llaman a `/api/assessments` no funcionarán. El
+tutor y la sesión en vivo corren en `server/`, un proyecto de Vercel aparte (ver «Servidor de sesiones en vivo y
+tutor IA»).
 
 ## Scripts
 
@@ -94,6 +95,10 @@ docs/               # arquitectura, esquema, contratos, tareas, integración, ro
 | [`docs/TEAM_TASKS.md`](docs/TEAM_TASKS.md) | Tareas por desarrollador con criterios de aceptación |
 | [`docs/INTEGRATION_GUIDE.md`](docs/INTEGRATION_GUIDE.md) | Git, PRs, resolución de conflictos |
 | [`docs/HACKATHON_ROADMAP.md`](docs/HACKATHON_ROADMAP.md) | Cronograma, prioridades y riesgos |
+| [`docs/SESSIONS_AGENT.md`](docs/SESSIONS_AGENT.md) | El agente de sesiones: qué decide, qué dice, qué guarda y sus límites |
+| [`docs/DEMO.md`](docs/DEMO.md) | Guion de la demo de 3 minutos y plan B |
+| [`docs/TESTING.md`](docs/TESTING.md) | Qué se probó del módulo de sesiones, con qué datos, y qué no |
+| [`server/README.md`](server/README.md) | Backend de sesiones: endpoints, costos de Firestore, límites y reproducción |
 
 ## Desarrollo en equipo
 
@@ -130,15 +135,54 @@ El backend privilegiado de sesiones es `server/`, un proyecto de Vercel independ
 Cloud Functions**: exigen el plan Blaze de Firebase y el proyecto está en el plan gratuito. Tiene cuatro
 endpoints: `/api/recall-webhook`, `/api/start-session-bot`, `/api/ask-tutor` y `/api/close-session`.
 
+**Qué es.** Un bot de Recall.ai entra a la reunión de Google Meet de una pareja, escucha (transcripción con Deepgram),
+y unas reglas deciden cuándo el tutor interviene; Gemini solo redacta la pregunta. La intervención se ve en la
+pantalla del docente y en el chat de Meet. Al cerrar la sesión el docente recibe evidencia formativa por
+competencias (nunca una nota) y el tutor recuerda a cada estudiante para la próxima sesión. Comportamiento completo
+en `docs/SESSIONS_AGENT.md`.
+
+Gemini, Recall y AtomicMemory se invocan **solo** desde `server/`. Nunca desde el navegador, nunca en `.env`, nunca en
+Firestore. El navegador llama al servidor con su ID token de Firebase (`VITE_SERVER_URL`, por defecto
+`https://koeduko.vercel.app`).
+
+### Cómo correrlo
+
 ```bash
 npm --prefix server ci
-npm --prefix server test
-cd server && npx vercel --prod      # las variables van como secretos del proyecto en Vercel
+npm --prefix server test            # tests del backend de sesiones (lógica pura, sin servicios reales)
+npm run check:env                   # qué variables faltan, solo por nombre; nunca imprime valores
+npm run env:example                 # regenera server/.env.example y .env.example desde el manifiesto
 ```
 
-Gemini y Recall se invocan **solo** desde `server/`. Nunca desde el navegador, nunca en `.env`, nunca en
-Firestore. El navegador llama al servidor con su ID token de Firebase (`VITE_SERVER_URL`, por defecto
-`https://koeduko.vercel.app`). Detalle, costos y límites en `server/README.md` y `docs/ARCHITECTURE.md`.
+El manifiesto de variables (qué sirve cada una, dónde se obtiene, si es secreta) está en
+`server/src/envManifest.js`; los `.env.example` salen de ahí y un test impide que el código use una variable que no
+esté declarada.
+
+### Qué está probado y qué no
+
+Detalle y datos en `docs/TESTING.md`. En corto: está probado con **una reunión real de Meet** (`smoke-001`, 3 personas,
+~110 s; el motor intervino una vez) y con tests unitarios. **No** se ha ejecutado de punta a punta una conversación de
+matemática real entre dos estudiantes, ni se ha visto un mensaje del tutor aparecer en el chat de Meet, ni se ha
+cerrado una sesión real con su reporte, ni se ha comprobado la memoria entre dos sesiones. No se ha medido ningún
+efecto sobre el aprendizaje.
+
+### Despliegue
+
+- **Backend (`server/`, proyecto Vercel `ko_eduko`)**: **no está conectado a Git**, así que un `push` no lo despliega.
+  Se despliega solo por CLI, desde `server/`: `cd server && npx vercel --prod`. La CLI publica el directorio de
+  trabajo (incluidos cambios sin commit), así que conviene desplegar desde una rama limpia.
+- **Variables del backend**: las del manifiesto, en Vercel (Production), las secretas como *Secret*. Un cambio solo se
+  aplica en un despliegue nuevo. `ALLOWED_ORIGINS` debe listar cada origen del frontend que llame al backend desde el
+  navegador (el de producción y, para probar una rama, el alias estable de su preview), sin barra final; `localhost:5173`
+  siempre está permitido. Comprobación: `cd server && node scripts/checkEnv.js --vercel production`.
+- **Frontend (proyecto Vercel de la raíz)**: se despliega con cada `push` (la rama genera una preview). Necesita las seis
+  variables `VITE_FIREBASE_*` también en el entorno **Preview**; sin ellas la página sale en blanco
+  (`auth/invalid-api-key`). Las previews de este proyecto están protegidas por Vercel Authentication: solo entra quien
+  pertenezca al equipo.
+- **Reglas de Firestore**: `firebase deploy --only firestore:rules --project koeduko-app`. Son parte de la seguridad
+  del módulo (la respuesta esperada y `live/state` no se leen desde el navegador): despliégalas con cada cambio.
+
+Costos, límites y el cierre de sesión en detalle: `server/README.md` y `docs/ARCHITECTURE.md`.
 
 ## Estado actual
 

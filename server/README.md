@@ -1,8 +1,12 @@
 # server/ — backend de sesiones en vivo (Vercel)
 
 Funciones serverless que conectan el bot de Recall.ai dentro de Google Meet con Firestore.
-Es un proyecto Vercel **independiente**: todo lo que se despliega vive dentro de `server/`
-y nada importa código de fuera de esta carpeta.
+Es un proyecto Vercel **independiente** (`ko_eduko`): todo lo que se despliega vive dentro de `server/`
+y el código de sesiones no importa nada de fuera de esta carpeta.
+
+> `server/` también contiene `assessments/` y `firebaseAdmin.js`: es la lógica privada del módulo de evaluaciones,
+> que usa el `api/` del proyecto del frontend (raíz del repositorio) y **no forma parte de este backend**. Conviven en
+> la carpeta sin importarse; todo lo demás de este README es del backend de sesiones.
 
 ## Decisión: servidor en Vercel y no en Firebase Functions
 
@@ -12,8 +16,8 @@ secretos) lo exigen para desplegar. Por eso:
 - **Firestore y Auth siguen en Firebase** (plan gratuito).
 - **El servidor del módulo de sesiones corre en Vercel**, con variables de entorno de Vercel
   como secretos y `firebase-admin` con una cuenta de servicio para escribir en Firestore.
-- Consecuencia pendiente: `functions/askTutor` (Gemini) tampoco puede desplegarse con Firebase
-  sin Blaze, así que el tutor tendrá que moverse también a `server/`.
+- **El tutor (Gemini) también vive aquí**: `ask-tutor` reutiliza el mismo adaptador y la misma política que las
+  intervenciones en vivo. `functions/` ya no existe.
 
 ## Flujo
 
@@ -39,29 +43,49 @@ sin nombre, fuera de tema), se usa un mensaje determinista: la demo nunca queda 
 
 | Carpeta | Contenido |
 | --- | --- |
-| `api/` | Bordes HTTP delgados (`recall-webhook.js`, `start-session-bot.js`). Solo aquí se lee `process.env`. |
-| `src/sessions/core/` | Lógica pura y testeable: normalizar eventos, estado incremental (`liveState`), motor de señales (`signals`, `liveEngine`), política del tutor (`interventionPolicy`), números en español. |
-| `src/sessions/adapters/` | Recall (`recall.js`), Gemini (`gemini.js`) y Firestore (`sessionStore.js`). |
-| `src/sessions/tutor.js`, `afterLiveEventSaved.js` | Redacta la intervención (Gemini con respaldo) y la entrega. |
-| `scripts/replayFixture.js` | Reproduce `fixtures/smoke-001.json` contra el webhook desplegado, sin Recall. |
-| `src/http/` | Handlers con dependencias inyectadas, probados sin Vercel. |
-| `src/firebaseAdmin.js` | Inicializa `firebase-admin` con `FIREBASE_SERVICE_ACCOUNT_B64`. |
+| `api/` | Bordes HTTP delgados: `recall-webhook.js`, `start-session-bot.js`, `ask-tutor.js`, `close-session.js`. Solo aquí (y en `src/*Edge.js`) se lee `process.env`. |
+| `src/http/` | Handlers con dependencias inyectadas (CORS, errores, auth), probados sin Vercel. |
+| `src/sessions/core/` | Lógica pura y testeable: normalizar eventos, estado incremental (`liveState`), motor de señales (`signals`, `liveEngine`), política del tutor (`interventionPolicy`), evidencia por competencias (`competencyEvidence`), números en español. |
+| `src/sessions/adapters/` | Recall (`recall.js`), Gemini (`gemini.js`), AtomicMemory (`atomicMemory.js`) con su respaldo en Firestore (`firestoreMemory.js`, `memory.js`) y Firestore (`sessionStore.js`). |
+| `src/sessions/*.js` | Casos de uso: `tutor.js`, `afterLiveEventSaved.js` (intervenir y entregar), `closeSession.js`, `startSessionBot.js`; y las fábricas que leen el entorno (`geminiEdge.js`, `memoryEdge.js`). |
+| `src/envManifest.js` | Manifiesto de variables de entorno: de aquí salen los `.env.example` y `npm run check:env`. |
+| `src/firebaseAdmin.js`, `src/adminCredentials.js` | `firebase-admin` con `FIREBASE_SERVICE_ACCOUNT_B64` (endpoints) y el orden de credenciales de los scripts. |
+| `fixtures/` | `smoke-001.json`: la reunión real anonimizada. |
+| `scripts/` | `replayFixture.js` (reproduce un fixture contra el webhook desplegado), `createAcceptanceSession.js`, `protectAnswer.js`, `checkEnv.js`, `writeEnvExample.js`. |
+| `.env.example` | Variables del backend, sin valores (generado desde el manifiesto). |
 
-## Variables de entorno (Production, tipo Secret)
+## Variables de entorno
 
-`FIREBASE_SERVICE_ACCOUNT_B64` (JSON de la cuenta de servicio en base64), `RECALL_API_KEY`,
-`RECALL_WEBHOOK_TOKEN`, `RECALL_WEBHOOK_URL` (`https://<dominio>/api/recall-webhook`) y
-`RECALL_REGION` (`us-west-2`). Opcional: `RECALL_TRANSCRIPT_LANGUAGE` (por defecto `es`).
-Nunca van en el repositorio, en el frontend ni en los logs.
+La lista completa —para qué sirve cada una, dónde se obtiene, si es secreta y si es obligatoria— está en
+**`src/envManifest.js`** (la fuente única) y, sin valores, en **`.env.example`**. Un test falla si el código lee una
+variable que el manifiesto no declara. Para ver qué falta, solo por nombre:
 
-Tutor (Gemini): `GEMINI_API_KEY` (Secret) y `GEMINI_MODEL` (variable normal). Sin ellas el tutor
-responde con su mensaje de respaldo. `LOG_INTERVENTION_TEXT=1` es solo para depurar: registra el
-texto de las intervenciones, que nombra a un niño; en producción debe estar sin definir.
+```bash
+npm run check:env                          # desde la raíz: entorno del proceso, servidor y frontend
+node scripts/checkEnv.js --vercel production   # desde server/: contra las variables del proyecto en Vercel
+```
 
-Memoria por estudiante (AtomicMemory): `ATOMICMEMORY_API_KEY` (Secret) y `ATOMICMEMORY_API_URL`
-(`https://api.atomicstrata.ai`). Sin ellas la memoria usa solo el respaldo en Firestore;
-`MEMORY_ENABLED=false` la apaga (el tutor habla sin notas). Chat de Meet: `MEET_CHAT_ENABLED=false` lo apaga.
-Un cambio de variable solo se aplica en un despliegue nuevo.
+Las secretas (`FIREBASE_SERVICE_ACCOUNT_B64`, `RECALL_API_KEY`, `RECALL_WEBHOOK_TOKEN`, `GEMINI_API_KEY`,
+`ATOMICMEMORY_API_KEY`) van como *Secret* en Vercel y nunca en el repositorio, en el frontend ni en los logs.
+`LOG_INTERVENTION_TEXT=1` es solo para depurar: registra el texto de las intervenciones, que nombra a un niño; en
+producción debe estar sin definir. Sin `GEMINI_API_KEY` o `GEMINI_MODEL` el tutor responde con su mensaje de respaldo;
+`MEMORY_ENABLED=false` y `MEET_CHAT_ENABLED=false` apagan la memoria y el chat. **Un cambio de variable solo se aplica
+en un despliegue nuevo.**
+
+## Despliegue
+
+**`ko_eduko` no está conectado a Git**: un `push` no lo despliega. Se despliega solo por CLI, desde esta carpeta:
+
+```bash
+cd server
+node scripts/checkEnv.js --vercel production   # ninguna obligatoria debe faltar
+npx vercel --prod                              # publica el directorio de trabajo (incluidos cambios sin commit)
+vercel ls --prod                               # esperar a que el último esté en estado Ready
+```
+
+Después de desplegar: comprobar CORS con `OPTIONS` (204 desde cada origen permitido, 403 desde uno ajeno) y, si hubo
+cambios de reglas de Firestore, `firebase deploy --only firestore:rules --project koeduko-app`. Las variables viven
+en el proyecto de Vercel `ko_eduko` (equipo «alex's projects»); el proyecto del frontend es otro y está en otro equipo.
 
 ## La respuesta esperada es privada
 
@@ -315,8 +339,10 @@ pegado al número, y una pregunta ("¿cuánto son seis por ocho?") no cuenta com
 ## Qué no está hecho (honestidad)
 
 - El anfitrión debe admitir al bot en Meet manualmente (limitación de Google Meet).
-- El camino completo `start-session-bot` con un docente real no se probó en producción; la prueba
-  real creó el bot directamente contra la API de Recall.
+- Qué está probado y qué no, con sus datos: `docs/TESTING.md`. En corto: `start-session-bot` desde la app con un
+  docente real **sí** se probó (el bot se creó y entró a la reunión), pero **nunca** una conversación de matemática
+  entre dos estudiantes de punta a punta, ni un mensaje del tutor visto en el chat de Meet, ni un cierre de sesión
+  real con su reporte, ni la memoria entre dos sesiones.
 - El token del webhook va en la URL (`?token=`). Recall muestra esa URL en la configuración del
   bot, por lo que debe rotarse después de cada demo. Mejora futura: verificar la firma HMAC que
   Recall envía en las cabeceras.
