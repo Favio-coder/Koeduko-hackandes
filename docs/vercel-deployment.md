@@ -126,3 +126,17 @@ Después de validar la URL Vercel, inspeccionar `vercel domains inspect edukolea
 - `vercel dev`: rutas `/`, `/login`, `/assessments`, `/matching`, `/matching/results`, `/sessions`, `/sessions/test/tutor` devuelven 200 HTML. Endpoints devuelven los 401/405 JSON esperados. Servidor de prueba detenido al finalizar.
 - Pendiente: login visual y flujo E2E con cuentas autorizadas, lecturas/escrituras reales en Firestore, verificación de proveedores, reglas desplegadas e IA. HTTP 200 HTML no demuestra renderizado ni funcionalidad autenticada.
 - Producción: bloqueada por variable Admin ausente, prueba pendiente y validación real incompleta. No hay URL nueva de despliegue ni resultados E2E de producción.
+
+### Actualización posterior autorizada
+
+- Con autorización explícita se añadió `FIREBASE_SERVICE_ACCOUNT_JSON` a Production del proyecto confirmado, mediante stdin y como variable `sensitive`. Se verificó su presencia sin mostrar valores. Las seis variables públicas existentes se conservaron. El bloqueo de variable Admin ausente queda resuelto; necesita un nuevo despliegue para entrar en uso.
+- Se comprobó acceso real de lectura a Firebase Auth y Firestore: las cuatro cuentas indicadas existen, están habilitadas y tienen perfil. Una tiene rol `student` y tres tienen rol `teacher`, aunque se solicitaron cuatro estudiantes. No se cambiaron roles; se requiere aclaración antes de afectar sus permisos existentes.
+- La colección `assessmentCourseAccess` no contiene cursos. La creación de Matemática sigue pendiente de identificar al docente responsable y resolver la discrepancia de roles.
+- No se hicieron escrituras de cursos/perfiles ni un despliegue de producción. Las lecturas administrativas no sustituyen las pruebas E2E con sesión de usuario.
+
+### Curso Matemática y roles confirmados
+
+- Tras aclaración y autorización del usuario se verificaron cinco cuentas habilitadas en Auth y sus perfiles existentes en Firestore.
+- Se creó `assessmentCourseAccess/matematica` con nombre `Matemática`, el docente indicado y los cuatro estudiantes autorizados. Una transacción actualizó únicamente el campo `role` de los cinco perfiles y creó el documento del curso; conservó los demás campos.
+- Se verificó mediante `createAssessmentService(...)(uid, 'bootstrap')` que el docente ve el curso y sus cuatro estudiantes, y que cada estudiante tiene acceso al curso. Esto comprueba la autorización del servicio contra Firestore real, pero no el login ni el transporte HTTP con tokens reales.
+- No se crearon evaluaciones ni se publicó en Vercel. Sigue pendiente la validación E2E y la autorización explícita de despliegue.
