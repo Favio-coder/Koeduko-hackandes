@@ -217,6 +217,46 @@ Solo docente. Lee el enlace de Meet de la sesión guardada (el navegador no lo e
 invitar dos veces con una transacción. El estado queda en `learningSessions/{id}.bot.status`
 (`requested`, `in_call`, `done`, `failed`).
 
+### Endpoint — `server/api/close-session.js`
+
+```text
+POST https://koeduko.vercel.app/api/close-session
+Authorization: Bearer <Firebase ID token del docente>
+{ sessionId }  ->  { status: "completed", alreadyClosed, report, steps, memory }
+```
+
+Solo docente. Saca al tutor de la reunión, arma el reporte de evidencia por competencias, lo guarda en
+`learningSessions/{id}/summary/final`, recuerda a cada estudiante y marca la sesión `completed`. Ningún
+servicio externo puede romper el cierre: `steps` dice qué pasó con cada uno (`leaveCall`, `classifier`,
+`memory`). Es idempotente (`alreadyClosed: true` devuelve el reporte guardado). Errores: `401`, `403`, `400`,
+`404` (sesión inexistente), `500`. `memory` (texto guardado por estudiante) solo viaja en esta respuesta, no se
+guarda en el resumen.
+
+`report` es **evidencia formativa, nunca una nota**: no existe AD/A/B/C. Por estudiante y por capacidad
+(`traduce`, `comunica`, `usa-estrategias`, `argumenta`, constantes `QUANTITY_CAPABILITIES` en
+`src/shared/constants/contracts.js`):
+
+```javascript
+{
+  v: 1,
+  competencia: { id: "resuelve-problemas-cantidad", nombre: "Resuelve problemas de cantidad" },
+  nota: "Evidencia formativa: la calificación la decide el docente.",
+  problema: { activityId, skillId, text },          // nunca la respuesta esperada
+  duracionSeg: 120,
+  estudiantes: [{
+    key, name, studentId,
+    resumen: { talkPct, talkSec, turns, estimated },
+    capacidades: [{
+      id, nombre,
+      estado: "con evidencia" | "evidencia parcial" | "sin evidencia suficiente",
+      evidencias: [{ t: 24, cita: "porque seis veces ocho es cuarenta y ocho" }],   // cita textual corta + segundo
+      señales: ["CORRECT_ANSWER", ...],
+      nota?: "Mostró dificultad al plantear el problema."
+    }]
+  }]
+}
+```
+
 ### Webhook — `server/api/recall-webhook.js`
 
 Recibe los eventos de Recall.ai (token en la query, comparación en tiempo constante). Alimenta

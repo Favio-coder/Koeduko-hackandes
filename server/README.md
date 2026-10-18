@@ -58,6 +58,87 @@ Tutor (Gemini): `GEMINI_API_KEY` (Secret) y `GEMINI_MODEL` (variable normal). Si
 responde con su mensaje de respaldo. `LOG_INTERVENTION_TEXT=1` es solo para depurar: registra el
 texto de las intervenciones, que nombra a un niño; en producción debe estar sin definir.
 
+Memoria por estudiante (AtomicMemory): `ATOMICMEMORY_API_KEY` (Secret) y `ATOMICMEMORY_API_URL`
+(`https://api.atomicstrata.ai`). Sin ellas la memoria usa solo el respaldo en Firestore;
+`MEMORY_ENABLED=false` la apaga (el tutor habla sin notas). Chat de Meet: `MEET_CHAT_ENABLED=false` lo apaga.
+Un cambio de variable solo se aplica en un despliegue nuevo.
+
+## La respuesta esperada es privada
+
+`learningSessions/{id}` lo leen los estudiantes de la sesión, así que **no lleva la respuesta**:
+`currentProblem` tiene solo `activityId`, `skillId` y `text`. La respuesta vive en
+`learningSessions/{id}/private/answer` (`{ activityId, expectedAnswer }`), que ningún cliente lee ni escribe
+(`read, write: false`); solo el Admin SDK, que no pasa por las reglas.
+
+- El motor la lee **una sola vez por problema** y la cachea en `live/state.answer`; no se relee.
+- `live/state` tampoco es legible desde el navegador (regla `read, write: false`): solo `live/view` lo es, y
+  esa vista no incluye la respuesta. El cliente nunca ve `live/state`.
+- Las sesiones sin migrar (con la respuesta dentro de `currentProblem`) siguen funcionando.
+  `node scripts/protectAnswer.js --session <id>` mueve la respuesta a `private/answer` y la borra de `currentProblem`
+  (idempotente). `scripts/createAcceptanceSession.js` ya crea las sesiones nuevas así.
+- Costo: +1 lectura por problema (la primera evaluación). Las demás evaluaciones siguen en 2 lecturas.
+
+## Cierre de la sesión: evidencia por competencias y memoria
+
+`POST /api/close-session` (solo docente, CORS como los demás endpoints) hace, en este orden:
+
+1. saca al bot de la reunión (`leave_call`, 4 s);
+2. lee lo que pasó (`live/state` y las transcripciones guardadas) y arma el reporte de competencias;
+3. si hay frases que las reglas no clasifican, le pide a Gemini que las etiquete (6 s, salida JSON validada);
+4. recuerda a cada estudiante (un texto corto y factual; AtomicMemory, con respaldo en Firestore);
+5. guarda `learningSessions/{id}/summary/final` y marca la sesión `completed`, en un solo lote.
+
+**Ningún servicio externo puede romper el cierre.** Cada paso externo tiene su límite de tiempo y su
+respaldo; `summary/final.steps` registra qué pasó (`leaveCall`, `classifier`, `memory`) y la pantalla avisa
+al docente de lo que falló (por ejemplo, que el tutor sigue en la reunión). Solo un fallo de Firestore
+detiene el cierre. Es idempotente: cerrar dos veces devuelve el mismo reporte sin repetir nada.
+
+**El reporte es evidencia formativa, nunca una nota.** Por estudiante y por capacidad (Currículo Nacional,
+«Resuelve problemas de cantidad») da un estado (`con evidencia`, `evidencia parcial`, `sin evidencia suficiente`)
+y hasta dos citas textuales con su segundo. No existe AD/A/B/C en el código ni en la pantalla.
+
+| Capacidad | Qué mira (por reglas) |
+|---|---|
+| Traduce cantidades a expresiones numéricas | frases que nombran una operación con números («seis por ocho»); confusión al plantear el problema (parcial, con una nota) |
+| Comunica su comprensión | % de habla de toda la sesión y turnos (`live/state.totals`) |
+| Usa estrategias y procedimientos | respuestas correctas / equivocadas del estudiante (las mismas reglas que el tutor en vivo) |
+| Argumenta afirmaciones | frases que justifican («porque…», «ya que…»), después de una respuesta, con números u operaciones |
+
+Gemini solo **clasifica** frases dudosas (largas, sin pregunta y sin regla que las atrape; como mucho 6 por
+estudiante y 20 en total). Su etiqueta nunca basta para «con evidencia»: solo sube de «sin evidencia» a
+«evidencia parcial». Si falla, tarda o responde algo que no es JSON válido, el reporte se queda con las reglas.
+
+**Costo en Firestore del cierre** (una sola vez por sesión): lecturas = 1 sesión + 1 `live/state` + 1 por
+transcripción guardada (una sesión real de ~100 s tuvo 29) + 0–1 `private/answer`; escrituras = 2
+(`summary/final` y el estado de la sesión, en un lote). Si además hay memoria en el respaldo de Firestore:
++1 escritura por estudiante. Una sesión ya cerrada cuesta 2 lecturas y ninguna escritura.
+
+### Memoria por estudiante
+
+`remember(studentKey, text)` / `recall(studentKey, query)` con la misma interfaz en AtomicMemory y en el
+respaldo (`students/{key}/memory`, solo Admin SDK). `recall` **nunca rompe nada**: si falla o tarda más de 2 s
+devuelve `[]` y el tutor habla como siempre; `remember` informa el fallo y cae al respaldo.
+
+- **Clave del estudiante** (`core/studentKey.js`): el uid de Firebase Auth si el participante está enlazado a
+  un estudiante; si no, `<classroomId o uid del docente>:<sha256(scope + nombre normalizado)[0..16]>`. Nunca el
+  correo ni el nombre. Es **seudónimo, no anónimo**: los nombres son fáciles de adivinar, por eso el scope va
+  dentro del hash (el mismo nombre en dos aulas da claves distintas).
+- **Qué se guarda**: una oración como «Sesión accept-001, multiplicación: comunicó 28% del tiempo; usó estrategia
+  correcta; sin evidencia de argumentación.». Sin transcripciones, sin citas, sin nombre, sin la respuesta.
+- **Cuándo se recuerda**: antes de redactar una intervención se hace `recall` del destinatario y las notas
+  entran al prompt (`memoryNotes`, como dato entre «», nunca como instrucciones). Costo: 1 llamada externa por
+  intervención y la lectura de la sesión (que el chat de Meet reutiliza: no se lee dos veces).
+  No se recuerda «al invitar al tutor»: en ese momento los participantes aún no están enlazados a un uid, así que
+  no hay con qué buscar. Con la clave por nombre, recordar al hablarle a cada estudiante cubre ambos casos.
+- **AtomicMemory por HTTP directo, sin `@atomicmemory/sdk`.** El SDK 1.1.1 arrastra `@huggingface/transformers`
+  → `onnxruntime-node` + `sharp` (binarios nativos): ~277 MB en `node_modules` (el límite de una función de
+  Vercel es 250 MB descomprimida), ~1000 líneas de lockfile y 3 vulnerabilidades altas, para llamar a dos
+  endpoints. Además su quickstart no funciona tal cual (omite `initialize()`, `ingest` exige `mode` y este
+  despliegue exige `contentClass`). Contrato verificado contra `api.atomicstrata.ai/v1` con `Authorization: Bearer`:
+  `POST /memories/ingest/quick` (`content_class: "summary"`, 201 en ~0,9 s) y `POST /memories/search/fast`
+  (`{ count, memories: [{ id, content, score, similarity, … }] }`, ~1,0–1,6 s). El despliegue **rechaza contenido
+  crudo** (HTTP 502 sin `content_class`): coincide con la regla de no mandar transcripciones.
+
 ## Pruebas
 
 ```bash
