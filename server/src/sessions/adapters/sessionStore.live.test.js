@@ -233,3 +233,65 @@ describe('createIntervention', () => {
     await expect(createSessionStore(firebase).createIntervention('s1', 'int-1', {})).rejects.toThrow('unavailable')
   })
 })
+
+describe('processLiveEvent: the expected answer lives in private/answer', () => {
+  const PRIVATE = 'learningSessions/s1/private/answer'
+  const publicSession = { currentProblem: { activityId: 'p-01', skillId: 'multiplication', text: '6 cajas con 8 lápices' } }
+
+  it('reads private/answer once, caches it in live/state and never rereads it on later evaluations', async () => {
+    const { firebase, committed, readPaths } = fakeFirestore({ docs: { [SESSION]: publicSession, [PRIVATE]: { expectedAnswer: 48 } } })
+    const store = createSessionStore(firebase)
+
+    const first = await store.processLiveEvent('s1', 'e1', join('a', 0))
+    expect(readPaths).toEqual([STATE, SESSION, PRIVATE])
+    expect(first.ops.reads).toBe(3)
+    expect(committed.find((w) => w.path === STATE).data.answer).toEqual({ id: 'p-01', v: 48 })
+
+    readPaths.length = 0
+    const second = await store.processLiveEvent('s1', 'e2', say('a', 10, 12, 'son cuarenta y ocho')) // evalua otra vez
+    expect(second.evaluated).toBe(true)
+    expect(readPaths).toEqual([STATE, SESSION]) // sin private/answer
+    expect(second.intervention).toMatchObject({ type: 'CORRECT_ANSWER' }) // la respuesta cacheada se usa
+  })
+
+  it('rereads it when the activity changes', async () => {
+    const { firebase, docs, readPaths } = fakeFirestore({ docs: { [SESSION]: publicSession, [PRIVATE]: { expectedAnswer: 48 } } })
+    const store = createSessionStore(firebase)
+    await store.processLiveEvent('s1', 'e1', join('a', 0))
+
+    docs[SESSION] = { currentProblem: { ...publicSession.currentProblem, activityId: 'p-02' } }
+    docs[PRIVATE] = { expectedAnswer: 7 }
+    readPaths.length = 0
+    await store.processLiveEvent('s1', 'e2', join('b', 10))
+    expect(readPaths).toEqual([STATE, SESSION, PRIVATE])
+    expect(docs[STATE].answer).toEqual({ id: 'p-02', v: 7 })
+  })
+
+  it('remembers when there is no answer so it does not read private/answer on every evaluation', async () => {
+    const { firebase, readPaths } = fakeFirestore({ docs: { [SESSION]: publicSession } })
+    const store = createSessionStore(firebase)
+    await store.processLiveEvent('s1', 'e1', join('a', 0))
+    readPaths.length = 0
+    await store.processLiveEvent('s1', 'e2', join('b', 10))
+    expect(readPaths).toEqual([STATE, SESSION])
+  })
+
+  it('still works for a session that was not migrated (answer inside currentProblem)', async () => {
+    const legacy = { currentProblem: { ...publicSession.currentProblem, expectedAnswer: 48 } }
+    const { firebase } = fakeFirestore({ docs: { [SESSION]: legacy } })
+    const store = createSessionStore(firebase)
+    await store.processLiveEvent('s1', 'e1', join('a', 0))
+    const result = await store.processLiveEvent('s1', 'e2', say('a', 10, 12, 'son cuarenta y ocho'))
+    expect(result.intervention).toMatchObject({ type: 'CORRECT_ANSWER' })
+  })
+
+  it('never puts the number in live/view or in a raw liveEvent', async () => {
+    const { firebase, committed } = fakeFirestore({ docs: { [SESSION]: publicSession, [PRIVATE]: { expectedAnswer: 48 } } })
+    const store = createSessionStore(firebase)
+    await store.processLiveEvent('s1', 'e1', join('a', 0))
+    await store.processLiveEvent('s1', 'e2', say('b', 10, 12, 'hay seis cajas'))
+    const exposed = committed.filter((w) => w.path === VIEW || w.path.includes('/liveEvents/'))
+    expect(exposed.length).toBeGreaterThan(0)
+    expect(JSON.stringify(exposed.map((w) => w.data))).not.toMatch(/48|expectedAnswer|"answer"/)
+  })
+})

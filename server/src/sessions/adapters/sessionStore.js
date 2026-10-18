@@ -1,5 +1,5 @@
 import { canRequestBot } from '../core/botRequest.js'
-import { emptyState, evaluateDue, ingestEvent, problemFromSession } from '../core/liveEngine.js'
+import { activityIdOf, emptyState, evaluateDue, ingestEvent, problemFromSession } from '../core/liveEngine.js'
 import { viewOf } from '../core/liveView.js'
 import { isValidMeetUrl } from '../core/meetUrl.js'
 import { DEFAULT_CONFIG } from '../core/signals.js'
@@ -39,6 +39,7 @@ export function createSessionStore({ db, FieldValue }) {
      * liveEvents. Una transaccion por evento:
      *   - 1 lectura  : learningSessions/{id}/live/state (estado incremental del motor)
      *   - 1 lectura  : la sesion, SOLO cuando toca evaluar (como mucho cada ~5 s) para traer el problema
+     *   - 1 lectura  : private/answer, UNA vez por problema (se cachea en live/state.answer; no se relee)
      *   - 1 escritura: el estado actualizado (se omite si el evento no cambio nada)
      *   - 1 escritura: live/view para la interfaz, SOLO al evaluar (la pantalla recibe ~12 veces menos cambios
      *     que si leyera live/state, y cada cambio entregado a cada espectador cuenta como una lectura)
@@ -50,6 +51,7 @@ export function createSessionStore({ db, FieldValue }) {
     async processLiveEvent(sessionId, eventId, event, { config = {} } = {}) {
       const stateRef = db.doc(`learningSessions/${sessionId}/live/state`)
       const viewRef = db.doc(`learningSessions/${sessionId}/live/view`)
+      const answerRef = db.doc(`learningSessions/${sessionId}/private/answer`)
       const eventRef = db.doc(`learningSessions/${sessionId}/liveEvents/${eventId}`)
       const ops = { reads: 0, writes: 0, attempts: 0 }
 
@@ -68,7 +70,18 @@ export function createSessionStore({ db, FieldValue }) {
         if (ingested.due) {
           const sessionSnap = await tx.get(sessionRef(sessionId))
           ops.reads += 1
-          const problem = problemFromSession(sessionSnap.exists ? sessionSnap.data() : null)
+          const session = sessionSnap.exists ? sessionSnap.data() : null
+
+          // La respuesta esperada se lee UNA vez por problema y se cachea en el estado (solo servidor).
+          const activityId = activityIdOf(session)
+          if (activityId !== null && state.answer?.id !== activityId) {
+            const answerSnap = await tx.get(answerRef)
+            ops.reads += 1
+            const stored = answerSnap.exists ? answerSnap.data()?.expectedAnswer : undefined
+            const value = Number(stored ?? session.currentProblem.expectedAnswer) // lo ultimo: sesiones sin migrar
+            state = { ...state, answer: { id: activityId, v: Number.isFinite(value) ? value : null } }
+          }
+          const problem = problemFromSession(session, state.answer?.v ?? undefined)
           const evaluated = evaluateDue(state, { problem, config })
           state = evaluated.state
           intervention = evaluated.intervention

@@ -104,3 +104,37 @@ describe('foldEvents and talkTimeFromState', () => {
     expect(talkTimeFromState(emptyState(), { from: 0, to: 10, participants: ['a'] })).toEqual({ a: 0 })
   })
 })
+
+describe('totals: speech accumulated over the whole session', () => {
+  const cfg = { botKeys: ['bot'], windowSec: 30, maxTranscripts: 20, maxIntervals: 50 }
+  const fold = (events) => events.reduce((state, event) => applyEvent(state, event, cfg), emptyState())
+
+  it('adds the seconds of each closed turn and counts the turns', () => {
+    const state = fold([
+      { type: 'speech_on', participantKey: 'a', t: 0 },
+      { type: 'speech_on', participantKey: 'b', t: 10 }, // cierra a (10 s)
+      { type: 'speech_off', participantKey: 'b', t: 14 }, // b: 4 s
+      { type: 'speech_on', participantKey: 'a', t: 20 },
+      { type: 'speech_off', participantKey: 'a', t: 25 }, // a: 5 s mas
+    ])
+    expect(state.totals).toEqual(expect.arrayContaining([{ k: 'a', sec: 15, turns: 2 }, { k: 'b', sec: 4, turns: 1 }]))
+  })
+
+  it('keeps counting after intervals fall out of the window', () => {
+    const state = fold([
+      { type: 'speech_on', participantKey: 'a', t: 0 },
+      { type: 'speech_off', participantKey: 'a', t: 20 },
+      { type: 'transcript', participantKey: 'b', t: 500, tEnd: 502, text: 'hola' }, // a queda fuera de la ventana
+    ])
+    expect(state.intervals).toEqual([])
+    expect(state.totals).toEqual([{ k: 'a', sec: 20, turns: 1 }])
+  })
+
+  it('does not count a repeated speech_on as another turn', () => {
+    const state = fold([
+      { type: 'speech_on', participantKey: 'a', t: 0 },
+      { type: 'speech_on', participantKey: 'a', t: 1 },
+    ])
+    expect(state.totals).toEqual([{ k: 'a', sec: 0, turns: 1 }])
+  })
+})

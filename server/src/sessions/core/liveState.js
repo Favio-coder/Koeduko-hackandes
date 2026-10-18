@@ -29,7 +29,12 @@ export const eventTime = (event) => (event.type === 'transcript' ? (event.tEnd ?
  *   students: { k: string, id: string }[],
  *   interventions: { type: string, k: string|null, t: number }[],  // ultimas intervenciones
  *   problem: { id: string, startedT: number }|null,   // problema actual y desde cuando
+ *   answer: { id: string, v: number|null }|null,      // respuesta esperada del problema `id`, leida UNA vez de private/answer
+ *   totals: { k: string, sec: number, turns: number }[], // habla acumulada de TODA la sesion (para el reporte de cierre)
  * }} LiveState
+ *
+ * `answer` vive aqui porque el motor necesita compararla, pero live/state NO es legible desde el
+ * navegador (ver firestore.rules): solo live/view lo es, y esa vista no la incluye.
  */
 
 /** @returns {LiveState} */
@@ -46,7 +51,15 @@ export function emptyState() {
     students: [],
     interventions: [],
     problem: null,
+    answer: null,
+    totals: [],
   }
+}
+
+/** Suma segundos y/o turnos de habla a un participante. */
+function addTotals(totals, key, { sec = 0, turns = 0 }) {
+  const current = totals.find((item) => item.k === key) ?? { k: key, sec: 0, turns: 0 }
+  return upsert(totals, { k: key, sec: Math.round((current.sec + sec) * 10) / 10, turns: current.turns + turns })
 }
 
 const upsert = (list, entry) => [...list.filter((item) => item.k !== entry.k), entry]
@@ -64,6 +77,7 @@ function closeSpeaker(state, at, onlyKey = null) {
   return {
     ...state,
     speaker: null,
+    totals: at > speaker.s ? addTotals(state.totals ?? [], speaker.k, { sec: at - speaker.s }) : state.totals,
     intervals: at > speaker.s ? [...state.intervals, { k: speaker.k, s: speaker.s, e: at }] : state.intervals,
     lastSpeechT: Math.max(state.lastSpeechT ?? -Infinity, at),
   }
@@ -98,7 +112,8 @@ export function applyEvent(state, event, cfg) {
     case 'speech_on':
       next = { ...next, presence: withPresence(next.presence, key, event.t, false) }
       if (next.speaker?.k === key || (next.speaker && event.t < next.speaker.s)) break
-      next = { ...closeSpeaker(next, event.t), speaker: { k: key, s: event.t } }
+      next = closeSpeaker(next, event.t)
+      next = { ...next, speaker: { k: key, s: event.t }, totals: addTotals(next.totals ?? [], key, { turns: 1 }) }
       break
     case 'speech_off':
       next = closeSpeaker(next, event.t, key)

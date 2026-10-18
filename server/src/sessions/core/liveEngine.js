@@ -13,13 +13,15 @@ import { DEFAULT_CONFIG, detectSignalsFromState, selectInterventions } from './s
 const mergeConfig = (config) => ({ ...DEFAULT_CONFIG, ...config })
 
 /**
- * Traduce learningSessions/{id}.currentProblem ({ id, text, expectedAnswer, skillId }) al problema
- * que entiende el motor. Devuelve null si no hay problema o no tiene una respuesta numerica.
+ * Traduce learningSessions/{id}.currentProblem ({ activityId, text, skillId }) y la respuesta esperada
+ * (de learningSessions/{id}/private/answer) al problema que entiende el motor. Devuelve null si no hay problema o no tiene una respuesta numerica.
  */
-export function problemFromSession(session) {
+export function problemFromSession(session, expectedAnswerOverride) {
   const current = session?.currentProblem
   if (!current || typeof current !== 'object') return null
-  const expectedAnswer = Number(current.expectedAnswer)
+  // La respuesta ya no viaja en el documento de la sesion (lo leen los estudiantes): llega aparte,
+  // de private/answer. Una sesion vieja que aun la trae dentro sigue funcionando.
+  const expectedAnswer = Number(expectedAnswerOverride ?? current.expectedAnswer)
   const activityId = current.activityId ?? current.id
   if (!Number.isFinite(expectedAnswer) || activityId === undefined || activityId === null) return null
   return {
@@ -28,6 +30,13 @@ export function problemFromSession(session) {
     text: String(current.text ?? ''),
     expectedAnswer,
   }
+}
+
+/** Id de la actividad actual de la sesion, o null. */
+export function activityIdOf(session) {
+  const current = session?.currentProblem
+  const id = current && typeof current === 'object' ? (current.activityId ?? current.id) : null
+  return id === undefined || id === null ? null : String(id)
 }
 
 /** Intervenciones ya hechas, en el formato que espera selectInterventions. */
