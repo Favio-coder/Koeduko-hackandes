@@ -27,6 +27,8 @@ export function readRecallConfig(env) {
     webhookUrl: url.toString(),
     webhookToken: env.RECALL_WEBHOOK_TOKEN.trim(),
     language: env.RECALL_TRANSCRIPT_LANGUAGE?.trim() || 'es',
+    // El bot nace con salida de audio solo si la voz esta encendida (ver readMeetVoiceConfig).
+    speak: readMeetVoiceConfig(env).enabled,
   }
 }
 
@@ -41,6 +43,25 @@ export function readMeetChatConfig(env) {
   const apiKey = env.RECALL_API_KEY?.trim() || undefined
   return {
     enabled: !['false', '0', 'off', 'no'].includes(flag) && Boolean(apiKey),
+    apiKey,
+    region: env.RECALL_REGION?.trim() || undefined,
+  }
+}
+
+/**
+ * Voz del tutor en la reunion (EXPERIMENTAL): MEET_VOICE_ENABLED debe ser "true" (por defecto esta APAGADA) y
+ * hacen falta ELEVENLABS_API_KEY y la clave de Recall. Voz y modelo son opcionales (ver adapters/elevenlabs.js).
+ * Los bots ya creados no cambian: la voz solo funciona en bots creados con el interruptor encendido.
+ */
+export function readMeetVoiceConfig(env) {
+  const flag = (env.MEET_VOICE_ENABLED ?? 'false').trim().toLowerCase()
+  const elevenKey = env.ELEVENLABS_API_KEY?.trim() || undefined
+  const apiKey = env.RECALL_API_KEY?.trim() || undefined
+  return {
+    enabled: ['true', '1', 'on', 'yes'].includes(flag) && Boolean(elevenKey) && Boolean(apiKey),
+    elevenKey,
+    voiceId: env.ELEVENLABS_VOICE_ID?.trim() || undefined,
+    modelId: env.ELEVENLABS_MODEL_ID?.trim() || undefined,
     apiKey,
     region: env.RECALL_REGION?.trim() || undefined,
   }
