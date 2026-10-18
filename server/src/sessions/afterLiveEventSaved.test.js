@@ -125,3 +125,105 @@ describe('afterLiveEventSaved', () => {
     await expect(hook({ sessionId: 's1', result })).rejects.toThrow('firestore down')
   })
 })
+
+describe('afterLiveEventSaved: Meet chat', () => {
+  const chatOn = { enabled: true, apiKey: 'k', region: 'us-west-2' }
+  const botSession = { bot: { id: 'bot-1', status: 'in_call', region: 'us-west-2' } }
+
+  function chatSetup({ chat = chatOn, session = botSession, sendChat = vi.fn().mockResolvedValue({ ok: true, status: 200 }), store = {} } = {}) {
+    const fakeStore = {
+      getSession: vi.fn().mockResolvedValue(session),
+      setDeliveredTo: vi.fn().mockResolvedValue(undefined),
+      ...store,
+    }
+    return { ...setup({ store: fakeStore, options: { getChat: () => chat, sendChat } }), sendChat }
+  }
+
+  it('sends a new intervention to the Meet chat exactly as written and records meet_chat', async () => {
+    const { hook, store, sendChat, logger } = chatSetup()
+    await hook({ sessionId: 's1', result })
+
+    const [, interventionId, data] = store.createIntervention.mock.calls[0]
+    expect(sendChat).toHaveBeenCalledTimes(1)
+    expect(sendChat).toHaveBeenCalledWith({ apiKey: 'k', region: 'us-west-2', botId: 'bot-1', text: data.message })
+    expect(store.setDeliveredTo).toHaveBeenCalledWith('s1', interventionId, ['app', 'meet_chat'])
+    expect(logger.info).toHaveBeenCalledWith('afterLiveEventSaved: intervencion', expect.objectContaining({ chat: 'sent', chatStatus: 200 }))
+  })
+
+  it('reads the session once, and only when there is a new intervention', async () => {
+    const none = chatSetup()
+    await none.hook({ sessionId: 's1', result: { evaluated: true, intervention: null } })
+    expect(none.store.getSession).not.toHaveBeenCalled()
+
+    const one = chatSetup()
+    await one.hook({ sessionId: 's1', result })
+    expect(one.store.getSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not resend a duplicate intervention', async () => {
+    const { hook, store, sendChat, logger } = chatSetup({ store: { createIntervention: vi.fn().mockResolvedValue({ created: false }) } })
+    await hook({ sessionId: 's1', result })
+
+    expect(sendChat).not.toHaveBeenCalled()
+    expect(store.getSession).not.toHaveBeenCalled()
+    expect(store.setDeliveredTo).not.toHaveBeenCalled()
+    expect(logger.info).toHaveBeenCalledWith('afterLiveEventSaved: intervencion', expect.objectContaining({ created: false, chat: 'duplicate' }))
+  })
+
+  it.each([
+    ['400', { ok: false, status: 400 }],
+    ['404', { ok: false, status: 404 }],
+    ['timeout', { ok: false, status: 0 }],
+  ])('keeps the intervention in the app only when Recall answers %s, and logs the status', async (_name, answer) => {
+    const { hook, store, logger } = chatSetup({ sendChat: vi.fn().mockResolvedValue(answer) })
+    await hook({ sessionId: 's1', result })
+
+    expect(store.createIntervention.mock.calls[0][2].deliveredTo).toEqual(['app'])
+    expect(store.setDeliveredTo).not.toHaveBeenCalled()
+    expect(logger.info).toHaveBeenCalledWith('afterLiveEventSaved: intervencion', expect.objectContaining({ created: true, chat: 'failed', chatStatus: answer.status }))
+  })
+
+  it('does not fail the intervention when Recall is down (sendChat throws)', async () => {
+    const { hook, store } = chatSetup({ sendChat: vi.fn().mockRejectedValue(new Error('boom')) })
+    await expect(hook({ sessionId: 's1', result })).resolves.toBeUndefined()
+    expect(store.createIntervention).toHaveBeenCalledTimes(1)
+    expect(store.setDeliveredTo).not.toHaveBeenCalled()
+  })
+
+  it('does not fail when the session cannot be read or the delivery cannot be recorded', async () => {
+    const unreadable = chatSetup({ store: { getSession: vi.fn().mockRejectedValue(new Error('firestore')) } })
+    await expect(unreadable.hook({ sessionId: 's1', result })).resolves.toBeUndefined()
+    expect(unreadable.sendChat).not.toHaveBeenCalled()
+
+    const unrecorded = chatSetup({ store: { setDeliveredTo: vi.fn().mockRejectedValue(new Error('firestore')) } })
+    await expect(unrecorded.hook({ sessionId: 's1', result })).resolves.toBeUndefined()
+    expect(unrecorded.logger.info).toHaveBeenCalledWith('afterLiveEventSaved: intervencion', expect.objectContaining({ chat: 'sent-not-recorded' }))
+  })
+
+  it('skips the chat when it is disabled, there is no bot id, or no chat config', async () => {
+    const off = chatSetup({ chat: { ...chatOn, enabled: false } })
+    await off.hook({ sessionId: 's1', result })
+    expect(off.store.getSession).not.toHaveBeenCalled()
+    expect(off.sendChat).not.toHaveBeenCalled()
+
+    const noBot = chatSetup({ session: { bot: { id: null, status: 'requested' } } })
+    await noBot.hook({ sessionId: 's1', result })
+    expect(noBot.sendChat).not.toHaveBeenCalled()
+
+    const noConfig = chatSetup({ chat: null })
+    await noConfig.hook({ sessionId: 's1', result })
+    expect(noConfig.sendChat).not.toHaveBeenCalled()
+  })
+
+  it('uses the region the bot was created in', async () => {
+    const { hook, sendChat } = chatSetup({ session: { bot: { id: 'bot-1', region: 'eu-central-1' } } })
+    await hook({ sessionId: 's1', result })
+    expect(sendChat).toHaveBeenCalledWith(expect.objectContaining({ region: 'eu-central-1' }))
+  })
+
+  it('never logs the message text, even when it is sent to the chat', async () => {
+    const { hook, logger } = chatSetup()
+    await hook({ sessionId: 's1', result })
+    expect(JSON.stringify(logger.info.mock.calls)).not.toContain('explicarías')
+  })
+})
