@@ -68,6 +68,17 @@ describe('closeSession', () => {
     expect(result.steps).toMatchObject({ leaveCall: 'ok', memory: { enabled: true, saved: 2, failed: 0, skipped: 0 } })
   })
 
+  it('does not offer a partial forget after a primary failure and fallback save', async () => {
+    const memory = { remember: vi.fn().mockResolvedValue({ ok: true, via: 'firestore', id: 'backup-note', primaryReason: 'timeout' }) }
+    const { run, store } = setup({ memory })
+    const result = await run()
+    expect(result.memoryNotes.map(({ status, forgettable, forgetUnavailable }) => ({ status, forgettable, forgetUnavailable }))).toEqual([
+      { status: 'saved', forgettable: false, forgetUnavailable: 'primary-unconfirmed' },
+      { status: 'saved', forgettable: false, forgetUnavailable: 'primary-unconfirmed' },
+    ])
+    expect(store.saveClosure.mock.calls[0][2]).toEqual({ memoryRefs: [] })
+  })
+
   it('remembers a short factual text per student under their studentKey, never a name or a transcript', async () => {
     const { run, deps } = setup()
     const result = await run()

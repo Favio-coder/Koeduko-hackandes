@@ -9,14 +9,17 @@ import { createMemory } from './adapters/memory.js'
  *  - ATOMICMEMORY_API_URL + ATOMICMEMORY_API_KEY -> AtomicMemory como principal, Firestore de respaldo.
  *  - sin ellas                                   -> solo el respaldo en Firestore.
  *  - MEMORY_ENABLED=false (o 0, off, no)         -> sin memoria (null): el tutor habla sin notas.
+ *    `forNotesAlreadySaved: true` lo ignora: apagar la memoria deja de guardar y de recordar, pero lo ya
+ *    guardado se tiene que poder olvidar igual (lo usa forget-memory-note).
  *
  * @param {Record<string, string|undefined>} env
  * @param {{ getFirebase: () => { db: any, FieldValue: any }, logger: { info: Function } }} deps
- * @returns {{ name: string, remember: Function, recall: Function } | null}
+ * @param {{ forNotesAlreadySaved?: boolean }} [options]
+ * @returns {{ name: string, remember: Function, recall: Function, forget: Function } | null}
  */
-export function createMemoryFromEnv(env, { getFirebase, logger }) {
+export function createMemoryFromEnv(env, { getFirebase, logger }, { forNotesAlreadySaved = false } = {}) {
   const flag = (env.MEMORY_ENABLED ?? 'true').trim().toLowerCase()
-  if (['false', '0', 'off', 'no'].includes(flag)) return null
+  if (!forNotesAlreadySaved && ['false', '0', 'off', 'no'].includes(flag)) return null
 
   const { db, FieldValue } = getFirebase()
   const fallback = createFirestoreMemory({ db, FieldValue, logger })

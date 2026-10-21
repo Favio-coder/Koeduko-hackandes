@@ -11,10 +11,11 @@ const REAL_FIRESTORE = { db, doc, onSnapshot }
  *
  * @returns {{ summary: object|null, ready: boolean }}  `ready` es false hasta que Firestore contesta.
  *   Un error (sin permiso, sin red) deja el resumen en null: la pagina sigue funcionando sin reporte.
+ *   `uid` ata el resumen a la cuenta: si se cambia de cuenta, se vuelve a suscribir y nunca se muestra el de la anterior.
  */
-export function useSessionSummary(sessionId, { enabled = true } = {}, deps = REAL_FIRESTORE) {
+export function useSessionSummary(sessionId, { enabled = true, uid = null } = {}, deps = REAL_FIRESTORE) {
   const [state, setState] = useState({ key: null, summary: null, ready: false })
-  const key = `${sessionId}`
+  const key = `${uid ?? ''}:${sessionId}`
 
   useEffect(() => {
     if (!sessionId || !enabled) return undefined

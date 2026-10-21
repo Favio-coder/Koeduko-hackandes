@@ -9,6 +9,7 @@ import CloseSession from '../components/CloseSession'
 import CompetencyReport from '../components/CompetencyReport'
 import InterventionsCard from '../components/InterventionsCard'
 import InviteTutor from '../components/InviteTutor'
+import MemoryNotes from '../components/MemoryNotes'
 import StudentFeedback from '../components/StudentFeedback'
 import TalkShareCard from '../components/TalkShareCard'
 import TranscriptCard from '../components/TranscriptCard'
@@ -46,9 +47,13 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
   const nowMs = useNow()
   const toast = useToast()
   // El reporte de cierre solo lo lee el docente (reglas de Firestore): al estudiante no se le suscribe.
-  const { summary } = useSessionSummary(sessionId, { enabled: isTeacher })
+  const { summary } = useSessionSummary(sessionId, { enabled: isTeacher, uid: user?.uid ?? null })
   const [creating, setCreating] = useState(false)
-  const [closed, setClosed] = useState(null) // lo que devolvio close-session, para mostrar el reporte sin esperar a Firestore
+  // Lo que devolvio close-session, para mostrar el reporte sin esperar a Firestore. Vale solo para la cuenta y la sala que cerraron.
+  const scope = `${user?.uid ?? ''}:${sessionId}`
+  const [closedState, setClosedState] = useState(null)
+  const closed = closedState?.scope === scope ? closedState.result : null
+  const setClosed = (result) => setClosedState({ scope, result })
 
   // Mientras el tutor esta en la reunion y la sala sigue abierta, la pantalla avisa cada ~20 s para que el servidor reevalue
   // aunque nadie hable (el silencio no genera eventos). El servidor limita a una evaluacion cada 15 s por sala.
@@ -65,6 +70,9 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
   const problemText = session?.currentProblem?.text
   const report = closed?.report ?? summary?.report ?? null
   const reportSteps = closed?.steps ?? summary?.steps
+  // Firestore primero: ahi queda marcada una nota olvidada (el resultado de close-session es una foto del cierre).
+  const memoryNotes = summary?.memoryNotes ?? closed?.memoryNotes
+  const studentNames = Object.fromEntries((report?.estudiantes ?? []).map((student) => [student.key, student.name]))
   const isClosed = Boolean(report) || session?.status === SESSION_STATUS.COMPLETED
 
   // Quien entra al Meet de la sala (docente o integrante) trae al tutor sin pasos extra. El servidor no duplica el bot
@@ -135,6 +143,9 @@ export default function SessionDetailPage({ sessionId: resolvedId }) {
       {isTeacher && !isClosed && <InviteTutor sessionId={sessionId} botStatus={botStatus} />}
       {isTeacher && !isClosed && <CloseSession sessionId={sessionId} onClosed={setClosed} />}
       {report && <CompetencyReport report={report} steps={reportSteps} />}
+      {isTeacher && report && (
+        <MemoryNotes key={scope} sessionId={sessionId} uid={user?.uid} notes={memoryNotes} names={studentNames} canForget={session?.createdBy === user?.uid} />
+      )}
       {isTeacher && report && <RegistroAuxiliar report={report} sessionId={sessionId} />}
       {!isTeacher && session?.status === SESSION_STATUS.COMPLETED && <StudentFeedback sessionId={sessionId} />}
 

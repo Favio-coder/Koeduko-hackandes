@@ -60,7 +60,7 @@ describe('notesFromSearch', () => {
 describe('createAtomicMemory (plain HTTP, no SDK)', () => {
   it('remembers a short factual summary, declared as a summary (the deployment refuses raw content)', async () => {
     const fetchImpl = fakeFetch()
-    await expect(atomic(fetchImpl).remember('u1', 'Sesión s1: comunicó 28% del tiempo.')).resolves.toEqual({ ok: true })
+    await expect(atomic(fetchImpl).remember('u1', 'Sesión s1: comunicó 28% del tiempo.')).resolves.toEqual({ ok: true, id: '1d548a6a' })
 
     const [url, init] = fetchImpl.mock.calls[0]
     expect(url).toBe('https://api.test/v1/memories/ingest/quick')
@@ -206,5 +206,111 @@ describe('createMemory (primary + fallback)', () => {
     expect(memory.name).toBe('atomicmemory')
     await expect(memory.remember('u1', 't')).resolves.toEqual({ ok: false, reason: 'timeout', via: 'atomicmemory' })
     await expect(memory.recall('u1', 'q')).resolves.toEqual([])
+  })
+})
+
+describe('forget (olvidar una nota concreta)', () => {
+  it('AtomicMemory: DELETE /v1/memories/{id} limited to the same user_id it was saved with, with no body', async () => {
+    const fetchImpl = vi.fn(async () => reply(200, { success: true }))
+    await expect(atomic(fetchImpl).forget('aula-1:9f2c', '1d548a6a-da67')).resolves.toEqual({ ok: true })
+
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe('https://api.test/v1/memories/1d548a6a-da67?user_id=aula-1%3A9f2c')
+    expect(init.method).toBe('DELETE')
+    expect(init.headers).toEqual({ Authorization: 'Bearer secret-key' })
+    expect(init.body).toBeUndefined()
+  })
+
+  it('AtomicMemory: a 404 counts as forgotten (deleting what is not there is not an error)', async () => {
+    await expect(atomic(vi.fn(async () => reply(404, { error: 'not found' }))).forget('u1', 'm1')).resolves.toEqual({ ok: true })
+  })
+
+  it('AtomicMemory: an id is never used as a path, it is encoded', async () => {
+    const fetchImpl = vi.fn(async () => reply(200, { success: true }))
+    await atomic(fetchImpl).forget('u1', '../list')
+    expect(fetchImpl.mock.calls[0][0]).toBe('https://api.test/v1/memories/..%2Flist?user_id=u1')
+  })
+
+  it('AtomicMemory: reports a failure or a timeout by reason only, and never throws', async () => {
+    const logger = { info: vi.fn() }
+    await expect(atomic(vi.fn(async () => reply(503, null)), { logger }).forget('u1', 'm1')).resolves.toEqual({ ok: false, reason: 'http:503' })
+    await expect(atomic(vi.fn(hangs), { logger }).forget('u1', 'm1', { timeoutMs: 30 })).resolves.toEqual({ ok: false, reason: 'timeout' })
+    expect(JSON.stringify(logger.info.mock.calls)).not.toMatch(/secret-key|u1|m1/)
+  })
+
+  it('AtomicMemory: rejects a missing key or id without calling the network', async () => {
+    const fetchImpl = vi.fn()
+    await expect(atomic(fetchImpl).forget('', 'm1')).resolves.toEqual({ ok: false, reason: 'invalid' })
+    await expect(atomic(fetchImpl).forget('u1', '  ')).resolves.toEqual({ ok: false, reason: 'invalid' })
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('Firestore: remember returns the document id and forget deletes exactly that document', async () => {
+    const deleted = []
+    const db = {
+      collection: (path) => ({
+        add: vi.fn(async () => ({ id: 'doc-1' })),
+        doc: (id) => ({ delete: vi.fn(async () => deleted.push(`${path}/${id}`)) }),
+      }),
+    }
+    const memory = createFirestoreMemory({ db, FieldValue: { serverTimestamp: () => 'TS' } })
+    await expect(memory.remember('aula/1:abc', 'texto')).resolves.toEqual({ ok: true, id: 'doc-1' })
+    await expect(memory.forget('aula/1:abc', 'doc-1')).resolves.toEqual({ ok: true })
+    expect(deleted).toEqual(['students/aula_1:abc/memory/doc-1'])
+    await expect(memory.forget('u1', '../otro')).resolves.toEqual({ ok: false, reason: 'invalid' })
+  })
+
+  it('primary + fallback: forgets only in the provider where the note was saved', async () => {
+    const provider = (name) => ({ name, remember: vi.fn(), recall: vi.fn(), forget: vi.fn().mockResolvedValue({ ok: true }) })
+    const primary = provider('atomicmemory')
+    const fallback = provider('firestore')
+    const memory = createMemory({ primary, fallback })
+
+    await expect(memory.forget('u1', { via: 'firestore', id: 'doc-1' })).resolves.toEqual({ ok: true })
+    expect(fallback.forget).toHaveBeenCalledWith('u1', 'doc-1', undefined)
+    expect(primary.forget).not.toHaveBeenCalled()
+
+    await expect(memory.forget('u1', { via: 'otro', id: 'x' })).resolves.toEqual({ ok: false, reason: 'unsupported' })
+  })
+
+  it('primary + fallback: remember passes the id along with where it was saved', async () => {
+    const primary = { name: 'atomicmemory', remember: vi.fn().mockResolvedValue({ ok: false, reason: 'timeout' }), recall: vi.fn() }
+    const fallback = { name: 'firestore', remember: vi.fn().mockResolvedValue({ ok: true, id: 'doc-9' }), recall: vi.fn() }
+    await expect(createMemory({ primary, fallback }).remember('u1', 't')).resolves.toEqual({ ok: true, via: 'firestore', id: 'doc-9', primaryReason: 'timeout' })
+  })
+})
+
+describe('AtomicMemory receipts (a 2xx alone never counts as saved or forgotten)', () => {
+  it.each([
+    ['an empty body', null],
+    ['no ids', { episode_id: 'e1', memories_stored: 1, stored_memory_ids: [], updated_memory_ids: [] }],
+    ['ids that are not strings', { stored_memory_ids: [5, null, '  '] }],
+    ['a different shape', { ok: true }],
+  ])('remember with %s is "unconfirmed", so the note is never shown as saved', async (_label, body) => {
+    await expect(atomic(fakeFetch({ ingest: reply(201, body) })).remember('u1', 'texto')).resolves.toEqual({ ok: false, reason: 'unconfirmed' })
+  })
+
+  it('remember accepts an updated id (deduplicated into an existing memory) and an explicit skipped count', async () => {
+    await expect(atomic(fakeFetch({ ingest: reply(201, { stored_memory_ids: [], updated_memory_ids: ['m-old'] }) })).remember('u1', 't')).resolves.toEqual({ ok: true, id: 'm-old' })
+    await expect(atomic(fakeFetch({ ingest: reply(201, { stored_memory_ids: [], memories_skipped: 1 }) })).remember('u1', 't')).resolves.toEqual({ ok: true })
+  })
+
+  it.each([['an empty body', null], ['success false', { success: false }], ['success as text', { success: 'true' }]])(
+    'forget with a 200 and %s is "unconfirmed", so the note is never marked forgotten',
+    async (_label, body) => {
+      await expect(atomic(vi.fn(async () => reply(200, body))).forget('u1', 'm1')).resolves.toEqual({ ok: false, reason: 'unconfirmed' })
+    },
+  )
+
+  it('never follows a redirect (the bearer key must not reach another host), and a refused redirect is a network failure', async () => {
+    const fetchImpl = vi.fn(async (_url, init) => {
+      expect(init.redirect).toBe('error')
+      throw new TypeError('fetch failed: redirect mode is set to error')
+    })
+    const memory = atomic(fetchImpl)
+    await expect(memory.remember('u1', 't')).resolves.toEqual({ ok: false, reason: 'network' })
+    await expect(memory.forget('u1', 'm1')).resolves.toEqual({ ok: false, reason: 'network' })
+    await expect(memory.recall('u1', 'q')).resolves.toEqual([])
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
   })
 })

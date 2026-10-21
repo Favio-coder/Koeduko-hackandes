@@ -72,3 +72,17 @@ describe('useSessionSummary', () => {
     expect(fb.unsubscribed).toHaveLength(2)
   })
 })
+
+describe('useSessionSummary across an account switch', () => {
+  it('never shows the summary of the previous account and subscribes again for the new one', () => {
+    const fb = fakeFirestore()
+    const { result, rerender } = renderHook(({ uid }) => useSessionSummary('s1', { uid }, fb.deps), { initialProps: { uid: 'docente-1' } })
+    act(() => fb.listeners.get(PATH).next({ exists: () => true, data: () => ({ report: { v: 1 } }) }))
+    expect(result.current.summary).toEqual({ report: { v: 1 } })
+
+    rerender({ uid: 'docente-2' })
+    expect(result.current).toEqual({ summary: null, ready: false })
+    expect(fb.unsubscribed).toEqual([PATH])
+    expect(fb.deps.onSnapshot).toHaveBeenCalledTimes(2)
+  })
+})

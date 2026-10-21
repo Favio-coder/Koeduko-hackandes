@@ -163,6 +163,28 @@ devuelve `[]` y el tutor habla como siempre; `remember` informa el fallo y cae a
   (`{ count, memories: [{ id, content, score, similarity, … }] }`, ~1,0–1,6 s). El despliegue **rechaza contenido
   crudo** (HTTP 502 sin `content_class`): coincide con la regla de no mandar transcripciones.
 
+### Revisar y olvidar una nota (docente)
+
+Al cerrar, `summary/final.memoryNotes` guarda, por participante, la nota que se intentó guardar y su estado
+(`saved`, `failed`, `skipped`, `forgotten`), el proveedor (`via`) y si se puede olvidar. La pantalla del reporte la
+muestra en «Lo que recordará el tutor». La clave del estudiante y el id de la nota en el proveedor **no** van ahí:
+quedan en `learningSessions/{id}/private/memory`, que ningún cliente lee.
+
+- **Solo con recibo**: AtomicMemory cuenta una nota como guardada si `ingest/quick` devuelve un id en
+  `stored_memory_ids`/`updated_memory_ids` (o `memories_skipped > 0`); un 2xx sin eso es `unconfirmed`. Las
+  peticiones usan `redirect: 'error'` (la API key nunca sigue una redirección).
+- `POST /api/forget-memory-note { sessionId, key }` (solo el docente que creó la sala): el servidor busca la
+  referencia en `private/memory` y borra **solo** esa nota, en el proveedor donde quedó (`DELETE
+  /v1/memories/{id}?user_id=<clave>` o el documento de `students/{key}/memory`). El navegador nunca manda una clave
+  de estudiante ni un id. Un `{ success: true }` o un 404 cuentan como olvidada; un 2xx sin `success: true`, un fallo
+  o más de 5 s responden 503 «la nota sigue guardada» y no se marca nada. Después se quita la referencia y la nota pasa
+  a `forgotten` en `summary/final` (una transacción). `MEMORY_ENABLED=false` no impide olvidar lo ya guardado.
+- Si AtomicMemory no confirmó y la nota quedó en el respaldo (`forgetUnavailable: 'primary-unconfirmed'`), no se
+  guarda referencia ni se ofrece olvidarla: podría haber otra copia en AtomicMemory y no se puede borrar con certeza.
+- Costo: 1 sesión + 1 `summary/final` + 1 `private/memory` + la transacción (2 lecturas, 2 escrituras); con el
+  respaldo, +1 borrado.
+- El `DELETE` de AtomicMemory sigue el OpenAPI oficial; no se ha probado contra el servicio en vivo.
+
 ## Pruebas
 
 ```bash
@@ -347,3 +369,5 @@ pegado al número, y una pregunta ("¿cuánto son seis por ocho?") no cuenta com
 - El token del webhook va en la URL (`?token=`). Recall muestra esa URL en la configuración del
   bot, por lo que debe rotarse después de cada demo. Mejora futura: verificar la firma HMAC que
   Recall envía en las cabeceras.
+
+El borrado corresponde al registro confirmado de esa sesión, no a todos los hechos semejantes de otras clases. Si el proveedor principal falló antes de guardar en el respaldo, el reporte muestra que no se puede confirmar el borrado completo y no ofrece eliminar sólo la copia de respaldo. Ese caso requiere revisar el estado del proveedor principal.

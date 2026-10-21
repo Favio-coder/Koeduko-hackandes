@@ -128,7 +128,8 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
-      // La respuesta esperada de los problemas. Solo el Admin SDK (que no pasa por estas reglas).
+      // La respuesta esperada de los problemas y las referencias de memoria (private/memory: clave del estudiante + id
+      // de cada nota). Solo el Admin SDK (que no pasa por estas reglas).
       match /private/{docId} {
         allow read, write: if false;
       }

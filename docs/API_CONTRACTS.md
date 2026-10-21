@@ -276,6 +276,20 @@ guarda en el resumen.
 }
 ```
 
+### Endpoint — `server/api/forget-memory-note.js`
+
+```
+POST https://koeduko.vercel.app/api/forget-memory-note
+Authorization: Bearer <Firebase ID token del docente que creó la sala>
+{ "sessionId": "s1", "key": "estudiante a" }      // key = participante del reporte (estudiantes[].key)
+-> 200 { status: "forgotten", key, alreadyForgotten }
+-> 403 otro docente o un alumno · 404 sin nota olvidable · 503 la memoria no respondió: la nota sigue guardada
+```
+
+Cliente: `src/features/sessions/services/memoryNotesService.js` (solo acepta `status: "forgotten"` con la misma `key`).
+`summary/final.memoryNotes`: `[{ key, text, status: "saved"|"failed"|"skipped"|"forgotten", via?, forgettable, forgetUnavailable?: "primary-unconfirmed", forgottenAt? }]`.
+`forgetUnavailable` marca una nota guardada en el respaldo después de que AtomicMemory no confirmara (timeout, error o 2xx sin recibo): podría existir otra copia, así que no se ofrece borrarla.
+
 ### Webhook — `server/api/recall-webhook.js`
 
 Recibe los eventos de Recall.ai (token en la query, comparación en tiempo constante). Alimenta

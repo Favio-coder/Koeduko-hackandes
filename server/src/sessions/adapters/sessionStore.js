@@ -506,11 +506,45 @@ export function createSessionStore({ db, FieldValue }) {
     },
 
     /** Guarda el reporte final y cierra la sesion en un solo lote (2 escrituras). */
-    async saveClosure(sessionId, summary) {
+    /**
+     * Guarda el resumen y cierra la sesion en un lote. `memoryRefs` (clave del estudiante + id de cada nota en la memoria)
+     * va a private/memory, que ningun cliente lee: con eso el servidor puede olvidar una nota sin que el navegador elija
+     * de quien. Sin notas olvidables no se escribe (siguen siendo 2 escrituras).
+     */
+    async saveClosure(sessionId, summary, { memoryRefs = [] } = {}) {
       const batch = db.batch()
       batch.set(db.doc(`learningSessions/${sessionId}/summary/final`), { ...summary, closedAt: FieldValue.serverTimestamp() })
+      if (memoryRefs.length > 0) batch.set(db.doc(`learningSessions/${sessionId}/private/memory`), { v: 1, notes: memoryRefs })
       batch.update(sessionRef(sessionId), { status: 'completed', endedAt: FieldValue.serverTimestamp(), 'bot.status': 'done' })
       await batch.commit()
+    },
+
+    /** private/memory (1 lectura): [{ key, studentKey, via, id }] de las notas que aun se pueden olvidar. */
+    async getMemoryRefs(sessionId) {
+      const snap = await db.doc(`learningSessions/${sessionId}/private/memory`).get()
+      const notes = snap.exists ? snap.data()?.notes : null
+      return Array.isArray(notes) ? notes : []
+    },
+
+    /**
+     * Una nota ya se borro de la memoria: se quita su referencia (no queda la clave ni el id) y en summary/final pasa a
+     * `forgotten`, para que el docente lo vea al volver. Una transaccion: 2 lecturas y 2 escrituras.
+     */
+    async markMemoryForgotten(sessionId, key, { nowMs = Date.now() } = {}) {
+      const refsRef = db.doc(`learningSessions/${sessionId}/private/memory`)
+      const summaryRef = db.doc(`learningSessions/${sessionId}/summary/final`)
+      await db.runTransaction(async (tx) => {
+        const refsSnap = await tx.get(refsRef)
+        const summarySnap = await tx.get(summaryRef)
+        const refs = refsSnap.exists && Array.isArray(refsSnap.data()?.notes) ? refsSnap.data().notes : []
+        tx.set(refsRef, { v: 1, notes: refs.filter((ref) => ref.key !== key) })
+        const notes = summarySnap.exists && Array.isArray(summarySnap.data()?.memoryNotes) ? summarySnap.data().memoryNotes : null
+        if (notes) {
+          // serverTimestamp no se puede usar dentro de un arreglo: la fecha va como texto ISO.
+          const forgottenAt = new Date(nowMs).toISOString()
+          tx.update(summaryRef, { memoryNotes: notes.map((note) => (note.key === key ? { ...note, status: 'forgotten', forgettable: false, forgottenAt } : note)) })
+        }
+      })
     },
 
     async setBotId(sessionId, botId) {

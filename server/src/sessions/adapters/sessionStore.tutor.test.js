@@ -90,4 +90,52 @@ describe('close-session reads and writes', () => {
       { op: 'update', path: 'learningSessions/s1', data: { status: 'completed', endedAt: 'SERVER_TS', 'bot.status': 'done' } },
     ])
   })
+
+  it('keeps the memory references (student key + note id) in private/memory, in the same batch, never in the summary', async () => {
+    const { firebase, calls } = closeFirebase()
+    const memoryRefs = [{ key: 'ana', studentKey: 'aula-1:abc', via: 'atomicmemory', id: 'm1' }]
+    await createSessionStore(firebase).saveClosure('s1', { v: 1, sessionId: 's1', report: {}, steps: {}, memoryNotes: [{ key: 'ana', status: 'saved' }] }, { memoryRefs })
+    expect(calls.batches).toHaveLength(1)
+    expect(calls.batches[0].map((op) => op.path)).toEqual(['learningSessions/s1/summary/final', 'learningSessions/s1/private/memory', 'learningSessions/s1'])
+    expect(calls.batches[0][1].data).toEqual({ v: 1, notes: memoryRefs })
+    expect(JSON.stringify(calls.batches[0][0].data)).not.toMatch(/aula-1:abc|m1/)
+  })
+})
+
+describe('memory references (forget-memory-note)', () => {
+  function txFirebase(docs) {
+    const writes = []
+    const db = {
+      doc: (path) => ({ path, get: async () => ({ exists: path in docs, data: () => structuredClone(docs[path]) }) }),
+      runTransaction: async (fn) =>
+        fn({
+          get: async (ref) => ref.get(),
+          set: (ref, data) => writes.push({ op: 'set', path: ref.path, data }),
+          update: (ref, data) => writes.push({ op: 'update', path: ref.path, data }),
+        }),
+    }
+    return { firebase: { db, FieldValue: { serverTimestamp: () => 'SERVER_TS' } }, writes }
+  }
+
+  it('reads the references, or [] when there are none', async () => {
+    const refs = [{ key: 'ana', studentKey: 'aula-1:abc', via: 'atomicmemory', id: 'm1' }]
+    expect(await createSessionStore(txFirebase({ 'learningSessions/s1/private/memory': { v: 1, notes: refs } }).firebase).getMemoryRefs('s1')).toEqual(refs)
+    expect(await createSessionStore(txFirebase({}).firebase).getMemoryRefs('s1')).toEqual([])
+  })
+
+  it('drops the reference of the forgotten note and marks only that note as forgotten in the summary', async () => {
+    const { firebase, writes } = txFirebase({
+      'learningSessions/s1/private/memory': { v: 1, notes: [{ key: 'ana', studentKey: 'k-ana', via: 'atomicmemory', id: 'm1' }, { key: 'luis', studentKey: 'k-luis', via: 'firestore', id: 'd2' }] },
+      'learningSessions/s1/summary/final': { memoryNotes: [{ key: 'ana', status: 'saved', forgettable: true }, { key: 'luis', status: 'saved', forgettable: true }] },
+    })
+    await createSessionStore(firebase).markMemoryForgotten('s1', 'ana', { nowMs: Date.UTC(2026, 9, 20) })
+    expect(writes).toEqual([
+      { op: 'set', path: 'learningSessions/s1/private/memory', data: { v: 1, notes: [{ key: 'luis', studentKey: 'k-luis', via: 'firestore', id: 'd2' }] } },
+      {
+        op: 'update',
+        path: 'learningSessions/s1/summary/final',
+        data: { memoryNotes: [{ key: 'ana', status: 'forgotten', forgettable: false, forgottenAt: '2026-10-20T00:00:00.000Z' }, { key: 'luis', status: 'saved', forgettable: true }] },
+      },
+    ])
+  })
 })
