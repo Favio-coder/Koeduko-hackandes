@@ -1,5 +1,5 @@
 import { withTimeout } from '../timeout.js'
-import { MAX_NOTES, MAX_NOTE_CHARS, MAX_REMEMBER_CHARS, RECALL_TIMEOUT_MS, REMEMBER_TIMEOUT_MS } from './atomicMemory.js'
+import { FORGET_TIMEOUT_MS, MAX_NOTES, MAX_NOTE_CHARS, MAX_REMEMBER_CHARS, RECALL_TIMEOUT_MS, REMEMBER_TIMEOUT_MS } from './atomicMemory.js'
 
 /**
  * Respaldo de la memoria en Firestore (students/{key}/memory), con la MISMA interfaz que AtomicMemory.
@@ -7,7 +7,7 @@ import { MAX_NOTES, MAX_NOTE_CHARS, MAX_REMEMBER_CHARS, RECALL_TIMEOUT_MS, REMEM
  * en la regla final que lo niega todo.
  *
  * recall no busca por significado: devuelve lo mas reciente (el respaldo es deliberadamente simple).
- * Costo: remember = 1 escritura; recall = hasta MAX_NOTES lecturas.
+ * Costo: remember = 1 escritura; recall = hasta MAX_NOTES lecturas; forget = 1 borrado.
  *
  * @param {{ db: any, FieldValue: { serverTimestamp: () => unknown }, logger?: { info: Function } }} firebase
  */
@@ -23,8 +23,8 @@ export function createFirestoreMemory({ db, FieldValue, logger = { info() {} } }
       const content = typeof text === 'string' ? text.replace(/\s+/g, ' ').trim() : ''
       if (!studentKey || !content || content.length > MAX_REMEMBER_CHARS) return { ok: false, reason: 'invalid' }
       try {
-        await withTimeout(collectionOf(studentKey).add({ text: content, createdAt: FieldValue.serverTimestamp() }), timeoutMs)
-        return { ok: true }
+        const ref = await withTimeout(collectionOf(studentKey).add({ text: content, createdAt: FieldValue.serverTimestamp() }), timeoutMs)
+        return typeof ref?.id === 'string' && ref.id ? { ok: true, id: ref.id } : { ok: true }
       } catch (error) {
         logger.info('firestoreMemory: remember fallo', { reason: reasonOf(error) })
         return { ok: false, reason: reasonOf(error) }
@@ -42,6 +42,18 @@ export function createFirestoreMemory({ db, FieldValue, logger = { info() {} } }
       } catch (error) {
         logger.info('firestoreMemory: recall fallo', { reason: reasonOf(error) })
         return []
+      }
+    },
+
+    async forget(studentKey, id, { timeoutMs = FORGET_TIMEOUT_MS } = {}) {
+      // El id sale de remember (un id de documento): nunca una ruta.
+      if (!studentKey || typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(id)) return { ok: false, reason: 'invalid' }
+      try {
+        await withTimeout(collectionOf(studentKey).doc(id).delete(), timeoutMs)
+        return { ok: true }
+      } catch (error) {
+        logger.info('firestoreMemory: forget fallo', { reason: reasonOf(error) })
+        return { ok: false, reason: reasonOf(error) }
       }
     },
   }

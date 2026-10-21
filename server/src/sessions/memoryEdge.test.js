@@ -24,3 +24,11 @@ describe('createMemoryFromEnv', () => {
     expect(createMemoryFromEnv({ MEMORY_ENABLED: 'true' }, deps())).not.toBeNull()
   })
 })
+
+describe('createMemoryFromEnv for notes already saved (forget-memory-note)', () => {
+  it('still builds the memory with MEMORY_ENABLED=false, so a saved note can be forgotten after turning memory off', () => {
+    const memory = createMemoryFromEnv({ MEMORY_ENABLED: 'false', ATOMICMEMORY_API_URL: 'https://api.test', ATOMICMEMORY_API_KEY: 'k' }, deps(), { forNotesAlreadySaved: true })
+    expect(memory.name).toBe('atomicmemory+firestore')
+    expect(typeof memory.forget).toBe('function')
+  })
+})

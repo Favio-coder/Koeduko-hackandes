@@ -112,7 +112,7 @@ describe('SessionDetailPage: closing the session', () => {
     auth.isTeacher = false
     renderPage()
     expect(screen.queryByRole('button', { name: 'Cerrar sesión' })).not.toBeInTheDocument()
-    expect(useSessionSummary).toHaveBeenCalledWith('accept-mem-1', { enabled: false })
+    expect(useSessionSummary).toHaveBeenCalledWith('accept-mem-1', { enabled: false, uid: null })
   })
 
   it('shows the saved report when the session was already closed, without the close button', () => {
@@ -120,7 +120,7 @@ describe('SessionDetailPage: closing the session', () => {
     renderPage()
     expect(screen.getByRole('region', { name: 'Evidencia por competencias' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cerrar sesión' })).not.toBeInTheDocument()
-    expect(useSessionSummary).toHaveBeenCalledWith('accept-mem-1', { enabled: true })
+    expect(useSessionSummary).toHaveBeenCalledWith('accept-mem-1', { enabled: true, uid: null })
   })
 
   it('hides the close button for a completed session even if the report has not arrived yet', () => {

@@ -63,7 +63,9 @@ export async function closeSession({ sessionId, store, memory = null, leaveBot =
   // Idempotente: cerrar dos veces no repite nada (ni saca al bot, ni gasta Gemini, ni duplica la memoria).
   if (session.status === 'completed') {
     const existing = await store.getSummary(sessionId)
-    if (existing?.report) return { status: 'completed', alreadyClosed: true, report: existing.report, steps: existing.steps ?? {}, memory: [] }
+    if (existing?.report) {
+      return { status: 'completed', alreadyClosed: true, report: existing.report, steps: existing.steps ?? {}, ...(existing.memoryNotes ? { memoryNotes: existing.memoryNotes } : {}), memory: [] }
+    }
   }
 
   const steps = { leaveCall: 'skipped', classifier: 'skipped', memory: { enabled: Boolean(memory), saved: 0, failed: 0, skipped: 0, failures: [] } }
@@ -129,17 +131,20 @@ export async function closeSession({ sessionId, store, memory = null, leaveBot =
   const report = buildCompetencyReport({ ...input, labels })
 
   // 5. Recordar a cada estudiante (un texto corto y factual; nunca transcripciones ni nombres).
+  //    memoryNotes (en summary/final, lo ve el docente): que nota quedo para el tutor, para poder revisarla u olvidarla.
+  //    memoryRefs (en private/memory, solo el servidor): la clave del estudiante y el id de la nota en el proveedor.
   const scope = memoryScopeOf(session)
   const remembered = []
+  const memoryNotes = []
+  const memoryRefs = []
   if (memory) {
-    await Promise.all(
+    const outcomes = await Promise.all(
       report.estudiantes.map(async (student) => {
         const key = studentKeyOf({ studentId: student.studentId, participantKey: student.key, scope })
         const text = memoryTextOf({ sessionId, problem: report.problema, student })
         if (!key) {
           steps.memory.skipped += 1
-          remembered.push({ name: student.name, ok: false, reason: 'no-key', text })
-          return
+          return { student, key, text, result: { ok: false, reason: 'no-key' } }
         }
         try {
           const result = await withTimeout(memory.remember(key, text), limits.remember)
@@ -148,14 +153,31 @@ export async function closeSession({ sessionId, store, memory = null, leaveBot =
             steps.memory.failed += 1
             steps.memory.failures.push(result.reason ?? 'error')
           }
-          remembered.push({ name: student.name, ok: Boolean(result.ok), via: result.via, ...(result.ok ? {} : { reason: result.reason }), text })
+          return { student, key, text, result }
         } catch (error) {
           steps.memory.failed += 1
           steps.memory.failures.push(reasonOf(error))
-          remembered.push({ name: student.name, ok: false, reason: reasonOf(error), text })
+          return { student, key, text, result: { ok: false, reason: reasonOf(error) } }
         }
       }),
     )
+    for (const { student, key, text, result } of outcomes) {
+      const ok = Boolean(result.ok)
+      remembered.push({ name: student.name, ok, ...(result.via ? { via: result.via } : {}), ...(ok ? {} : { reason: result.reason }), text })
+      // Un timeout del principal puede haber guardado otra copia antes de usar el respaldo.
+      // Sin confirmar ese estado no se ofrece un borrado que solo quitaría una de las copias.
+      const primaryUnconfirmed = ok && Boolean(result.primaryReason)
+      const forgettable = ok && !primaryUnconfirmed && typeof result.via === 'string' && typeof result.id === 'string' && result.id !== ''
+      memoryNotes.push({
+        key: student.key,
+        text,
+        status: ok ? 'saved' : result.reason === 'no-key' ? 'skipped' : 'failed',
+        ...(ok && result.via ? { via: result.via } : {}),
+        forgettable,
+        ...(primaryUnconfirmed ? { forgetUnavailable: 'primary-unconfirmed' } : {}),
+      })
+      if (forgettable) memoryRefs.push({ key: student.key, studentKey: key, via: result.via, id: result.id })
+    }
   }
 
   // 5b. Aprender: que paso despues de cada intervencion y que estilo le sirvio a cada estudiante. Nunca rompe el cierre.
@@ -196,7 +218,7 @@ export async function closeSession({ sessionId, store, memory = null, leaveBot =
   }
 
   // 6. Guardar el resumen y cerrar (Firestore: si esto falla, el cierre falla).
-  await store.saveClosure(sessionId, { v: SUMMARY_VERSION, sessionId, report, steps })
+  await store.saveClosure(sessionId, { v: SUMMARY_VERSION, sessionId, report, steps, memoryNotes }, { memoryRefs })
 
   logger.info('closeSession: sesion cerrada', {
     sessionId,
@@ -207,5 +229,5 @@ export async function closeSession({ sessionId, store, memory = null, leaveBot =
     memorySaved: steps.memory.saved,
     memoryFailed: steps.memory.failed,
   })
-  return { status: 'completed', alreadyClosed: false, report, steps, memory: remembered }
+  return { status: 'completed', alreadyClosed: false, report, steps, memoryNotes, memory: remembered }
 }
